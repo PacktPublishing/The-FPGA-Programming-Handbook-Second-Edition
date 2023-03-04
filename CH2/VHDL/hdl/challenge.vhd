@@ -1,0 +1,19 @@
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_misc.all;
+
+entity challenge is
+  port (SW: in std_logic_vector(1 downto 0);
+        LED: out std_logic_vector(3 downto 0));
+end entity challenge;
+
+
+architecture rtl of challenge is
+begin
+  -- SW[2] is carry in
+  -- SW[1] is A
+  -- SW[0] is B
+  LED(0)  <= '0'; -- Write the code for the Sum
+  LED(1)  <= '0'; -- Write the code for the Carry
+
+end architecture rtl;
