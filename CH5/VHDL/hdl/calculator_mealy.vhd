@@ -1,7 +1,5 @@
 LIBRARY IEEE, WORK;
 USE IEEE.std_logic_1164.all;
-USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
@@ -32,8 +30,12 @@ architecture rtl of calculator_mealy is
 begin
 
   process (clk) 
-    variable mult : std_logic_vector(BITS + 16 - 1 downto 0);
+    variable multiply   : integer;
+    variable switch_int : integer;
+    variable accum_int  : integer;
   begin
+    switch_int := to_integer(unsigned(switch));
+    accum_int  := to_integer(unsigned(accumulator));
     if rising_edge(clk) then
       done <= '0';
       case state is
@@ -54,14 +56,14 @@ begin
           if start then
             last_op <= buttons; -- Store our last operation
             if last_op(UP) then
-              mult := accumulator * switch;
-              accumulator <= mult(BITS-1 downto 0);
+              multiply    := to_integer(unsigned(accumulator)) * switch_int;
+              accumulator <= std_logic_vector(to_unsigned(multiply, accumulator'length));
             elsif last_op(DOWN) then
               state       <= IDLE;
             elsif last_op(LEFT) then
-              accumulator <= accumulator + switch;
+              accumulator <= std_logic_vector(to_unsigned(accum_int + switch_int, accumulator'length));
             elsif last_op(RIGHT) then
-              accumulator <= accumulator - switch;
+              accumulator <= std_logic_vector(to_unsigned(accum_int - switch_int, accumulator'length));
             else
               state <= WAIT4BUTTON;
             end if;

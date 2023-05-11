@@ -1,10 +1,9 @@
 LIBRARY IEEE, WORK;
 USE IEEE.std_logic_1164.all;
-USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
+USE WORK.counting_buttons_pkg.all;
 
 entity calculator_top is
   generic (BITS : integer := 32;
@@ -21,39 +20,9 @@ end entity calculator_top;
         
 architecture rtl of calculator_top is
   component sys_pll is
-    port(clk_in1 : in std_logic;
-         clk_out1 : out std_logic);
+  port(clk_in1 : in std_logic;
+       clk_out1 : out std_logic);
   end component;
-  component seven_segment is
-    generic (NUM_SEGMENTS : integer := 8;
-             CLK_PER      : integer := 10;    -- Clock period in ns
-             REFR_RATE    : integer := 1000); -- Refresh rate in Hz
-    port (clk         : in std_logic;
-          encoded     : in array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-          digit_point : in std_logic_vector(NUM_SEGMENTS-1 downto 0);
-          anode       : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
-          cathode     : out std_logic_vector(7 downto 0));
-  end component seven_segment;
-  component calculator_moore is
-    generic (BITS : integer := 32);
-    port (clk     : in std_logic;
-          start   : in std_logic;
-          buttons : in std_logic_vector(4 downto 0);
-          switch  : in std_logic_vector(15 downto 0);
-        
-          done    : out std_logic;
-          accum   : out std_logic_vector(BITS-1 downto 0));
-  end component calculator_moore;
-  component calculator_mealy is
-    generic (BITS : integer := 32);
-    port (clk     : in std_logic;
-          start   : in std_logic;
-          buttons : in std_logic_vector(4 downto 0);
-          switch  : in std_logic_vector(15 downto 0);
-        
-          done    : out std_logic;
-          accum   : out std_logic_vector(BITS-1 downto 0));
-  end component calculator_mealy;
  
   attribute MARK_DEBUG : string;
   attribute ASYNC_REG : string;
@@ -68,7 +37,7 @@ architecture rtl of calculator_top is
   signal button_sync : std_logic_vector(2 downto 0);
   attribute ASYNC_REG of button_sync : signal is "TRUE";
   signal counter_en :std_logic;
-  signal counter : std_logic_vector(7 downto 0);
+  signal counter : integer range 0 to 255;
   signal button_down : std_logic;
   signal button_capt : std_logic_vector(4 downto 0);
   signal sw_capt : std_logic_vector(15 downto 0);
@@ -81,7 +50,7 @@ begin
     clk_50 <= clk;
   end generate;
   
-  u_seven_segment : seven_segment
+  u_seven_segment : entity work.seven_segment
     generic map (NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => 20)
     port map (clk => clk_50, encoded => encoded, digit_point => digit_point, anode => anode, cathode => cathode);
 
@@ -97,9 +66,9 @@ begin
 
       if counter_en then
         counter <= counter + 1;
-        if  and(counter) then
+        if  counter = 255 then
           counter_en  <= '0';
-          counter     <= (others =>'0');
+          counter     <= 0;
           button_down <= '1';
           button_capt <= buttons;
           sw_capt     <= SW;
@@ -109,11 +78,11 @@ begin
   end process;
 
   g_MOORE : if SM_TYPE = "MOORE" generate
-    u_sm : calculator_moore
+    u_sm : entity work.calculator_moore
       generic map (BITS => BITS)
       port map (clk => clk_50, start => button_down, buttons => button_capt, switch => sw_capt, accum => accumulator);
-    else generate
-    u_sm : calculator_mealy
+  else generate
+    u_sm : entity work.calculator_mealy
       port map (clk => clk_50, start => button_down, buttons => button_capt, switch => sw_capt, accum => accumulator);
   end generate;
 

@@ -1,7 +1,5 @@
 LIBRARY IEEE, WORK;
 USE IEEE.std_logic_1164.all;
-USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
@@ -32,8 +30,12 @@ architecture rtl of calculator_moore is
 begin
 
   process (clk) 
-    variable multiply : std_logic_vector(BITS + 16 - 1 downto 0);
+    variable multiply : integer;
+    variable switch_int : integer;
+    variable accum_int : integer;
   begin
+    switch_int := to_integer(unsigned(switch));
+    accum_int  := to_integer(unsigned(accumulator));
     if rising_edge(clk) then
       done <= '0';
       case state is
@@ -69,16 +71,16 @@ begin
           end if;
         when MULT =>
           last_op     <= op_store; -- Store our last operation
-          multiply := accumulator * switch;
-          accumulator <= multiply(BITS-1 downto 0);
+          multiply    := to_integer(unsigned(accumulator)) * switch_int;
+          accumulator <= std_logic_vector(to_unsigned(multiply, accumulator'length));
           state       <= WAIT4BUTTON;
         when ADD =>
           last_op     <= op_store; -- Store our last operation
-          accumulator <= accumulator + switch;
+          accumulator <= std_logic_vector(to_unsigned(accum_int + switch_int, accumulator'length));
           state       <= WAIT4BUTTON;
         when SUB =>
           last_op     <= op_store; -- Store our last operation
-          accumulator <= accumulator - switch;
+          accumulator <= std_logic_vector(to_unsigned(accum_int - switch_int, accumulator'length));
           state       <= WAIT4BUTTON;
       end case;
     end if;
