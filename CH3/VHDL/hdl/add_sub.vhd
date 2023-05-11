@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_signed.all;
 use IEEE.numeric_std.all;
 
 entity add_sub is
@@ -21,7 +19,7 @@ begin
   begin
     a_in := resize(signed(SW(BITS-1 downto BITS/2)), BITS);
     b_in := resize(signed(SW(BITS/2-1 downto 0)), BITS);
-    
+
     if (SELECTOR="ADD") then
       result := a_in + b_in;
     else

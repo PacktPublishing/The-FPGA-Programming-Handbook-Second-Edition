@@ -1,11 +1,9 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 library WORK;
-USE WORK.temp_pkg.all;
+USE WORK.counting_buttons_pkg.all;
 
 entity seven_segment is
   generic (NUM_SEGMENTS : integer := 8;
@@ -18,21 +16,15 @@ entity seven_segment is
         cathode     : out std_logic_vector(7 downto 0));
 end entity seven_segment;
 architecture rtl of seven_segment is
-  component cathode_top is
-    port (clk         : in std_logic;
-          encoded     : in std_logic_vector(3 downto 0);
-          digit_point : in std_logic;
-          cathode     : out std_logic_vector(7 downto 0));
-  end component cathode_top;
-
   constant INTERVAL : integer := integer(100000000.0 / (CLK_PER * REFR_RATE));
-  signal refresh_count : std_logic_vector(natural(log2(real(INTERVAL)))-1 downto 0) := (others => '0');
+  --signal refresh_count : std_logic_vector(natural(log2(real(INTERVAL)))-1 downto 0) := (others => '0');
+  signal refresh_count : integer range 0 to INTERVAL := 0;
   signal anode_count : integer range 0 to NUM_SEGMENTS := 0;
   signal segments : array_t(NUM_SEGMENTS-1 downto 0)(7 downto 0);
 begin
 
   g_genarray : for i in 0 to NUM_SEGMENTS-1 generate
-    ct : cathode_top
+    ct : entity work.cathode_top
       port map (clk => clk,
                 encoded => encoded(i),
                 digit_point => digit_point(i),
@@ -42,11 +34,11 @@ begin
   process (clk)
   begin
     if rising_edge(clk) then
-      if refresh_count = std_logic_vector(to_unsigned(INTERVAL, refresh_count'length)) then
-        refresh_count <= (others => '0');
+      if refresh_count = INTERVAL then
+        refresh_count <= 0;
         if anode_count = NUM_SEGMENTS - 1 then
           anode_count <= 0;
-        else  
+        else
           anode_count   <= anode_count + 1;
         end if;
       else

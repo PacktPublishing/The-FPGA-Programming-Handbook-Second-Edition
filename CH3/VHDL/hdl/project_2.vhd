@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_signed.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
@@ -19,28 +17,6 @@ entity project_2 is
 end entity project_2;
 
 architecture rtl of project_2 is
-  component add_sub
-    generic(SELECTOR : string := "";
-            BITS : integer := 16);
-    port(SW: in std_logic_vector(BITS-1 downto 0);
-         LED: out std_logic_vector(BITS-1 downto 0));
-  end component add_sub;
-  component leading_ones
-    generic(SELECTOR : string := "";
-            BITS : integer := 16);
-    port(SW: in std_logic_vector(BITS-1 downto 0);
-         LED: out std_logic_vector(natural(log2(real(BITS))) downto 0));
-  end component leading_ones;
-  component num_ones
-    generic(BITS : integer := 16);
-    port(SW: in std_logic_vector(BITS-1 downto 0);
-         LED: out std_logic_vector(natural(log2(real(BITS))) downto 0));
-  end component num_ones;
-  component mult
-    generic(BITS : integer := 16);
-    port(SW: in std_logic_vector(BITS-1 downto 0);
-         LED: out std_logic_vector(BITS-1 downto 0));
-  end component mult;
   signal LO_LED : std_logic_vector(natural(log2(real(BITS))) downto 0);
   signal NO_LED : std_logic_vector(natural(log2(real(BITS))) downto 0);
   signal AD_LED : std_logic_vector(BITS-1 downto 0);
@@ -48,19 +24,19 @@ architecture rtl of project_2 is
   signal MULT_LED : std_logic_vector(BITS-1 downto 0);
 begin
 
-  u_lo : leading_ones
+  u_lo : entity work.leading_ones
     generic map(SELECTOR => SELECTOR, BITS => BITS)
     port map(SW => SW, LED => LO_LED);
-  u_ad : add_sub
+  u_ad : entity work.add_sub
     generic map(SELECTOR => "ADD", BITS => BITS)
     port map(SW => SW, LED => AD_LED);
-  u_sb : add_sub
+  u_sb : entity work.add_sub
     generic map(SELECTOR => "SUB", BITS => BITS)
     port map(SW => SW, LED => SB_LED);
-  u_no : num_ones
+  u_no : entity work.num_ones
     generic map(BITS => BITS)
     port map(SW => SW, LED => NO_LED);
-  u_mt : mult
+  u_mt : entity work.mult
     generic map(BITS => BITS)
     port map(SW => SW, LED => MULT_LED);
 

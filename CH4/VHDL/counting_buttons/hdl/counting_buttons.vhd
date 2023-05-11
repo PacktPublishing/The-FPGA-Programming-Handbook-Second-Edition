@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_signed.all;
 use IEEE.numeric_std.all;
 library WORK;
 USE WORK.counting_buttons_pkg.all;
@@ -25,18 +23,18 @@ architecture rtl of counting_buttons is
     return array_t is
 
     variable int_val : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-    variable next_val : std_logic_vector(3 downto 0);
-    variable carry_in : std_logic;
+    variable next_val : integer range 0 to 10;
+    variable carry_in : integer range 0 to 1;
     begin
-    carry_in := '1';
+    carry_in := 1;
     for i in 0 to NUM_SEGMENTS-1 loop
-      next_val := din(i) + carry_in;
+      next_val := to_integer(unsigned(din(i))) + carry_in;
       if next_val = 10 then
         int_val(i) := (others => '0');
-        carry_in   := '1';
+        carry_in   := 1;
       else
-        int_val(i) := next_val;
-        carry_in   := '0';
+        int_val(i) := std_logic_vector(to_unsigned(next_val, 4));
+        carry_in   := 0;
       end if;
     end loop;
     return int_val;
@@ -46,33 +44,22 @@ architecture rtl of counting_buttons is
     return array_t is
 
     variable int_val : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-    variable next_val : std_logic_vector(3 downto 0);
-    variable carry_in : std_logic;
+    variable next_val : integer range 0 to 15;
+    variable carry_in : integer range 0 to 1;
     begin
-    carry_in := '1';
+    carry_in := 1;
     for i in 0 to NUM_SEGMENTS-1 loop
-      next_val := din(i) + carry_in;
+      next_val := to_integer(unsigned(din(i))) + carry_in;
       if next_val = 15 then
         int_val(i) := (others => '0');
-        carry_in   := '1';
+        carry_in   := 1;
       else
-        int_val(i) := next_val;
-        carry_in   := '0';
+        int_val(i) := std_logic_vector(to_unsigned(next_val, 4));
+        carry_in   := 0;
       end if;
     end loop;
     return int_val;
   end function;
-
-  component seven_segment is
-    generic (NUM_SEGMENTS : integer := 8;
-             CLK_PER      : integer := 10;    -- Clock period in ns
-             REFR_RATE    : integer := 1000); -- Refresh rate in Hz
-    port (clk : in std_logic;
-          encoded : in array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-          digit_point : in std_logic_vector(NUM_SEGMENTS-1 downto 0);
-          anode : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
-          cathode : out std_logic_vector(7 downto 0));
-  end component seven_segment;
 
   attribute MARK_DEBUG : string;
   attribute ASYNC_REG : string;
@@ -87,11 +74,11 @@ architecture rtl of counting_buttons is
   attribute MARK_DEBUG of button_sync : signal is "TRUE";
   signal counter_en : std_logic := '0';
   attribute MARK_DEBUG of counter_en : signal is "TRUE";
-  signal counter : std_logic_vector(7 downto 0) := (others => '0');
+  signal counter : integer range 0 to 255 := 0;
   attribute MARK_DEBUG of counter : signal is "TRUE";
 begin
 
-  u_7seg : seven_segment
+  u_7seg : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS,
                 CLK_PER      => CLK_PER,      -- Clock period in ns
                 REFR_RATE    => REFR_RATE)    -- Refresh rate in Hz
@@ -112,7 +99,7 @@ begin
           button_down <= '1';
         else
           button_down <= '0';
-        end if;  
+        end if;
 
       elsif ASYNC_BUTTON = "DEBOUNCE" then
         button_down <= '0';
@@ -124,9 +111,9 @@ begin
         end if;
         if counter_en then
           counter <= counter + 1;
-          if and(counter) then
+          if counter = 255 then
             counter_en  <= '0';
-            counter     <= (others => '0');
+            counter     <= 0;
             button_down <= '1';
           end if;
         end if;

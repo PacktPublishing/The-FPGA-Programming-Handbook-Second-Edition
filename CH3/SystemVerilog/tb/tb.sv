@@ -35,7 +35,7 @@ module tb;
   add_sub      #(.SELECTOR(SELECTOR), .BITS(BITS)) u_as (.SW, .LED(AS_LED));
   num_ones     #(                     .BITS(BITS)) u_no (.SW, .LED(NO_LED));
   mult         #(                     .BITS(BITS)) u_mt (.SW, .LED(MULT_LED));
-  project_1    #(.SELECTOR(SELECTOR), .BITS(BITS)) u_alu
+  project_2    #(.SELECTOR(SELECTOR), .BITS(BITS)) u_alu
    (
     .SW, .BTNC, .BTNU, .BTNL, .BTNR, .BTND, .LED
    );

@@ -1,6 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use std.env.finish;
@@ -11,13 +10,9 @@ architecture tb of tb is
   signal CE : std_logic;
   signal D : std_logic;
   signal Q : std_logic;
-  component simple_ff is
-    port (D : in std_logic; CK : in std_logic; Q : out std_logic);
-  end component simple_ff;
-
 begin
 
-  u0 : simple_ff port map(CK => CK, D => D, Q => Q);
+  u0 : entity work.simple_ff port map(CK => CK, D => D, Q => Q);
 
   clk : process
   begin

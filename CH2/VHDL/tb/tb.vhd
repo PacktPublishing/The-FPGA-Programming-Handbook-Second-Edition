@@ -1,6 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
 use IEEE.numeric_std.all;
 
 entity tb is
@@ -8,21 +7,14 @@ end entity tb;
 
 architecture tb of tb is
 
-  -- Declare the components
-  component logic_ex is
-    port (SW: in std_logic_vector(1 downto 0);
-          LED: out std_logic_vector(3 downto 0));
-  end component logic_ex;
-
   -- define the signals
   signal SW: std_logic_vector(1 downto 0);
   signal LED: std_logic_vector(3 downto 0);
-  signal passed : std_logic := '1';
-  
+
 begin
 
   -- instantiate the module to be tested
-  u_logic_ex: logic_ex port map (
+  u_logic_ex: entity work.logic_ex port map (
     SW => SW,
     LED => LED);
 
@@ -36,11 +28,8 @@ begin
       report "setting SW to " & to_string(SW);
       wait for 100 ns;
     end loop;
-    if ?? passed then 
-      report "PASS: logic_ex test PASSED!";
-    else 
-      report "Failed!";  
-    end if;
+    report "PASS: logic_ex test PASSED!";
+    std.env.stop;
     wait;
   end process initial;
 
@@ -49,19 +38,19 @@ begin
   begin
     if not(SW(0)) /= LED(0) then
       report "FAIL: NOT Gate mismatch";
-      passed <= '0';
+      std.env.stop;
     end if;
-    if and_reduce(SW) /= LED(1) then
+    if and SW /= LED(1) then
       report "FAIL: AND Gate mismatch";
-      passed <= '0';
+      std.env.stop;
     end if;
-    if or_reduce(SW) /= LED(2) then
+    if or SW /= LED(2) then
       report "FAIL: OR Gate mismatch";
-      passed <= '0';
+      std.env.stop;
     end if;
-    if xor_reduce(SW) /= LED(3) then
+    if xor SW /= LED(3) then
       report "FAIL: XOR Gate mismatch";
-      passed <= '0';
+      std.env.stop;
     end if;
   end process checking;
 end architecture tb;

@@ -1,6 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use std.env.finish;
@@ -13,15 +12,9 @@ architecture tb of tb is
   signal SR : std_logic := '0';
   signal D : std_logic;
   signal Q : std_logic;
-  component simple_ff_async is
-    generic (ASYNC : string := "true");
-    port (D : in std_logic; SR : in std_logic; CE : in std_logic;
-          CK : in std_logic; Q : out std_logic);
-  end component simple_ff_async;
-
 begin
 
-  u0 : simple_ff_async
+  u0 : entity work.simple_ff_async
     generic map (ASYNC => ASYNC)
     port map(D => D, SR => SR, CE => CE, CK => CK, Q => Q);
 
