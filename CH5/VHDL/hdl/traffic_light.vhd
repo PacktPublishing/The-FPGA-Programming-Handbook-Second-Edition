@@ -1,7 +1,5 @@
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-USE IEEE.STD_LOGIC_ARITH.ALL;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 
