@@ -3,13 +3,11 @@ USE IEEE.std_logic_1164.all;
 USE IEEE.STD_LOGIC_ARITH.ALL;
 USE IEEE.std_logic_UNSIGNED.all;
 USE ieee.numeric_std.all;
+USE WORK.counting_buttons_pkg.all;
 
 PACKAGE temp_pkg IS
-  TYPE array_t is ARRAY (natural range <>) OF STD_LOGIC_VECTOR;
-
   constant NUM_SEGMENTS : integer := 8;
   function bin_to_bcd (bin_in : in std_logic_vector(31 downto 0)) return array_t;
-
 end package temp_pkg;
 
 package body temp_pkg is 

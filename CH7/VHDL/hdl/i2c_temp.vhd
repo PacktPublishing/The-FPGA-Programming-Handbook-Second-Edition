@@ -1,11 +1,10 @@
 LIBRARY IEEE, WORK;
 USE IEEE.std_logic_1164.all;
---USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.temp_pkg.all;
-Library xpm;
+USE WORK.counting_buttons_pkg.all;
+library xpm;
 use xpm.vcomponents.all;
 
 entity i2c_temp is
@@ -32,17 +31,6 @@ entity i2c_temp is
 end entity i2c_temp;
 
 architecture rtl of i2c_temp is
-  component seven_segment is
-  generic (NUM_SEGMENTS : integer := 8;
-           CLK_PER      : integer := 10;    -- Clock period in ns
-           REFR_RATE    : integer := 1000); -- Refresh rate in Hz
-  port (clk         : in std_logic;
-        encoded     : in array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-        digit_point : in std_logic_vector(NUM_SEGMENTS-1 downto 0);
-        anode       : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
-        cathode     : out std_logic_vector(7 downto 0));
-  end component seven_segment;
-
   attribute MARK_DEBUG : string;
   constant TIME_1SEC   : integer := integer(INTERVAL/CLK_PER); -- Clock ticks in 1 sec
   constant TIME_THDSTA : integer := integer(600/CLK_PER);
@@ -137,7 +125,7 @@ begin
 
   LED <= SW;
 
-  u_seven_segment : seven_segment
+  u_seven_segment : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
     port map(clk => clk, encoded => encoded, digit_point => not digit_point,
              anode => anode, cathode => cathode);
@@ -240,23 +228,22 @@ begin
           if convert then
             convert_pipe(0) <= '1';
             smooth_count  <= smooth_count + 1;
-            accumulator   <= accumulator + temp_data(15 downto 3);
+            accumulator   <= std_logic_vector(unsigned(accumulator) + unsigned(temp_data(15 downto 3)));
           elsif smooth_count = 16 then
             rden                    <= '1';
             smooth_count            <= smooth_count - 1;
           elsif rden then
-            accumulator             <= accumulator - dout;
+            accumulator   <= std_logic_vector(unsigned(accumulator) - unsigned(dout));
           elsif convert_pipe(2) then
             if sample_count < 16 then sample_count <= sample_count + 1; end if;
-            smooth_data             <= accumulator * divide(sample_count);
+            smooth_data   <= std_logic_vector(unsigned(accumulator) * unsigned(divide(sample_count)));
           elsif convert_pipe(3) then
             smooth_data    <= std_logic_vector(shift_right(unsigned(smooth_data), 16)); 
             smooth_convert <= not SW;
           elsif convert_pipe(4) then
             smooth_convert <= SW;
-            data_mult := smooth_data * NINE_FIFTHS;
+            data_mult := std_logic_vector(unsigned(smooth_data) * unsigned(NINE_FIFTHS));
             data_shift := std_logic_vector(shift_right(unsigned(data_mult), 16)); 
-            smooth_data    <= data_shift(34 downto 0) + (32 * 16);
           end if;
         end if;
       end process;

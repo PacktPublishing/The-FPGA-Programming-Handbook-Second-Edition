@@ -1,12 +1,11 @@
 LIBRARY IEEE, WORK;
 USE IEEE.std_logic_1164.all;
---USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.temp_pkg.all;
 Library xpm;
 use xpm.vcomponents.all;
+USE WORK.counting_buttons_pkg.all;
 
 entity i2c_temp is
   generic (SMOOTHING    : integer := 16;
@@ -32,16 +31,6 @@ entity i2c_temp is
 end entity i2c_temp;
 
 architecture rtl of i2c_temp is
-  component seven_segment is
-  generic (NUM_SEGMENTS : integer := 8;
-           CLK_PER      : integer := 10;    -- Clock period in ns
-           REFR_RATE    : integer := 1000); -- Refresh rate in Hz
-  port (clk         : in std_logic;
-        encoded     : in array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-        digit_point : in std_logic_vector(NUM_SEGMENTS-1 downto 0);
-        anode       : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
-        cathode     : out std_logic_vector(7 downto 0));
-  end component seven_segment;
   COMPONENT fix_to_float
     PORT (
       aclk : IN STD_LOGIC;
@@ -218,7 +207,7 @@ begin
 
   LED <= SW;
 
-  u_seven_segment : seven_segment
+  u_seven_segment : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
     port map(clk => clk, encoded => encoded, digit_point => not digit_point,
              anode => anode, cathode => cathode);
