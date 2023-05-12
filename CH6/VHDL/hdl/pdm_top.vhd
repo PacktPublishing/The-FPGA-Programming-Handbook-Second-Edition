@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
@@ -9,7 +7,7 @@ entity pdm_top is
   generic (RAM_SIZE     : integer := 16384;
            CLK_FREQ     : integer := 100); -- Mhz
   port (clk         : in std_logic;
-  
+
         -- Microphone interface
         m_clk       : out std_logic;
         m_lr_sel    : out std_logic;
@@ -31,22 +29,6 @@ entity pdm_top is
 end entity pdm_top;
 
 architecture rtl of pdm_top is
-
-  component pdm_inputs is
-    generic (CLK_FREQ     : integer := 100;      -- Mhz
-             SAMPLE_RATE  : integer := 2400000); -- Hz
-    port (clk         : in std_logic;
-  
-          -- Microphone interface
-          m_clk       : out std_logic := '0';
-          m_clk_en    : out std_logic := '0';
-          m_data      : in std_logic;
-        
-          -- amplitude outputs
-          amplitude   : out unsigned(6 downto 0);
-          amplitude_valid : out std_logic);
-  end component pdm_inputs;
-
   attribute MARK_DEBUG : string;
   signal amplitude : unsigned(6 downto 0);
   signal amplitude_valid : std_logic;
@@ -76,7 +58,7 @@ begin
   AUD_SD <= '1';
   m_lr_sel <= '0';
 
-  u_pdm_inputs : pdm_inputs
+  u_pdm_inputs : entity work.pdm_inputs
     port map (clk => clk,
               m_clk => m_clk,
               m_clk_en => m_clk_en,
@@ -105,7 +87,7 @@ begin
     if rising_edge(clk) then
       button_csync <= button_csync(1 downto 0) & BTNC;
       ram_we       <= '0';
-      for i in 0 to 15 loop 
+      for i in 0 to 15 loop
         if clr_led(i) then LED(i) <= '0'; end if;
       end loop;
       if button_csync(2 downto 1) = "01" then
@@ -156,7 +138,7 @@ begin
           ram_rdaddr <= ram_rdaddr + 1;
           amp_counter <= 1;
           amp_capture <= ram_dout;
-          if ram_dout /= 0 then 
+          if ram_dout /= 0 then
             AUD_PWM_en <= '0'; -- Activate pull up
           end if;
         else
@@ -165,8 +147,8 @@ begin
             AUD_PWM_en <= '0'; -- Activate pull up
           end if;
         end if;
-        if and ram_rdaddr_sl then 
-          start_playback <= '0'; 
+        if and ram_rdaddr_sl then
+          start_playback <= '0';
         end if;
       end if;
     end if;

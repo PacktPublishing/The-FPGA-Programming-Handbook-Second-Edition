@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
@@ -9,12 +7,12 @@ entity pdm_inputs is
   generic (CLK_FREQ     : integer := 100;      -- Mhz
            SAMPLE_RATE  : integer := 2400000); -- Hz
   port (clk         : in std_logic;
-  
+
         -- Microphone interface
         m_clk       : out std_logic := '0';
         m_clk_en    : out std_logic := '0';
         m_data      : in std_logic;
-        
+
         -- amplitude outputs
         amplitude   : out unsigned(6 downto 0);
         amplitude_valid : out std_logic);
@@ -34,23 +32,23 @@ begin
     variable nextamp0 : integer range 0 to 128;
     variable nextamp1 : integer range 0 to 128;
   begin
-    
+
     if m_data then
       nextamp0 := sample_counter(0) + 1;
       nextamp1 := sample_counter(1) + 1;
     else
       nextamp0 := sample_counter(0);
       nextamp1 := sample_counter(1);
-    end if;  
+    end if;
     if rising_edge(clk) then
       amplitude_valid <= '0';
       m_clk_en        <= '0';
-          
+
       if clk_counter = CLK_COUNT - 1 then
         clk_counter <= 0;
         m_clk       <= not m_clk;
         m_clk_en    <= not m_clk;
-      else 
+      else
         clk_counter <= clk_counter + 1;
         if clk_counter = CLK_COUNT - 2 then
           m_clk_en    <= not m_clk;
@@ -64,7 +62,7 @@ begin
           counter(0)        <= 0;
           if nextamp0 <= 127 then
             amplitude       <= to_unsigned(nextamp0, amplitude'length);
-          else 
+          else
             amplitude <= to_unsigned(127, amplitude'length);
           end if;
           amplitude_valid   <= '1';
@@ -76,7 +74,7 @@ begin
           counter(1)        <= 0;
           if nextamp1 <= 127 then
             amplitude       <= to_unsigned(nextamp1, amplitude'length);
-          else 
+          else
             amplitude <= to_unsigned(127, amplitude'length);
           end if;
           amplitude_valid   <= '1';

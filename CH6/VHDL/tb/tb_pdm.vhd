@@ -1,7 +1,5 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
@@ -9,37 +7,6 @@ entity tb_pdm is
 end entity tb_pdm;
 
 architecture rtl of tb_pdm is
-
-  component pdm_top is
-    generic (RAM_SIZE     : integer := 16384;
-             CLK_FREQ     : integer := 100); -- Mhz
-    port (clk         : in std_logic;
-
-          -- Microphone interface
-          m_clk       : out std_logic;
-          m_lr_sel    : out std_logic;
-          m_data      : in std_logic;
-
-          -- Tricolor LED
-          R, G, B     : out std_logic;
-
-          -- Pushbutton interface
-          BTNU        : in std_logic;
-          BTNC        : in std_logic;
-
-          -- LED Array
-          LED         : out std_logic_vector(15 downto 0) := (others => '0');
-
-          -- PDM output
-          AUD_PWM     : out std_logic;
-          AUD_SD      : out std_logic);
-  end component pdm_top;
-  component pdm_output is
-    port (clk         : in std_logic; -- 100Mhz
-          data_in     : in unsigned(6 downto 0);
-          data_out    : out std_logic := '0');
-  end component pdm_output;
-
   constant CLK_FREQ : integer := 100; -- Mhz
   signal clk : std_logic := '0';
 
@@ -109,7 +76,7 @@ begin
     wait for 5 ns;
   end process;
 
-  u_pdm_input : pdm_top
+  u_pdm_input : entity work.pdm_top
     generic map(CLK_FREQ => CLK_FREQ)
     port map(clk => clk,
              m_clk => m_clk,
@@ -124,7 +91,7 @@ begin
              AUD_PWM => AUD_PWM,
              AUD_SD => AUD_SD);
 
-  u_pdm_output : pdm_output
+  u_pdm_output : entity work.pdm_output
     port map (clk      => m_clk,
               data_in  => data_in,
               data_out => m_data);
