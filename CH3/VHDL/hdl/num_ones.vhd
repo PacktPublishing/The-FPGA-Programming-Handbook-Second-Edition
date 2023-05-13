@@ -14,11 +14,9 @@ begin
 
   counter : process (all)
     variable count : unsigned(natural(log2(real(BITS))) downto 0);
-    variable single_bit : std_ulogic;
   begin
     count := (others => '0');
     for i in SW'range loop
-      single_bit := SW(i);
       count := count + SW(i);
     end loop;
     LED <= std_logic_vector(count);
