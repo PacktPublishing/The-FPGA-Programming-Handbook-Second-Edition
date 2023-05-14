@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="61" Path="/home/fbruno/git/books/The-FPGA-Programming-Handbook-Second-Edition/CH6/SystemVerilog/build/pdm_audio.xpr">
+<Project Version="7" Minor="61" Path="pdm_audio.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="640d886cc5294d4798e786f52d9a6c53"/>
@@ -60,7 +60,7 @@
     <Option Name="IPStaticSourceDir" Val="$PIPUSERFILESDIR/ipstatic"/>
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSABoardId" Val="nexys-a7-100t"/>
-    <Option Name="WTXSimLaunchSim" Val="49"/>
+    <Option Name="WTXSimLaunchSim" Val="52"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -108,8 +108,6 @@
       <File Path="$PPRDIR/../hdl/pdm_output.sv">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
@@ -121,12 +119,6 @@
     </FileSet>
     <FileSet Name="constrs_1" Type="Constrs" RelSrcDir="$PSRCDIR/constrs_1" RelGenDir="$PGENDIR/constrs_1">
       <Filter Type="Constrs"/>
-      <File Path="$PSRCDIR/constrs_1/new/ila.xdc">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/../../xdc/pdm_audio.xdc">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -134,7 +126,6 @@
         </FileInfo>
       </File>
       <Config>
-        <Option Name="TargetConstrsFile" Val="$PSRCDIR/constrs_1/new/ila.xdc"/>
         <Option Name="ConstrsType" Val="XDC"/>
       </Config>
     </FileSet>

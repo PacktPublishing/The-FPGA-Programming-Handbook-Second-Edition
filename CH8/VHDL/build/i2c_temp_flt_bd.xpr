@@ -97,18 +97,19 @@
       <Filter Type="Srcs"/>
       <File Path="$PSRCDIR/sources_1/bd/design_1/design_1.bd">
         <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PGENDIR/sources_1/bd/design_1/hdl/design_1_wrapper.vhd">
+      <File Path="$PPRDIR/../hdl/adt7420_i2c.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../hdl/adt7420_i2c.vhd">
+      <File Path="$PGENDIR/sources_1/bd/design_1/hdl/design_1_wrapper.vhd">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -117,7 +118,7 @@
       </File>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="design_1_wrapper"/>
+        <Option Name="TopModule" Val="adt7420_i2c"/>
         <Option Name="TopAutoSet" Val="TRUE"/>
       </Config>
     </FileSet>
@@ -137,7 +138,7 @@
       <Filter Type="Srcs"/>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="design_1_wrapper"/>
+        <Option Name="TopModule" Val="adt7420_i2c"/>
         <Option Name="TopLib" Val="xil_defaultlib"/>
         <Option Name="TopAutoSet" Val="TRUE"/>
         <Option Name="TransportPathDelay" Val="0"/>

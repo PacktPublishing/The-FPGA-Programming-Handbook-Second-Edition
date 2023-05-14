@@ -66,6 +66,7 @@ module i2c_temp
   u_seven_segment
     (
      .clk          (clk),
+     .reset        ('0),
      .encoded      (encoded),
      .digit_point  (~digit_point),
      .anode        (anode),

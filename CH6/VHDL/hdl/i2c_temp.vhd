@@ -23,7 +23,7 @@ entity i2c_temp is
         anode   : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
         cathode : out std_logic_vector(7 downto 0));
 end entity i2c_temp;
-        
+
 architecture rtl of i2c_temp is
   attribute MARK_DEBUG : string;
   constant TIME_1SEC   : integer := integer(INTERVAL/CLK_PER); -- Clock ticks in 1 sec
@@ -56,8 +56,8 @@ architecture rtl of i2c_temp is
   signal i2c_capt     : std_logic_vector(I2CBITS - 1 downto 0);
   signal counter      : integer range 0 to TIME_1SEC:= 0;
   attribute MARK_DEBUG of counter : signal is "TRUE";
-  signal counter_reset : std_logic := '0';  
-  signal bit_count    : integer range 0 to I2CBITS := 0;  
+  signal counter_reset : std_logic := '0';
+  signal bit_count    : integer range 0 to I2CBITS := 0;
   attribute MARK_DEBUG of bit_count : signal is "TRUE";
   signal temp_data    : std_logic_vector(15 downto 0);
   signal capture_en   : std_logic;
@@ -70,7 +70,7 @@ architecture rtl of i2c_temp is
   attribute MARK_DEBUG of spi_state : signal is "TRUE";
   signal fraction : array_t(3 downto 0)(3 downto 0);
   type int_array is array (0 to 15) of integer range 0 to 65535;
-  signal fraction_table : int_array := 
+  signal fraction_table : int_array :=
     (0  => 0*625,
      1  => 1*625,
      2  => 2*625,
@@ -97,7 +97,8 @@ begin
 
   u_seven_segment : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
-    port map(clk => clk, encoded => encoded, digit_point => not digit_point,
+    port map(clk => clk, reset => '0', encoded => encoded,
+             digit_point => not digit_point,
              anode => anode, cathode => cathode);
 
   TMP_SCL <= 'Z' when scl_en else '0';
@@ -110,9 +111,9 @@ begin
       scl_en                     <= '1';
       sda_en                     <= not i2c_en(I2CBITS - bit_count - 1) or
                                     i2c_data(I2CBITS - bit_count - 1);
-      if counter_reset then 
+      if counter_reset then
         counter <= 0;
-      else 
+      else
         counter <= counter + 1;
       end if;
       counter_reset <= '0';
@@ -156,7 +157,7 @@ begin
         when THIGH =>
           scl_en          <= '1'; -- Raise the clock
           if counter = TIME_THIGH then
-            if capture_en then 
+            if capture_en then
               temp_data <= temp_data(14 downto 0) & TMP_SDA;
             end if;
             counter_reset <= '1';
@@ -181,15 +182,15 @@ begin
       end case;
     end if;
   end process;
-    
+
   g_NO_SMOOTH : if SMOOTHING = 0 generate
       smooth_data <= temp_data;
       smooth_convert <= convert;
     else generate
-      process (clk) 
+      process (clk)
         variable accum_int  : integer;
         variable td_int     : integer;
-        variable dout_int   : integer;      
+        variable dout_int   : integer;
       begin
         accum_int := to_integer(unsigned(accumulator));
         td_int    := to_integer(unsigned(temp_data));
@@ -212,7 +213,7 @@ begin
           end if;
         end if;
       end process;
-      
+
       u_xpm_fifo_sync : xpm_fifo_sync
         generic map(FIFO_WRITE_DEPTH => SMOOTHING, WRITE_DATA_WIDTH => 16, READ_DATA_WIDTH => 16)
         port map(sleep => '0',
@@ -225,9 +226,9 @@ begin
                  injectsbiterr => '0',
                  injectdbiterr => '0');
   end generate;
- 
+
   -- convert temperature from
-  process (clk) 
+  process (clk)
     variable sd_int : integer range 0 to 15;
   begin
     sd_int := to_integer(unsigned(smooth_data(6 downto 3)));

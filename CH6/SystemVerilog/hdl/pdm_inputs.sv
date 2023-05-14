@@ -18,12 +18,11 @@ module pdm_inputs
    output logic       amplitude_valid
    );
 
-  localparam CLK_COUNT = int'((CLK_FREQ*1000000)/(SAMPLE_RATE*2));
+  localparam CLK_COUNT = int'((CLK_FREQ*1000000)/SAMPLE_RATE);
 
-  logic [1:0][7:0]                   counter;
+  logic [1:0][6:0]                   counter;
   logic [1:0][7:0]                   sample_counter;
   logic [$clog2(CLK_COUNT)-1:0]      clk_counter;
-  logic                              first = '1;
 
   initial begin
     sample_counter = '0;
@@ -32,6 +31,8 @@ module pdm_inputs
     clk_counter    = '0;
   end
 
+  assign counter[1] = {~counter[0][6], counter[0][5:0]};
+  
   always @(posedge clk) begin
     amplitude_valid <= '0;
     m_clk_en        <= '0;
@@ -47,37 +48,21 @@ module pdm_inputs
 
     if (m_clk_en) begin
       counter[0]        <= counter[0] + 1'b1;
-      counter[1]        <= counter[1] + 1'b1;
       if (counter[0] == 127) begin
         counter[0]        <= '0;
         amplitude         <= (sample_counter[0] + m_data) <= 127 ? sample_counter[0] + m_data : '1;
         amplitude_valid   <= '1;
         sample_counter[0] <= '0;
-      end else if (counter[0] < 128) begin
+      end else begin
         sample_counter[0] <= sample_counter[0] + m_data;
       end
       if (counter[1] == 127) begin
-        counter[1]        <= '0;
         amplitude         <= sample_counter[1] + m_data <= 127 ? sample_counter[1] + m_data : '1;
         amplitude_valid   <= '1;
         sample_counter[1] <= '0;
-      end else if (counter[1] < 128) begin
+      end else begin
         sample_counter[1] <= sample_counter[1] + m_data;
       end
-      if (counter[0] == 63 && first) begin
-        first      <= '0;
-        counter[1] <= '0;
-      end
-      /*
-      if (counter[1] == 227) begin
-        counter[1]        <= '0;
-        amplitude         <= sample_counter[1] + m_data;
-        amplitude_valid   <= '1;
-        sample_counter[1] <= '0;
-      end else if (counter[1] > 100) begin
-        sample_counter[1] <= sample_counter[1] + m_data;
-      end
-       */
     end
   end // always @ (posedge clk)
 

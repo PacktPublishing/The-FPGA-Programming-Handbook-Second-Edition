@@ -19,13 +19,13 @@ entity pdm_inputs is
 end entity pdm_inputs;
 
 architecture rtl of pdm_inputs is
-  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / (SAMPLE_RATE*2));
+  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / SAMPLE_RATE);
 
   type array_2d is array (natural range <>) of integer range 0 to 255;
-  signal counter : array_2d(1 downto 0) := (others => 0);
+  signal counter0 : integer range 0 to 127 := 0;
+  signal counter1 : integer range 0 to 127 := 64;
   signal sample_counter : array_2d(1 downto 0) := (others => 0);
   signal clk_counter : integer range 0 to CLK_COUNT := 0;
-  signal first : boolean := true;
 begin
 
   process (clk)
@@ -56,10 +56,10 @@ begin
       end if;
 
       if m_clk_en then
-        counter(0)        <= counter(0) + 1;
-        counter(1)        <= counter(1) + 1;
-        if counter(0) = 127 then
-          counter(0)        <= 0;
+        counter0        <= counter0 + 1;
+        counter1        <= counter1 + 1;
+        if counter0 = 127 then
+          counter0        <= 0;
           if nextamp0 <= 127 then
             amplitude       <= to_unsigned(nextamp0, amplitude'length);
           else
@@ -67,11 +67,10 @@ begin
           end if;
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
-        elsif counter(0) < 128 then
+        else 
           sample_counter(0) <= sample_counter(0) + 1 when m_data else sample_counter(0);
         end if;
-        if counter(1) = 127 then
-          counter(1)        <= 0;
+        if counter1 = 127 then
           if nextamp1 <= 127 then
             amplitude       <= to_unsigned(nextamp1, amplitude'length);
           else
@@ -79,12 +78,8 @@ begin
           end if;
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
-        elsif counter(1) < 128 then
+        else
           sample_counter(1) <= sample_counter(1) + 1 when m_data else sample_counter(1);
-        end if;
-        if counter(0) = 63 and first then
-          first      <= false;
-          counter(1) <= 0;
         end if;
       end if;
     end if;
