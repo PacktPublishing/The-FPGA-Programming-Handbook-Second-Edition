@@ -6,8 +6,9 @@ use WORK.calculator_pkg.all;
 
 entity divider_nr is
   generic (BITS : integer := 16);
-  port (clk : in std_logic;
-        start : in std_logic;
+  port (clk      : in std_logic;
+        reset    : in std_logic;
+        start    : in std_logic;
         dividend : in std_logic_vector(BITS-1 downto 0);
         divisor  : in std_logic_vector(BITS-1 downto 0);
 
@@ -51,7 +52,7 @@ begin
           else
             state   <= ADJ_REMAINDER1;
           end if;
-        when ADJ_REMAINDER0 => 
+        when ADJ_REMAINDER0 =>
           state     <= UPDATE_QUOTIENT;
           int_remainder <= std_logic_vector(to_unsigned(remainder_int + divisor_int, int_remainder'length));
         when ADJ_REMAINDER1 =>
@@ -82,6 +83,7 @@ begin
         when others =>
           state <= IDLE;
       end case;
+      if reset then state <= IDLE; end if;
     end if;
   end process;
 

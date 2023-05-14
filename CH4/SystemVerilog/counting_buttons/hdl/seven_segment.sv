@@ -8,6 +8,7 @@ module seven_segment
    )
   (
    input wire                         clk,
+   input wire                         reset, // active high reset
    input wire [NUM_SEGMENTS-1:0][3:0] encoded,
    input wire [NUM_SEGMENTS-1:0]      digit_point,
    output logic [NUM_SEGMENTS-1:0]    anode,
@@ -35,12 +36,16 @@ module seven_segment
 
   always @(posedge clk) begin
     if (refresh_count == INTERVAL) begin
-      refresh_count <= '0;
-      anode_count   <= anode_count + 1'b1;
+      refresh_count          <= '0;
+      anode_count            <= anode_count + 1'b1;
     end else refresh_count <= refresh_count + 1'b1;
-    anode              <= '1;
-    anode[anode_count] <= '0;
-    cathode            <= segments[anode_count];
+    anode                    <= '1;
+    anode[anode_count]       <= '0;
+    cathode                  <= segments[anode_count];
+    if (reset) begin
+      refresh_count          <= '0;
+      anode_count            <= '0;
+    end
   end
 
 endmodule

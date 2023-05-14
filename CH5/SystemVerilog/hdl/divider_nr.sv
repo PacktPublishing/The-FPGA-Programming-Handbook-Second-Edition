@@ -6,6 +6,7 @@ module divider_nr
    )
   (
    input wire                       clk,
+   input wire                       reset,
    input wire                       start,
    input wire unsigned [BITS-1:0]   dividend,
    input wire unsigned [BITS-1:0]   divisor,
@@ -89,6 +90,7 @@ module divider_nr
         state    <= IDLE;
       end
     endcase // case (state)
+    if (reset) state <= IDLE;
   end
   assign remainder = int_remainder[BITS-1:0];
 

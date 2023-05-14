@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="61" Path="/home/fbruno/git/books/The-FPGA-Programming-Handbook-Second-Edition/CH5/VHDL/build/traffic_light.xpr">
+<Project Version="7" Minor="61" Path="traffic_light.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="dac50f8874cb450aae335bfd4dcf44a4"/>

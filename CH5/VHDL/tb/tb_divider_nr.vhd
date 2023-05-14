@@ -14,6 +14,7 @@ architecture tb of tb is
   end procedure wait_nclk;
   constant BITS : integer := 16;
   signal clk       : std_logic := '0';
+  signal reset     : std_logic := '0';
   signal start     : std_logic;
   signal dividend  : std_logic_vector(BITS-1 downto 0);
   signal divisor   : std_logic_vector(BITS-1 downto 0);
@@ -33,6 +34,7 @@ begin
   u_divider_nr : entity work.divider_nr
     generic map(BITS =>BITS)
     port map(clk       => clk,
+             reset     => reset,
              start     => start,
              dividend  => dividend,
              divisor   => divisor,
@@ -40,7 +42,7 @@ begin
              quotient  => quotient,
              remainder => remainder);
 
-  stim : process 
+  stim : process
     variable seed1, seed2: positive;  -- seed values for random number generator
     variable rand_val: real;              -- random real value 0 to 1.0
   begin
@@ -84,15 +86,15 @@ begin
     wait_nclk(clk, 10); -- equivalent to repeat (10) @(posedge clk); in SV
     finish;
   end process stim;
-  
-  check : process (clk) 
+
+  check : process (clk)
     variable divd : integer;
     variable divi : integer;
   begin
     divd := to_integer(unsigned(dividend));
     divi := to_integer(unsigned(divisor));
     if rising_edge(clk) then
-      if done = '1' and 
+      if done = '1' and
         (quotient /= std_logic_vector(to_unsigned(divd/divi, quotient'length))) and
         (remainder /= std_logic_vector(to_unsigned(divd mod divi, remainder'length))) then
         report "FAILURE!";

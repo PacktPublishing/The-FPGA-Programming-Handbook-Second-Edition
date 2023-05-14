@@ -2,6 +2,7 @@
 module tb;
   parameter BITS = 16;
   bit             clk;
+  bit             reset = '0;
   bit             start;
   bit [BITS-1:0]  dividend;
   bit [BITS-1:0]  divisor;
@@ -23,6 +24,7 @@ module tb;
   u_divider_nr
   (
    .clk,
+   .reset,
    .start,
    .dividend,
    .divisor,

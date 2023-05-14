@@ -11,27 +11,39 @@ module calculator_top
    parameter USE_PLL      = "TRUE"
    )
   (
-   input wire                         clk,
-   input wire [15:0]                  SW,
-   input wire [4:0]                   buttons,
+   input wire                      clk,
+   input wire [15:0]               SW,
+   input wire [4:0]                buttons,
+   input wire                      CPU_RESETN,
 
-   output logic [NUM_SEGMENTS-1:0]    anode,
-   output logic [7:0]                 cathode
+   output logic [NUM_SEGMENTS-1:0] anode,
+   output logic [7:0]              cathode
    );
 
   import calculator_pkg::*;
 
   logic                               clk_50;
+  logic                               reset;
 
   generate
     if (USE_PLL == "TRUE") begin : g_USE_PLL
+      logic int_reset;
+      (* ASYNC_REG = "TRUE" *) logic [1:0] reset_sync = '1;
+
       sys_pll u_sys_pll
         (
          .clk_in1  (clk),
-         .clk_out1 (clk_50)
+         .clk_out1 (clk_50),
+         .locked   (int_reset)
          );
+
+      always_ff @(posedge clk_50) begin
+        reset_sync <= {reset_sync[0], ~(int_reset & CPU_RESETN)};
+      end
+      assign reset = reset_sync[1];
     end else  begin : g_NO_PLL
       assign clk_50 = clk;
+      assign reset = '0; // No reset necessary unless using external reset or PLL
     end
   endgenerate
 
@@ -56,6 +68,7 @@ module calculator_top
   u_seven_segment
     (
      .clk          (clk_50),
+     .reset        (reset),
      .encoded      (encoded),
      .digit_point  (digit_point),
      .anode        (anode),
@@ -79,6 +92,11 @@ module calculator_top
         sw_capt     <= SW;
       end
     end
+    if (reset) begin
+      counter_en  <= '0;
+      counter     <= '0;
+      button_down <= '0;
+    end
   end
 
   generate
@@ -91,11 +109,11 @@ module calculator_top
       u_sm
         (
          .clk             (clk_50),
+         .reset           (reset),
          .start           (button_down),
          .buttons         (button_capt),
          .switch          (sw_capt),
 
-         .done            (),
          .accum           (accumulator)
          );
     end else begin : g_MEALY
@@ -107,11 +125,11 @@ module calculator_top
       u_sm
         (
          .clk             (clk_50),
+         .reset           (reset),
          .start           (button_down),
          .buttons         (button_capt),
          .switch          (sw_capt),
 
-         .done            (),
          .accum           (accumulator)
          );
     end

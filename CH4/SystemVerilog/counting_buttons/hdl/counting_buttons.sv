@@ -18,6 +18,8 @@ module counting_buttons
 
   logic [NUM_SEGMENTS-1:0][3:0]       encoded;
   logic [NUM_SEGMENTS-1:0]            digit_point;
+  (* ASYNC_REG = "TRUE" *) logic [1:0]reset_sync = '1;
+  logic                               reset;
 
   seven_segment
     #
@@ -29,6 +31,7 @@ module counting_buttons
   u_7seg
     (
      .clk          (clk),
+     .reset        (reset),
      .encoded      (encoded),
      .digit_point  (digit_point),
      .anode        (anode),
@@ -38,7 +41,7 @@ module counting_buttons
   // Capture the rising edge of button press
   logic                               last_button;
   logic                               button;
-  (* mark_debug = "true" *) logic                               button_down;
+  (* mark_debug = "true" *) logic     button_down;
 
   initial begin
     last_button = '0;
@@ -74,6 +77,11 @@ module counting_buttons
             button_down <= '1;
           end
         end
+        if (reset) begin
+          counter_en  <= '0;
+          counter     <= '0;
+          button_down <= '0;
+        end
       end
     end else begin : g_NOCLOCK
       always @(posedge clk) begin
@@ -90,9 +98,13 @@ module counting_buttons
     digit_point = '1;
   end
 
+  // Reset Synchronizer
+  always_ff @(posedge clk) reset_sync <= {reset_sync[0], ~CPU_RESETN};
+  assign reset = reset_sync[1];
+
   always @(posedge clk) begin
     if (button_down) encoded <= (MODE == "HEX") ? encoded + 1'b1 : dec_inc(encoded);
-    if (~CPU_RESETN) begin
+    if (reset) begin
       encoded     <= '0;
       digit_point <= '1;
     end

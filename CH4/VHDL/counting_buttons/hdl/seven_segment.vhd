@@ -10,6 +10,7 @@ entity seven_segment is
            CLK_PER      : integer := 10;    -- Clock period in ns
            REFR_RATE    : integer := 1000); -- Refresh rate in Hz
   port (clk         : in std_logic;
+        reset       : in std_logic; -- active high reset
         encoded     : in array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
         digit_point : in std_logic_vector(NUM_SEGMENTS-1 downto 0);
         anode       : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
@@ -25,10 +26,10 @@ begin
 
   g_genarray : for i in 0 to NUM_SEGMENTS-1 generate
     ct : entity work.cathode_top
-      port map (clk => clk,
-                encoded => encoded(i),
+      port map (clk         => clk,
+                encoded     => encoded(i),
                 digit_point => digit_point(i),
-                cathode => segments(i));
+                cathode     => segments(i));
   end generate;
 
   process (clk)
@@ -47,6 +48,10 @@ begin
       anode              <= (others => '1');
       anode(anode_count) <= '0';
       cathode            <= segments(anode_count);
+      if reset then
+        refresh_count <= 0;
+        anode_count   <= 0;
+      end if;
     end if;
   end process;
 end architecture rtl;

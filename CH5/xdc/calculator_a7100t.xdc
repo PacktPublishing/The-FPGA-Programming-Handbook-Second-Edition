@@ -73,7 +73,7 @@ set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports {anode[6]}]
 set_property -dict {PACKAGE_PIN U13 IOSTANDARD LVCMOS33} [get_ports {anode[7]}]
 
 ##Buttons
-#set_property -dict { PACKAGE_PIN C12   IOSTANDARD LVCMOS33 } [get_ports { CPU_RESETN }]; #IO_L3P_T0_DQS_AD1P_15 Sch=cpu_resetn
+set_property -dict { PACKAGE_PIN C12   IOSTANDARD LVCMOS33 } [get_ports { CPU_RESETN }]; #IO_L3P_T0_DQS_AD1P_15 Sch=cpu_resetn
 set_property -dict {PACKAGE_PIN N17 IOSTANDARD LVCMOS33} [get_ports {buttons[4]}]
 set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports {buttons[0]}]
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports {buttons[2]}]
@@ -211,22 +211,3 @@ set_property -dict {PACKAGE_PIN P18 IOSTANDARD LVCMOS33} [get_ports {buttons[1]}
 #set_property -dict { PACKAGE_PIN L14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[2] }]; #IO_L2P_T0_D02_14 Sch=qspi_dq[2]
 #set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[3] }]; #IO_L2N_T0_D03_14 Sch=qspi_dq[3]
 #set_property -dict { PACKAGE_PIN L13   IOSTANDARD LVCMOS33 } [get_ports { QSPI_CSN }]; #IO_L6P_T0_FCS_B_14 Sch=qspi_csn
-
-
-
-connect_debug_port u_ila_0/probe3 [get_nets [list {encoded[1][0]} {encoded[1][1]} {encoded[1][2]} {encoded[1][3]}]]
-connect_debug_port u_ila_0/probe5 [get_nets [list {encoded[0][0]} {encoded[0][1]} {encoded[0][2]} {encoded[0][3]}]]
-connect_debug_port u_ila_0/probe6 [get_nets [list {encoded[2][0]} {encoded[2][1]} {encoded[2][2]} {encoded[2][3]}]]
-connect_debug_port u_ila_0/probe7 [get_nets [list {encoded[5][0]} {encoded[5][1]} {encoded[5][2]} {encoded[5][3]}]]
-connect_debug_port u_ila_0/probe8 [get_nets [list {encoded[6][0]} {encoded[6][1]} {encoded[6][2]} {encoded[6][3]}]]
-connect_debug_port u_ila_0/probe9 [get_nets [list {encoded[3][0]} {encoded[3][1]} {encoded[3][2]} {encoded[3][3]}]]
-connect_debug_port u_ila_0/probe10 [get_nets [list {encoded[4][0]} {encoded[4][1]} {encoded[4][2]} {encoded[4][3]}]]
-connect_debug_port u_ila_0/probe11 [get_nets [list {encoded[7][0]} {encoded[7][1]} {encoded[7][2]} {encoded[7][3]}]]
-
-connect_debug_port u_ila_0/clk [get_nets [list clk_IBUF_BUFG]]
-connect_debug_port dbg_hub/clk [get_nets clk_IBUF_BUFG]
-
-connect_debug_port u_ila_0/probe0 [get_nets [list {g_MOORE.u_sm/state[0]} {g_MOORE.u_sm/state[1]} {g_MOORE.u_sm/state[2]} {g_MOORE.u_sm/state[3]}]]
-connect_debug_port u_ila_0/probe1 [get_nets [list {g_MOORE.u_sm/accumulator[0]} {g_MOORE.u_sm/accumulator[1]} {g_MOORE.u_sm/accumulator[2]} {g_MOORE.u_sm/accumulator[3]} {g_MOORE.u_sm/accumulator[4]} {g_MOORE.u_sm/accumulator[5]} {g_MOORE.u_sm/accumulator[6]} {g_MOORE.u_sm/accumulator[7]} {g_MOORE.u_sm/accumulator[8]} {g_MOORE.u_sm/accumulator[9]} {g_MOORE.u_sm/accumulator[10]} {g_MOORE.u_sm/accumulator[11]} {g_MOORE.u_sm/accumulator[12]} {g_MOORE.u_sm/accumulator[13]} {g_MOORE.u_sm/accumulator[14]} {g_MOORE.u_sm/accumulator[15]} {g_MOORE.u_sm/accumulator[16]} {g_MOORE.u_sm/accumulator[17]} {g_MOORE.u_sm/accumulator[18]} {g_MOORE.u_sm/accumulator[19]} {g_MOORE.u_sm/accumulator[20]} {g_MOORE.u_sm/accumulator[21]} {g_MOORE.u_sm/accumulator[22]} {g_MOORE.u_sm/accumulator[23]} {g_MOORE.u_sm/accumulator[24]} {g_MOORE.u_sm/accumulator[25]} {g_MOORE.u_sm/accumulator[26]} {g_MOORE.u_sm/accumulator[27]} {g_MOORE.u_sm/accumulator[28]} {g_MOORE.u_sm/accumulator[29]} {g_MOORE.u_sm/accumulator[30]} {g_MOORE.u_sm/accumulator[31]}]]
-connect_debug_port u_ila_0/probe11 [get_nets [list {g_MOORE.u_sm/last_op[0]} {g_MOORE.u_sm/last_op[1]} {g_MOORE.u_sm/last_op[2]} {g_MOORE.u_sm/last_op[3]} {g_MOORE.u_sm/last_op[4]}]]
-connect_debug_port u_ila_0/probe12 [get_nets [list {g_MOORE.u_sm/op_store[0]} {g_MOORE.u_sm/op_store[1]} {g_MOORE.u_sm/op_store[2]} {g_MOORE.u_sm/op_store[3]} {g_MOORE.u_sm/op_store[4]}]]
