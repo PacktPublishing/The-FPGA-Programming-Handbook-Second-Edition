@@ -156,9 +156,10 @@ architecture rtl of i2c_temp is
   signal smooth_convert : std_logic;
   signal smooth_count : integer range 0 to SMOOTHING := 0;
   signal dout : std_logic_vector(31 downto 0);
-  signal sample_count : integer range 0 to 32 := 0;
   signal rden : std_logic := '0';
+  attribute MARK_DEBUG of rden : signal is "TRUE";
   signal convert_pipe : std_logic_vector(2 downto 0);
+  attribute MARK_DEBUG of convert_pipe : signal is "TRUE";
   signal divide : array_t(16 downto 0)(31 downto 0) :=
     (0    => x"3F800000", -- 1
      1    => x"3F000000", -- 1/2
@@ -209,7 +210,7 @@ begin
 
   u_seven_segment : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
-    port map(clk => clk, encoded => encoded, digit_point => not digit_point,
+    port map(clk => clk, reset => '0', encoded => encoded, digit_point => not digit_point,
              anode => anode, cathode => cathode);
 
   TMP_SCL <= 'Z' when scl_en else '0';
@@ -354,8 +355,6 @@ begin
          m_axis_result_tdata    => fused_data);
       
       process (clk) 
-        variable data_mult : std_logic_vector(51 downto 0);
-        variable data_shift : std_logic_vector(51 downto 0);
       begin
         if rising_edge(clk) then
           rden           <= '0';
@@ -370,7 +369,7 @@ begin
           end if;
           if addsub_valid then
             accumulator <= addsub_data;
-            if fp_add_op = x"0" then
+            if fp_add_op = x"00" then
               convert_pipe(1) <= '1';
               rden            <= '1';
             else
@@ -382,7 +381,7 @@ begin
             fp_add_op       <= x"01"; -- subtract
             convert_pipe(0) <= '1';
             addsub_in(0)    <= accumulator;
-            if smooth_count = 16 then
+            if smooth_count = SMOOTHING then
               addsub_in(1)  <= dout;
             else
               addsub_in(1)  <= x"00000000";
@@ -390,10 +389,9 @@ begin
           end if;
           if convert_pipe(2) then
             -- Drive data into multiplier
-            if sample_count < 16 then sample_count <= sample_count + 1; end if;
-            if smooth_count < 16 then smooth_count <= smooth_count + 1; end if;
+            if smooth_count < SMOOTHING then smooth_count <= smooth_count + 1; end if;
             mult_in(0)    <= accumulator;
-            mult_in(1)    <= divide(sample_count);
+            mult_in(1)    <= divide(smooth_count);
             mult_in_valid <= '1';
           end if;
           if result_valid then

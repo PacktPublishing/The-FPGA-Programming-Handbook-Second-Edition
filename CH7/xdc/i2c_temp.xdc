@@ -214,3 +214,7 @@ set_property -dict {PACKAGE_PIN B14 IOSTANDARD LVCMOS33} [get_ports TMP_CT]
 
 
 
+
+connect_debug_port u_ila_0/probe4 [get_nets [list {convert_pipe[0]} {convert_pipe[1]} {convert_pipe[2]}]]
+connect_debug_port u_ila_0/probe7 [get_nets [list rden]]
+

@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="61" Path="/home/fbruno/git/books/The-FPGA-Programming-Handbook-Second-Edition/CH7/SystemVerilog/build/i2c_temp.xpr">
+<Project Version="7" Minor="61" Path="i2c_temp.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="011f73bb648d4c3d898176fd647a5d8b"/>

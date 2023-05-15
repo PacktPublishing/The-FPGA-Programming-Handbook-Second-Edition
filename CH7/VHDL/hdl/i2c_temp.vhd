@@ -127,7 +127,7 @@ begin
 
   u_seven_segment : entity work.seven_segment
     generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
-    port map(clk => clk, encoded => encoded, digit_point => not digit_point,
+    port map(clk => clk, reset => '0', encoded => encoded, digit_point => not digit_point,
              anode => anode, cathode => cathode);
 
   TMP_SCL <= 'Z' when scl_en else '0';
