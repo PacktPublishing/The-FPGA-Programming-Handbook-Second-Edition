@@ -1,4 +1,4 @@
-LIBRARY IEEE, WORK;
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
 USE WORK.counting_buttons_pkg.all;
@@ -13,13 +13,13 @@ PACKAGE calculator_pkg IS
   function bin_to_bcd (bin_in : in std_logic_vector(31 downto 0)) return array_t;
 end package calculator_pkg;
 
-package body calculator_pkg is 
+package body calculator_pkg is
   function bin_to_bcd (bin_in : in std_logic_vector(31 downto 0)) return array_t is
     variable shifted : std_logic_vector(NUM_SEGMENTS*4-1 downto 0);
     variable bin2bcd : array_t(NUM_SEGMENTS -1 downto 0)(3 downto 0);
     variable digit   : integer range 0 to 15;
   begin
-    
+
     shifted := (others => '0');
     shifted(1 downto 0) := bin_in(31 downto 30);
     for i in 29 downto 1 loop

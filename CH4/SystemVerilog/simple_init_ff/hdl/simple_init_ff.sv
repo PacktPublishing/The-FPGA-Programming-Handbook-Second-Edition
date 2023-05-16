@@ -1,5 +1,5 @@
 `timescale 1ns/10ps
-module simple_ff
+module simple_init_ff
   (
    input wire   CK,
    input wire   D,

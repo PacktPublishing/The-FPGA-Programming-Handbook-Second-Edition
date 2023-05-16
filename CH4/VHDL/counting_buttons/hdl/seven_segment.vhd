@@ -2,7 +2,6 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
-library WORK;
 USE WORK.counting_buttons_pkg.all;
 
 entity seven_segment is

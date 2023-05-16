@@ -1,7 +1,6 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
-library WORK;
 USE WORK.counting_buttons_pkg.all;
 entity counting_buttons is
   generic (MODE         : string  := "HEX";  -- "HEX"
