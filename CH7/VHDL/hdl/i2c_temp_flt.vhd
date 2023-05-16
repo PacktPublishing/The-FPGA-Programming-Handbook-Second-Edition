@@ -1,11 +1,11 @@
-LIBRARY IEEE, WORK;
+LIBRARY IEEE, WORK, XPM;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.temp_pkg.all;
-Library xpm;
-use xpm.vcomponents.all;
 USE WORK.counting_buttons_pkg.all;
+USE WORK.i2c_temp_flt_components_pkg.all;
+use XPM.vcomponents.all;
 
 entity i2c_temp is
   generic (SMOOTHING    : integer := 16;
@@ -31,61 +31,6 @@ entity i2c_temp is
 end entity i2c_temp;
 
 architecture rtl of i2c_temp is
-  COMPONENT fix_to_float
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0) 
-    );
-  END COMPONENT;
-  COMPONENT flt_to_fix
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(15 DOWNTO 0) 
-    );
-  END COMPONENT;
-  COMPONENT fp_addsub
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_operation_tvalid : IN STD_LOGIC;
-      s_axis_operation_tdata : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0) 
-    );
-  END COMPONENT;
-  COMPONENT fp_fused_mult_add
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_c_tvalid : IN STD_LOGIC;
-      s_axis_c_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0) 
-    );
-  END COMPONENT;
-  COMPONENT fp_mult
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0) 
-    );
-  END COMPONENT;
 
   attribute MARK_DEBUG : string;
   constant TIME_1SEC   : integer := integer(INTERVAL/CLK_PER); -- Clock ticks in 1 sec
@@ -184,7 +129,7 @@ architecture rtl of i2c_temp is
     sign     : std_logic;
     exponent : std_logic_vector(7 downto 0);
     mantissa : std_logic_vector(22 downto 0);
-  end record;      
+  end record;
 
   -- VHDL doesn't have unions
   signal accumulator : std_logic_vector(31 downto 0) := x"00000000";
@@ -300,10 +245,10 @@ begin
       smooth_data <= "0000000000000000000000" & temp_data(15 downto 3);
       smooth_convert <= convert;
     else generate
-      
+
       -- Stage 1
       u_fx_flt : fix_to_float
-      port map 
+      port map
         (
          aclk                   => clk,
          s_axis_a_tvalid        => convert,
@@ -353,8 +298,8 @@ begin
          s_axis_c_tdata         => thirty_two,
          m_axis_result_tvalid   => fused_valid,
          m_axis_result_tdata    => fused_data);
-      
-      process (clk) 
+
+      process (clk)
       begin
         if rising_edge(clk) then
           rden           <= '0';
