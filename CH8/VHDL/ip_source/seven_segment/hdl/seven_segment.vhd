@@ -4,7 +4,6 @@ use IEEE.std_logic_misc.all;
 use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
-library WORK;
 
 entity seven_segment is
   generic (NUM_SEGMENTS : integer := 8;

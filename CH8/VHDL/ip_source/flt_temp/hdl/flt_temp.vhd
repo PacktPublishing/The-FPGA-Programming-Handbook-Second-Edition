@@ -1,11 +1,10 @@
-LIBRARY IEEE, WORK;
+LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
 --USE IEEE.STD_LOGIC_ARITH.ALL;
 USE IEEE.std_logic_SIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
-Library xpm;
-use xpm.vcomponents.all;
+use XPM.vcomponents.all;
 
 entity flt_temp is
   generic (SMOOTHING    : integer := 16;

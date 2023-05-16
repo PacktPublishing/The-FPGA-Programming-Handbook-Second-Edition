@@ -1,11 +1,9 @@
-LIBRARY IEEE, WORK;
+LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
---USE IEEE.STD_LOGIC_ARITH.ALL;
 USE IEEE.std_logic_UNSIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
-Library xpm;
-use xpm.vcomponents.all;
+use XPM.vcomponents.all;
 
 entity debounce is
   generic(CYCLES : integer := 16);
