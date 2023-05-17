@@ -30,12 +30,10 @@ architecture rtl of calculator_moore is
 begin
 
   process (clk)
-    variable multiply : integer;
-    variable switch_int : integer;
-    variable accum_int : integer;
+    variable multiply   : unsigned(BITS+16-1 downto 0);
+    variable switch_int : unsigned(15 downto 0);
+    variable accum_int  : unsigned(31 downto 0);
   begin
-    switch_int := to_integer(unsigned(switch));
-    accum_int  := to_integer(unsigned(accumulator));
     if rising_edge(clk) then
       case state is
         when IDLE =>
@@ -62,14 +60,21 @@ begin
             state <= IDLE;
           end if;
         when MULT =>
-          multiply    := to_integer(unsigned(accumulator)) * switch_int;
-          accumulator <= std_logic_vector(to_unsigned(multiply, accumulator'length));
+          switch_int  := unsigned(switch);
+          multiply    := unsigned(accumulator) * switch_int;
+          -- note that even though the output is > 32 bits we will overflow
+          -- if larger.
+          accumulator <= std_logic_vector(multiply(31 downto 0));
           state       <= IDLE;
         when ADD =>
-          accumulator <= std_logic_vector(to_unsigned(accum_int + switch_int, accumulator'length));
+          switch_int  := unsigned(switch);
+          accum_int   := unsigned(accumulator) + switch_int;
+          accumulator <= std_logic_vector(accum_int(31 downto 0));
           state       <= IDLE;
         when SUB =>
-          accumulator <= std_logic_vector(to_unsigned(accum_int - switch_int, accumulator'length));
+          switch_int  := unsigned(switch);
+          accum_int   := unsigned(accumulator) - switch_int;
+          accumulator <= std_logic_vector(accum_int(31 downto 0));
           state       <= IDLE;
       end case;
       if reset then
