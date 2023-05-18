@@ -93,7 +93,7 @@ architecture rtl of i2c_temp is
      13 => 13*625,
      14 => 14*625,
      15 => 15*625);
-  signal smooth_data : std_logic_vector(34 downto 0);
+  signal smooth_data : unsigned(28 downto 0);
   signal smooth_convert : std_logic;
   signal smooth_count : integer range 0 to SMOOTHING := 0;
   signal dout : std_logic_vector(15 downto 0);
@@ -213,12 +213,13 @@ begin
   end process;
 
   g_NO_SMOOTH : if SMOOTHING = 0 generate
-      smooth_data <= "0000000000000000000000" & temp_data(15 downto 3);
+      smooth_data <= "0000000000000000000000" & unsigned(temp_data(15 downto 3));
       smooth_convert <= convert;
     else generate
       process (clk)
-        variable data_mult : std_logic_vector(51 downto 0);
-        variable data_shift : std_logic_vector(51 downto 0);
+        variable data_mult : unsigned(45 downto 0);
+        variable data_shift : unsigned(45 downto 0);
+        variable smooth_data_int : unsigned(34 downto 0);
       begin
         if rising_edge(clk) then
           rden           <= '0';
@@ -235,14 +236,18 @@ begin
             accumulator   <= std_logic_vector(unsigned(accumulator) - unsigned(dout));
           elsif convert_pipe(2) then
             if sample_count < 16 then sample_count <= sample_count + 1; end if;
-            smooth_data   <= std_logic_vector(unsigned(accumulator) * unsigned(divide(sample_count)));
+            smooth_data_int   := unsigned(accumulator) * unsigned(divide(sample_count));
+            smooth_data       <= smooth_data_int(28 downto 0);
           elsif convert_pipe(3) then
-            smooth_data    <= std_logic_vector(shift_right(unsigned(smooth_data), 16));
-            smooth_convert <= not SW;
+            smooth_data_int   := shift_right("000000" & smooth_data, 16);
+            smooth_data       <= smooth_data_int(28 downto 0);
+            smooth_convert    <= not SW;
           elsif convert_pipe(4) then
             smooth_convert <= SW;
-            data_mult := std_logic_vector(unsigned(smooth_data) * unsigned(NINE_FIFTHS));
-            data_shift := std_logic_vector(shift_right(unsigned(data_mult), 16));
+            data_mult := smooth_data * unsigned(NINE_FIFTHS);
+            data_shift := shift_right(unsigned(data_mult), 16);
+            smooth_data_int := unsigned(data_shift(34 downto 0)) + to_unsigned(32 * 16, 10);
+            smooth_data     <= smooth_data_int(28 downto 0);
           end if;
         end if;
       end process;
@@ -264,10 +269,10 @@ begin
   process (clk)
     variable sd_int : integer range 0 to 15;
   begin
-    sd_int := to_integer(unsigned(smooth_data(3 downto 0)));
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd("00000000000000000000000" & smooth_data(12 downto 4)); -- Decimal portion
+        encoded_int  <= bin_to_bcd("00000000000000000000000" & std_logic_vector(smooth_data(12 downto 4))); -- Decimal portion
+        sd_int       := to_integer(unsigned(smooth_data(3 downto 0)));
         encoded_frac <= bin_to_bcd(std_logic_vector(to_unsigned(fraction_table(sd_int), 32)));
         digit_point  <= "00010000";
       end if;
