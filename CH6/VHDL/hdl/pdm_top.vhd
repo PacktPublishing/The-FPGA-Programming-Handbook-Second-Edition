@@ -30,7 +30,7 @@ end entity pdm_top;
 
 architecture rtl of pdm_top is
   attribute MARK_DEBUG : string;
-  signal amplitude : unsigned(6 downto 0);
+  signal amplitude : std_logic_vector(6 downto 0);
   signal amplitude_valid : std_logic;
   attribute MARK_DEBUG of amplitude, amplitude_valid : signal is "TRUE";
   signal button_usync : std_logic_vector(2 downto 0);
@@ -73,7 +73,7 @@ begin
       if m_clk_en then
         light_count <= light_count + 1;
       end if;
-      B <= '1' when (40 - amplitude) < light_count else '0';
+      B <= '1' when (40 - unsigned(amplitude)) < light_count else '0';
       R <= '0';
       G <= '0';
     end if;

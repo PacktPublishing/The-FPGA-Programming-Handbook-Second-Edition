@@ -91,7 +91,7 @@ architecture rtl of i2c_temp is
   signal smooth_count : integer range 0 to SMOOTHING := 0;
   signal dout : std_logic_vector(15 downto 0);
   signal rden, rden_del : std_logic := '0';
-  signal accumulator : std_logic_vector(31 downto 0) := (others => '0');
+  signal accumulator : unsigned(31 downto 0) := (others => '0');
 begin
 
   u_seven_segment : entity work.seven_segment
@@ -187,28 +187,26 @@ begin
       smooth_convert <= convert;
     else generate
       process (clk)
-        variable accum_int  : integer;
-        variable td_int     : integer;
-        variable dout_int   : integer;
+        variable td_int     : unsigned(31 downto 0);
+        variable dout_int   : unsigned(31 downto 0);
       begin
-        accum_int := to_integer(unsigned(accumulator));
-        td_int    := to_integer(unsigned(temp_data));
-        dout_int  := to_integer(unsigned(dout));
         if rising_edge(clk) then
           rden           <= '0';
           rden_del       <= rden;
           smooth_convert <= '0';
           if convert then
             smooth_count            <= smooth_count + 1;
-            accumulator             <= std_logic_vector(to_unsigned(accum_int + td_int, accumulator'length));
+            td_int                  := x"0000" & unsigned(temp_data);
+            accumulator             <= accumulator + td_int;
           elsif smooth_count = 16 then
             rden                    <= '1';
             smooth_count            <= smooth_count - 1;
           elsif rden then
-            accumulator             <= std_logic_vector(to_unsigned(accum_int - dout_int, accumulator'length));
+            dout_int                := x"0000" & unsigned(dout);
+            accumulator             <= accumulator - dout_int;
           elsif rden_del then
             smooth_convert          <= '1';
-            smooth_data             <= accumulator(19 downto 4);
+            smooth_data             <= std_logic_vector(accumulator(19 downto 4));
           end if;
         end if;
       end process;
@@ -230,10 +228,10 @@ begin
   process (clk)
     variable sd_int : integer range 0 to 15;
   begin
-    sd_int := to_integer(unsigned(smooth_data(6 downto 3)));
     if rising_edge(clk) then
       if smooth_convert then
         encoded_int  <= bin_to_bcd("00000000000000000000000" & smooth_data(15 downto 7)); -- Decimal portion
+        sd_int       := to_integer(unsigned(smooth_data(6 downto 3)));
         encoded_frac <= bin_to_bcd(std_logic_vector(to_unsigned(fraction_table(sd_int), 32)));
         digit_point  <= "00010000";
       end if;

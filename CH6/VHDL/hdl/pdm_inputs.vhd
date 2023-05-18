@@ -14,7 +14,7 @@ entity pdm_inputs is
         m_data      : in std_logic;
 
         -- amplitude outputs
-        amplitude   : out unsigned(6 downto 0);
+        amplitude   : out std_logic_vector(6 downto 0);
         amplitude_valid : out std_logic);
 end entity pdm_inputs;
 
@@ -26,7 +26,10 @@ architecture rtl of pdm_inputs is
   signal counter1 : integer range 0 to 127 := 64;
   signal sample_counter : array_2d(1 downto 0) := (others => 0);
   signal clk_counter : integer range 0 to CLK_COUNT := 0;
+  signal amplitude_int : unsigned(6 downto 0);
 begin
+
+  amplitude <= std_logic_vector(amplitude_int);
 
   process (clk)
     variable nextamp0 : integer range 0 to 128;
@@ -61,20 +64,20 @@ begin
         if counter0 = 127 then
           counter0        <= 0;
           if nextamp0 <= 127 then
-            amplitude       <= to_unsigned(nextamp0, amplitude'length);
+            amplitude_int <= to_unsigned(nextamp0, amplitude_int'length);
           else
-            amplitude <= to_unsigned(127, amplitude'length);
+            amplitude_int <= to_unsigned(127, amplitude_int'length);
           end if;
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
-        else 
+        else
           sample_counter(0) <= sample_counter(0) + 1 when m_data else sample_counter(0);
         end if;
         if counter1 = 127 then
           if nextamp1 <= 127 then
-            amplitude       <= to_unsigned(nextamp1, amplitude'length);
+            amplitude_int <= to_unsigned(nextamp1, amplitude_int'length);
           else
-            amplitude <= to_unsigned(127, amplitude'length);
+            amplitude_int <= to_unsigned(127, amplitude_int'length);
           end if;
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;

@@ -35,8 +35,8 @@ module pdm_top
   (*mark_debug = "true" *)logic [6:0]         amplitude;
   (*mark_debug = "true" *)logic               amplitude_valid;
 
-  logic [2:0]          button_usync;
-  logic [2:0]          button_csync;
+  logic [2:0]          button_usync = '0;
+  logic [2:0]          button_csync = '0;
   logic                start_capture;
   logic                m_clk_en,              m_clk_en_del;
 
@@ -113,9 +113,9 @@ module pdm_top
     ram_dout <= amplitude_store[ram_rdaddr];
   end
 
-  logic [6:0] amp_capture;
-  logic       AUD_PWM_en;
-  logic [6:0] amp_counter;
+  logic [6:0] amp_capture = '0;
+  logic       AUD_PWM_en = '0;
+  logic [6:0] amp_counter = '0;
   logic [3:0] clr_addr;
   assign clr_addr = ~ram_rdaddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4];
 
