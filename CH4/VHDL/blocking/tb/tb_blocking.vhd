@@ -1,12 +1,19 @@
+-- tb.vhd
+-- ------------------------------------
+-- Testbench for the blocking assignment example
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Non self checking testbench for the blocking assignment to demonstrate the
+-- fallthrough of data when using blocking in a chain of registers.
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use std.env.finish;
-entity tb is
+entity tb_blocking is
   generic(blocking_ff : string := "FALSE");
-end entity tb;
-architecture tb of tb is
+end entity tb_blocking;
+architecture tb of tb_blocking is
   signal CK : std_logic := '0';
   signal D : std_logic;
   signal Q : std_logic;

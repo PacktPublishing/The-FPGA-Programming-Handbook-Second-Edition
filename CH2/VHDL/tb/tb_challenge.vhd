@@ -1,3 +1,9 @@
+-- tb.vhd
+-- ------------------------------------
+-- Testbench for Challenge problem
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Simple testbench to test your challenge problem
 library IEEE, STD;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_misc.all;

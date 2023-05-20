@@ -1,3 +1,9 @@
+// project_2.sv
+// ------------------------------------
+// Chapter two project
+// ------------------------------------
+// Author : Frank Bruno
+// Combine the chapters functions together into a selectable operation
 `timescale 1ns/10ps
 module project_2
   #

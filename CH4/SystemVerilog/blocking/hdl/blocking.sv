@@ -1,3 +1,10 @@
+// blocking.sv
+// ------------------------------------
+// Example file to show blocking assignments
+// ------------------------------------
+// Author : Frank Bruno
+// This file demonstrates potential problems and differences between blocking
+// and non blocking assignment
 `timescale 1ns/10ps
 module blocking
   #

@@ -1,3 +1,10 @@
+-- blocking.vhd
+-- ------------------------------------
+-- Example file to show blocking assignments
+-- ------------------------------------
+-- Author : Frank Bruno
+-- This file demonstrates potential problems and differences between blocking
+-- and non blocking assignment
 library IEEE;
 use IEEE.std_logic_1164.all;
 entity blocking is

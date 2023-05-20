@@ -1,3 +1,9 @@
+// tb.vhd
+// ------------------------------------
+// Testbench for Challenge problem
+// ------------------------------------
+// Author : Frank Bruno
+// Simple testbench to test your challenge problem
 `timescale 1ns/ 100ps;
 
 module tb;
@@ -28,5 +34,5 @@ module tb;
       $display("FAIL: Addition mismatch");
       $stop;
     end
-  end 
+  end
 endmodule // tb

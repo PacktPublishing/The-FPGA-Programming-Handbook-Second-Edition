@@ -1,3 +1,9 @@
+-- leading_ones.vhd
+-- ------------------------------------
+-- Leading ones detector module
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Find the leading ones (highest bit set) in a vector.
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

@@ -1,3 +1,9 @@
+// leading_ones.sv
+// ------------------------------------
+// Leading ones detector module
+// ------------------------------------
+// Author : Frank Bruno
+// Find the leading ones (highest bit set) in a vector.
 `timescale 1ns/10ps
 module leading_ones
   #

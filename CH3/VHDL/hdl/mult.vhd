@@ -1,3 +1,9 @@
+-- mult.vhd
+-- ------------------------------------
+-- Multiplier
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Take a vector, split in half and multiply the two halves together.
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

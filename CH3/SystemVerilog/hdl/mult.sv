@@ -1,3 +1,9 @@
+// logic_ex.sv
+// ------------------------------------
+// Multiplier
+// ------------------------------------
+// Author : Frank Bruno
+// Take a vector, split in half and multiply the two halves together.
 `timescale 1ns/10ps
 module mult
   #

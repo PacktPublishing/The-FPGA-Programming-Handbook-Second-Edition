@@ -1,3 +1,9 @@
+-- add_sub.vhd
+-- ------------------------------------
+-- Simple combinational adder subtractor block
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Take in a number of bits, split into two halves and add.
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

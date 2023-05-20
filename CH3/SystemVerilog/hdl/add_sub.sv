@@ -1,3 +1,9 @@
+// add_sub.sv
+// ------------------------------------
+// Simple combinational adder subtractor block
+// ------------------------------------
+// Author : Frank Bruno
+// Take in a number of bits, split into two halves and add.
 `timescale 1ns/10ps
 module add_sub
   #

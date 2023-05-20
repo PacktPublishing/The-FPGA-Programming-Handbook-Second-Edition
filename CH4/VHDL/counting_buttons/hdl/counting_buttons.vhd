@@ -1,3 +1,10 @@
+-- counting_buttons.vhd
+-- ------------------------------------
+-- Count the number of button presses
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Count the number of center button presses and display the count in decimal
+-- or hexidecimal on the 7 segment display
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

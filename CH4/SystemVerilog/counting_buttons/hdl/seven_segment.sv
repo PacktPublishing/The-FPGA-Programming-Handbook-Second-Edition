@@ -1,3 +1,10 @@
+// seven_segment.sv
+// ------------------------------------
+// Drive multiple seven segment displays
+// ------------------------------------
+// Author : Frank Bruno
+// Encapsulate multiple seven segment displays using the cathode driver plus an
+// anode driver.
 `timescale 1ns/10ps
 module seven_segment
   #

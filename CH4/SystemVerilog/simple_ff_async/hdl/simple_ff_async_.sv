@@ -1,3 +1,8 @@
+// simple_ff_async.sv
+// ------------------------------------
+// Show synchronous and Asynchronous reset implementations
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/10ps
 module simple_ff_async
   #

@@ -1,3 +1,9 @@
+// challenge.sv
+// ------------------------------------
+// Chapter 2 Challenge Template
+// ------------------------------------
+// Author : Frank Bruno
+// This file is a template for writing a full adder
 `timescale 1ns/10ps
 module challenge
   (

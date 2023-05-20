@@ -1,5 +1,10 @@
+// tb_simple_ff.sv
+// ------------------------------------
+// Generate a test to lok at the simple_ff waveforms
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/10ps
-module tb;
+module tb_simple_ff;
   bit CK;
   bit CE;
   bit D;

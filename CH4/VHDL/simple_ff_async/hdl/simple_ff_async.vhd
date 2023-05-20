@@ -1,3 +1,8 @@
+-- simple_ff_async.vhd
+-- ------------------------------------
+-- Show synchronous and Asynchronous reset implementations
+-- ------------------------------------
+-- Author : Frank Bruno
 library IEEE;
 use IEEE.std_logic_1164.all;
 entity simple_ff_async is

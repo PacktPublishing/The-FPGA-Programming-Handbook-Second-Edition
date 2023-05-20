@@ -1,3 +1,10 @@
+-- seven_segment.vhd
+-- ------------------------------------
+-- Drive multiple seven segment displays
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Encapsulate multiple seven segment displays using the cathode driver plus an
+-- anode driver.
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

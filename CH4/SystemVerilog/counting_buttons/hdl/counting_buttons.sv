@@ -1,3 +1,10 @@
+// counting_buttons.sv
+// ------------------------------------
+// Count the number of button presses
+// ------------------------------------
+// Author : Frank Bruno
+// Count the number of center button presses and display the count in decimal
+// or hexidecimal on the 7 segment display
 `timescale 1ns/10ps
 module counting_buttons
   #

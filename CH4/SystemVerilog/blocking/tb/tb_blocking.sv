@@ -1,5 +1,12 @@
+// tb_blocking.sv
+// ------------------------------------
+// Testbench for the blocking assignment example
+// ------------------------------------
+// Author : Frank Bruno
+// Non self checking testbench for the blocking assignment to demonstrate the
+// fallthrough of data when using blocking in a chain of registers.
 `timescale 1ns/10ps
-module tb;
+module tb_blocking;
   parameter BLOCK = "TRUE";
   bit CK;
   bit D;

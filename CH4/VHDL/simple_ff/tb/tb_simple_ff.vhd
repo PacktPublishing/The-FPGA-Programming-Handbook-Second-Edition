@@ -1,11 +1,16 @@
+-- tb_simple_ff.vhd
+-- ------------------------------------
+-- Generate a test to lok at the simple_ff waveforms
+-- ------------------------------------
+-- Author : Frank Bruno
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use std.env.finish;
-entity tb is
-end entity tb;
-architecture tb of tb is
+entity tb_simple_ff is
+end entity tb_simple_ff;
+architecture tb of tb_simple_ff is
   signal CK : std_logic := '0';
   signal CE : std_logic;
   signal D : std_logic;

@@ -1,3 +1,8 @@
+// tb.sv
+// ------------------------------------
+// Testbench for Project 2
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/ 100ps;
 
 module tb;

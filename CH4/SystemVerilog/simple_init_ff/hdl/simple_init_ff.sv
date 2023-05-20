@@ -1,3 +1,8 @@
+// simple_init_ff.sv
+// ------------------------------------
+// Testbench for the simple showing always_ff
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/10ps
 module simple_init_ff
   (

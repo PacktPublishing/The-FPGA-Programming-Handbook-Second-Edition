@@ -1,3 +1,10 @@
+-- logic_ex.vhd
+-- ------------------------------------
+-- Example file to show combinational functions
+-- ------------------------------------
+-- Author : Frank Bruno
+-- This file demonstrates combinational LED outputs based upon switch inputs.
+-- There are multiple ways of accomplishing each function, uncomment to try them
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_misc.all;

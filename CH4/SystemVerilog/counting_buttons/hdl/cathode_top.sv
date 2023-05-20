@@ -1,3 +1,9 @@
+// cathode_top.sv
+// ------------------------------------
+// Drive the cathodes of 7 segment display
+// ------------------------------------
+// Author : Frank Bruno
+// input the encoded value from 0-F and generate the cathode signals
 `timescale 1ns/10ps
 module cathode_top
   (

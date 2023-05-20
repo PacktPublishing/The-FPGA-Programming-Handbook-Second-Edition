@@ -1,3 +1,9 @@
+-- challenge.vhd
+-- ------------------------------------
+--  Chapter 2 Challenge Template
+-- ------------------------------------
+-- Author : Frank Bruno
+-- This file is a template for writing a full adder
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_misc.all;

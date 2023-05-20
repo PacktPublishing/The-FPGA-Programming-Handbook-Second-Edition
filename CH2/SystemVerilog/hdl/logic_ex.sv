@@ -1,3 +1,10 @@
+// logic_ex.sv
+// ------------------------------------
+// Example file to show combinational functions
+// ------------------------------------
+// Author : Frank Bruno
+// This file demonstrates combinational LED outputs based upon switch inputs.
+// There are multiple ways of accomplishing each function, uncomment to try them
 `timescale 1ns/10ps
 module logic_ex
   (

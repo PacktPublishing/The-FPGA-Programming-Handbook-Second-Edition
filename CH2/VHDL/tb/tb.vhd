@@ -1,3 +1,9 @@
+-- tb.vhd
+-- ------------------------------------
+-- Testbench for logic_ex
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Exhaustively test all combinations for the logic_ex module
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;

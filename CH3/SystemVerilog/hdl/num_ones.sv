@@ -1,3 +1,9 @@
+// num_ones.sv
+// ------------------------------------
+// Count the number of bits that are high in a vector
+// ------------------------------------
+// Author : Frank Bruno
+// Count the number of bits that are high in a vector
 `timescale 1ns/10ps
 module num_ones
   #

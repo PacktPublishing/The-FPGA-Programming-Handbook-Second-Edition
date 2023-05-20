@@ -1,12 +1,17 @@
+-- tb_simple_ff_async.vhd
+-- ------------------------------------
+-- Testbench for the simple FIFO Async reset
+-- ------------------------------------
+-- Author : Frank Bruno
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use std.env.finish;
-entity tb is
+entity tb_simple_ff_async is
   generic (ASYNC : string := "true");
-end entity tb;
-architecture tb of tb is
+end entity tb_simple_ff_async;
+architecture tb of tb_simple_ff_async is
   signal CK : std_logic := '0';
   signal CE : std_logic;
   signal SR : std_logic := '0';

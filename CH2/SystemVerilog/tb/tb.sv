@@ -1,10 +1,16 @@
+// tb.vhd
+// ------------------------------------
+// Testbench for logic_ex
+// ------------------------------------
+// Author : Frank Bruno
+// Exhaustively test all combinations for the logic_ex module
 `timescale 1ns/ 100ps;
 
 module tb;
 
   logic [1:0] SW;
   logic [3:0] LED;
-  
+
   logic_ex u_logic_ex (.*);
 
   // Stimulus
