@@ -30,7 +30,6 @@ architecture rtl of i2c_temp is
   constant TIME_TSUSTA : integer := integer(600/CLK_PER);
   constant TIME_THIGH  : integer := integer(600/CLK_PER);
   constant TIME_TLOW   : integer := integer(1300/CLK_PER);
-  constant TIME_TSUDAT : integer := integer(20/CLK_PER);
   constant TIME_TSUSTO : integer := integer(600/CLK_PER);
   constant TIME_THDDAT : integer := integer(30/CLK_PER);
   constant I2C_ADDR    : std_logic_vector := "1001011"; -- 0x4B
@@ -65,11 +64,10 @@ architecture rtl of i2c_temp is
   attribute MARK_DEBUG of capture_en : signal is "TRUE";
   attribute MARK_DEBUG of convert : signal is "TRUE";
   type spi_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
-  signal spi_state : spi_t := IDLE;
-  attribute MARK_DEBUG of spi_state : signal is "TRUE";
-  signal fraction : array_t(3 downto 0)(3 downto 0);
+  signal i2c_state : spi_t := IDLE;
+  attribute MARK_DEBUG of i2c_state : signal is "TRUE";
   type int_array is array (0 to 15) of integer range 0 to 65535;
-  signal fraction_table : int_array :=
+  constant fraction_table : int_array :=
     (0  => 0*625,
      1  => 1*625,
      2  => 2*625,
@@ -118,7 +116,7 @@ begin
       counter_reset <= '0';
       convert       <= '0';
 
-      case spi_state is
+      case i2c_state is
         when IDLE =>
           i2c_data  <= '0' & I2C_ADDR  & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0' & '1';
           i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1' & '1';
@@ -128,7 +126,7 @@ begin
 
           if counter = TIME_1SEC then
             temp_data     <= (others =>'0');
-            spi_state     <= START;
+            i2c_state     <= START;
             counter_reset <= '1';
             sda_en        <= '0'; -- Drop the data
           end if;
@@ -138,20 +136,20 @@ begin
           if counter = TIME_THDSTA then
             counter_reset   <= '1';
             scl_en          <= '0'; -- Drop the clock
-            spi_state       <= TLOW;
+            i2c_state       <= TLOW;
           end if;
         when TLOW =>
           scl_en            <= '0'; -- Drop the clock
           if counter = TIME_TLOW then
             bit_count     <= bit_count + 1;
             counter_reset <= '1';
-            spi_state     <= TSU;
+            i2c_state     <= TSU;
         end if;
         when TSU =>
           scl_en            <= '0'; -- Drop the clock
           if counter = TIME_TSUSTA then
             counter_reset <= '1';
-            spi_state     <= THIGH;
+            i2c_state     <= THIGH;
           end if;
         when THIGH =>
           scl_en          <= '1'; -- Raise the clock
@@ -160,23 +158,23 @@ begin
               temp_data <= temp_data(14 downto 0) & TMP_SDA;
             end if;
             counter_reset <= '1';
-            spi_state     <= THD;
+            i2c_state     <= THD;
           end if;
         when THD =>
           scl_en            <= '0'; -- Drop the clock
           if counter = TIME_THDDAT then
             counter_reset <= '1';
             if bit_count = I2CBITS then
-              spi_state <= TSTO;
+              i2c_state <= TSTO;
             else
-              spi_state <= TLOW;
+              i2c_state <= TLOW;
             end if;
           end if;
         when TSTO =>
           if counter = TIME_TSUSTO then
             convert       <= '1';
             counter_reset <= '1';
-            spi_state     <= IDLE;
+            i2c_state     <= IDLE;
           end if;
       end case;
     end if;

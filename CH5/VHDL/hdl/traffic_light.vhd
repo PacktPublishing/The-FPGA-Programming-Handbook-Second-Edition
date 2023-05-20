@@ -7,7 +7,7 @@ entity traffic_light is
   generic (CLK_PER : integer := 10);
   port (clk     : in std_logic;
         SW      : in std_logic_vector(1 downto 0);
-         
+
         R, G, B : out std_logic_vector(1 downto 0));
 end entity traffic_light;
 architecture rtl of traffic_light is
@@ -32,7 +32,7 @@ begin
 
       if enable_count then
         counter <= counter + 1;
-      else 
+      else
         counter <= 0;
       end if;
 
@@ -65,8 +65,6 @@ begin
           left_right   <= YELLOW;
           enable_count <= '1';
           if counter = COUNT_10S then state <= INIT_UD_GREEN; end if;
-        when others =>
-          state <= INIT_UD_GREEN;
       end case;
     end if;
   end process;
@@ -97,7 +95,6 @@ begin
             G(1) <= '1';
           when RED =>
             R(1) <= '1';
-          when others =>
         end case;
       end if;
     end if;

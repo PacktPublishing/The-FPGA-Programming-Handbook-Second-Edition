@@ -30,8 +30,8 @@ architecture rtl of tb_pdm is
   signal AUD_SD  : std_logic;
 
   signal data_in : unsigned(6 downto 0) := (others => '0');
-  type array_2d is array (natural range <>) of unsigned(6 downto 0);
-  constant sin_table : array_2d(127 downto 0) :=
+  type u6_array_t is array (natural range <>) of unsigned(6 downto 0);
+  constant sin_table : u6_array_t(127 downto 0) :=
     (to_unsigned(16#00#,7), to_unsigned(16#01#,7), to_unsigned(16#03#,7), to_unsigned(16#04#,7),
      to_unsigned(16#06#,7), to_unsigned(16#07#,7), to_unsigned(16#09#,7), to_unsigned(16#0a#,7),
      to_unsigned(16#0c#,7), to_unsigned(16#0d#,7), to_unsigned(16#0f#,7), to_unsigned(16#10#,7),
@@ -69,12 +69,7 @@ architecture rtl of tb_pdm is
 
 begin
 
-  process begin
-    clk <= '0';
-    wait for 5 ns;
-    clk <= '1';
-    wait for 5 ns;
-  end process;
+  clk <= not clk after 5 ns;
 
   u_pdm_input : entity work.pdm_top
     generic map(CLK_FREQ => CLK_FREQ)
@@ -106,7 +101,8 @@ begin
         else
           counter <= counter + 1;
         end if;
-        int_count <= 0;
+        int_count <= 0; -- Note: Integers do not wrap so we need to make sure
+                        -- to handle this
       end if;
       if counter > 127 then
         data_in <= 64+sin_table(counter - 128);
