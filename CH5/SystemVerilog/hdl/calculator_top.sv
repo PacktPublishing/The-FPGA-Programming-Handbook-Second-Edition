@@ -1,3 +1,8 @@
+// calculator_top.sv
+// ------------------------------------
+// Top level of the calculator project
+// ------------------------------------
+// Author : Frank Bruno
 `ifndef NUM_SEGMENTS
 `define NUM_SEGMENTS 8
 `endif

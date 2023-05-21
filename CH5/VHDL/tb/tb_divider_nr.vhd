@@ -1,3 +1,9 @@
+-- tb_divider_nr.vhd
+-- ------------------------------------
+-- Divider testbench
+-- ------------------------------------
+-- Author : Frank Bruno
+-- random testbench for the divider function - self checking
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -16,11 +22,11 @@ architecture tb of tb is
   signal clk       : std_logic := '0';
   signal reset     : std_logic := '0';
   signal start     : std_logic;
-  signal dividend  : std_logic_vector(BITS-1 downto 0);
-  signal divisor   : std_logic_vector(BITS-1 downto 0);
+  signal dividend  : unsigned(BITS-1 downto 0);
+  signal divisor   : unsigned(BITS-1 downto 0);
   signal done      : std_logic;
-  signal quotient  : std_logic_vector(BITS-1 downto 0);
-  signal remainder : std_logic_vector(BITS-1 downto 0);
+  signal quotient  : unsigned(BITS-1 downto 0);
+  signal remainder : unsigned(BITS-1 downto 0);
 begin
 
   clock : process
@@ -62,9 +68,9 @@ begin
     wait_nclk(clk, 5); -- equivalent to repeat (5) @(posedge clk); in SV
     for i in 0 to 99 loop
       uniform(seed1, seed2, rand_val);              -- generate random number
-      dividend <= std_logic_vector(to_unsigned(integer(trunc(rand_val*65536.0)), dividend'length));
+      dividend <= to_unsigned(integer(trunc(rand_val*65536.0)), dividend'length);
       uniform(seed1, seed2, rand_val);              -- generate random number
-      divisor  <= std_logic_vector(to_unsigned(integer(trunc(rand_val*65536.0)), dividend'length));
+      divisor  <= to_unsigned(integer(trunc(rand_val*65536.0)), dividend'length);
       start    <= '1';
       wait until rising_edge(clk);
       start    <= '0';
@@ -95,8 +101,8 @@ begin
     divi := to_integer(unsigned(divisor));
     if rising_edge(clk) then
       if done = '1' and
-        (quotient /= std_logic_vector(to_unsigned(divd/divi, quotient'length))) and
-        (remainder /= std_logic_vector(to_unsigned(divd mod divi, remainder'length))) then
+        (quotient /= to_unsigned(divd/divi, quotient'length)) and
+        (remainder /= to_unsigned(divd mod divi, remainder'length)) then
         report "FAILURE!";
         report "quotient:   " & to_string(quotient);
         report "remainder:  " & to_string(remainder);

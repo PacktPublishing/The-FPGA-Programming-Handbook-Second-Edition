@@ -1,6 +1,13 @@
+-- calculator_pkg.vhd
+-- ------------------------------------
+-- Package for the calculator project
+-- ------------------------------------
+-- Author : Frank Bruno
+-- defines constants to represent button indices.
+-- bin_to_bcd function
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 USE WORK.counting_buttons_pkg.all;
 
 PACKAGE calculator_pkg IS

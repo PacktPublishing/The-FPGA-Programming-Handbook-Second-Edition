@@ -1,3 +1,8 @@
+// traffic_light.sv
+// ------------------------------------
+// Traffic light controller
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/10ps
 module traffic_light
   #

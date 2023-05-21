@@ -1,6 +1,12 @@
+-- calculator_moore.vhd
+-- ------------------------------------
+-- Moore version of the Calculator state machine
+-- ------------------------------------
+-- Author : Frank Bruno
+-- A Moore version of the Calculator state machine
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
 

@@ -1,3 +1,9 @@
+// calculator_moore.sv
+// ------------------------------------
+// Moore version of the Calculator state machine
+// ------------------------------------
+// Author : Frank Bruno
+// A Moore version of the Calculator state machine
 `timescale 1ns/10ps
 module calculator_moore
   #

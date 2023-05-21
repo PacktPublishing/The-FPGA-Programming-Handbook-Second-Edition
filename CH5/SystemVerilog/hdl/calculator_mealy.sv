@@ -1,3 +1,9 @@
+// calculator_mealy.sv
+// ------------------------------------
+// Mealy version of the Calculator state machine
+// ------------------------------------
+// Author : Frank Bruno
+// A mealy version of the Calculator state machine
 `timescale 1ns/10ps
 module calculator_mealy
   #

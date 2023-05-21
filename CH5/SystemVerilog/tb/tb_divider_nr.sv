@@ -1,3 +1,9 @@
+// tb_divider_nr.sv
+// ------------------------------------
+// Divider testbench
+// ------------------------------------
+// Author : Frank Bruno
+// random testbench for the divider function - self checking
 `timescale 1ns/10ps
 module tb;
   parameter BITS = 16;

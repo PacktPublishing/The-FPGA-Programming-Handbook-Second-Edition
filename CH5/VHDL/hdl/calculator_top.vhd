@@ -1,6 +1,11 @@
+-- calculator_top.vhd
+-- ------------------------------------
+-- Top level of the calculator project
+-- ------------------------------------
+-- Author : Frank Bruno
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
 USE WORK.counting_buttons_pkg.all;

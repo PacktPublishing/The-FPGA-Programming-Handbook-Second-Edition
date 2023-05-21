@@ -1,3 +1,9 @@
+// divider_nr.sv
+// ------------------------------------
+// Non restoring divider
+// ------------------------------------
+// Author : Frank Bruno
+// Implement the non restoring division algorithm
 `timescale 1ns/10ps
 module divider_nr
   #

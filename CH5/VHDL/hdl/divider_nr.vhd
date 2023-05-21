@@ -1,6 +1,12 @@
+-- divider_nr.vhd
+-- ------------------------------------
+-- Non restoring divider
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Implement the non restoring division algorithm
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
 

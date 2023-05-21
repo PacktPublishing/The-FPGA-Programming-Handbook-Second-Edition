@@ -1,3 +1,10 @@
+// calculator_pkg.sv
+// ------------------------------------
+// Package for the calculator project
+// ------------------------------------
+// Author : Frank Bruno
+// defines constants to represent button indices.
+// bin_to_bcd function
 `ifndef NUM_SEGMENTS
 `define NUM_SEGMENTS 8
 `endif
