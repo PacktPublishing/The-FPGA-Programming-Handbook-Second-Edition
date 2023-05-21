@@ -1,3 +1,8 @@
+// temp_pkg.vhd
+// ------------------------------------
+// Temperature sensor package file
+// ------------------------------------
+// Author : Frank Bruno
 `ifndef _TEMP_PKG
 `define _TEMP_PKG
 package temp_pkg;

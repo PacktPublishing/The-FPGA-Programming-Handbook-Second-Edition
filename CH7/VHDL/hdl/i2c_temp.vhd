@@ -1,6 +1,13 @@
+-- i2c_temp.vhd
+-- ------------------------------------
+-- Temperature sensor and display
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Read from the ADT7420 Temperature sensor and display temperature on the
+-- seven segment display
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.temp_pkg.all;
 USE WORK.counting_buttons_pkg.all;

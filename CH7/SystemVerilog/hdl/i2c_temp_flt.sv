@@ -1,3 +1,9 @@
+// i2c_temp_flt.sv
+// ------------------------------------
+// Floating point temperature sensor module
+// ------------------------------------
+// Author : Frank Bruno
+// Floating point version of the temperature sensor project
 `timescale 1ns/10ps
 module i2c_temp_flt
   #
@@ -180,8 +186,8 @@ module i2c_temp_flt
     endcase
   end
 
-  logic [15:0] smooth_data;
-  logic        smooth_convert;
+  (* mark_debug = "true" *) logic [15:0] smooth_data;
+  (* mark_debug = "true" *) logic        smooth_convert;
 
   generate
     if (SMOOTHING == 0) begin : g_NO_SMOOTH
@@ -202,19 +208,19 @@ module i2c_temp_flt
                     } float_u;
 
       logic [$clog2(SMOOTHING):0] smooth_count;
-      logic [31:0]                dout;
-      logic                       rden;
-      float_u                     accumulator; // 0.0 FP
-      float_u                     result_data;
-      logic                       result_valid;
-      float_u                     temperature;
-      logic                       temperature_valid;
-      logic [2:0]                 convert_pipe;
+      (* mark_debug = "true" *) logic [31:0]                dout;
+      (* mark_debug = "true" *) logic                       rden;
+      (* mark_debug = "true" *) float_u                     accumulator; // 0.0 FP
+      (* mark_debug = "true" *) float_u                     result_data;
+      (* mark_debug = "true" *) logic                       result_valid;
+      (* mark_debug = "true" *) float_u                     temperature;
+      (* mark_debug = "true" *) logic                       temperature_valid;
+      (* mark_debug = "true" *) logic [2:0]                 convert_pipe;
       logic [31:0]                divide[17];
       const bit [31:0]            nine_fifths = 32'h3fe66666; // 9/5 in FP
       const bit [31:0]            thirty_two = 32'h42000000; // Floating point
-      logic [31:0]                mult_in[2];
-      logic                       mult_in_valid;
+      (* mark_debug = "true" *) logic [31:0]                mult_in[2];
+      (* mark_debug = "true" *) logic                       mult_in_valid;
       logic [31:0]                fused_data;
       logic                       fused_valid;
 
@@ -242,13 +248,13 @@ module i2c_temp_flt
       end
 
       logic s_axis_a_tready;
-      logic temp_float_valid;
-      logic [31:0] temp_float;
+      (* mark_debug = "true" *) logic temp_float_valid;
+      (* mark_debug = "true" *) logic [31:0] temp_float;
       logic [7:0]  fp_add_op;
       logic        accum_valid;
       logic [31:0] addsub_in[2];
-      logic [31:0] addsub_data;
-      logic        addsub_valid;
+      (* mark_debug = "true" *) logic [31:0] addsub_data;
+      (* mark_debug = "true" *) logic        addsub_valid;
 
       // Stage 1
       fix_to_float u_fx_flt

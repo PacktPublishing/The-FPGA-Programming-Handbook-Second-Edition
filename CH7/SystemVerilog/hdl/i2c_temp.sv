@@ -1,3 +1,10 @@
+// i2c_temp.sv
+// ------------------------------------
+// Temperature sensor and display
+// ------------------------------------
+// Author : Frank Bruno
+// Read from the ADT7420 Temperature sensor and display temperature on the
+// seven segment display
 `timescale 1ns/10ps
 module i2c_temp
   #

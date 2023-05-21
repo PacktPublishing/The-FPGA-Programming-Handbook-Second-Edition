@@ -1,6 +1,12 @@
+-- i2c_temp_flt.vhd
+-- ------------------------------------
+-- Floating point temperature sensor module
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Floating point version of the temperature sensor project
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.temp_pkg.all;
 USE WORK.counting_buttons_pkg.all;
@@ -16,8 +22,8 @@ entity i2c_temp is
         -- Temperature Sensor Interface
         TMP_SCL : inout std_logic;
         TMP_SDA : inout std_logic;
-        TMP_INT : inout std_logic;
-        TMP_CT  : inout std_logic;
+        TMP_INT : inout std_logic; -- Currently unused
+        TMP_CT  : inout std_logic; -- currently unused
 
         -- Switch Interface
         SW      : in    std_logic;
@@ -38,7 +44,6 @@ architecture rtl of i2c_temp is
   constant TIME_TSUSTA : integer := integer(600/CLK_PER);
   constant TIME_THIGH  : integer := integer(600/CLK_PER);
   constant TIME_TLOW   : integer := integer(1300/CLK_PER);
-  constant TIME_TSUDAT : integer := integer(20/CLK_PER);
   constant TIME_TSUSTO : integer := integer(600/CLK_PER);
   constant TIME_THDDAT : integer := integer(30/CLK_PER);
   constant I2C_ADDR    : std_logic_vector := "1001011"; -- 0x4B
@@ -236,7 +241,6 @@ begin
             counter_reset <= '1';
             spi_state     <= IDLE;
           end if;
-        when others => spi_state     <= IDLE;
       end case;
     end if;
   end process;
@@ -368,10 +372,10 @@ begin
   process (clk)
     variable sd_int : integer range 0 to 15;
   begin
-    sd_int := to_integer(unsigned(smooth_data(3 downto 0)));
     if rising_edge(clk) then
       if smooth_convert then
         encoded_int  <= bin_to_bcd("00000000000000000000000" & smooth_data(12 downto 4)); -- Decimal portion
+        sd_int       := to_integer(unsigned(smooth_data(3 downto 0)));
         encoded_frac <= bin_to_bcd(std_logic_vector(to_unsigned(fraction_table(sd_int), 32)));
         digit_point  <= "00010000";
       end if;

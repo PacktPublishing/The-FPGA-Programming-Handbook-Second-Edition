@@ -1,3 +1,10 @@
+-- i2c_temp_flt_components_pkg.vhd
+-- ------------------------------------
+-- Isolate the components for a cleaner top level
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Xilinx components must still be declared, putting them here cleans up the
+-- architecture
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 
