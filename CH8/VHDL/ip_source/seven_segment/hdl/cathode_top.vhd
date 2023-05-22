@@ -1,3 +1,9 @@
+-- cathode_top.vhd
+-- ------------------------------------
+-- Drive the cathodes of 7 segment display
+-- ------------------------------------
+-- Author : Frank Bruno
+-- input the encoded value from 0-F and generate the cathode signals
 library IEEE;
 use IEEE.std_logic_1164.all;
 entity cathode_top is

@@ -212,16 +212,4 @@ set_property -dict {PACKAGE_PIN B14 IOSTANDARD LVCMOS33} [get_ports TMP_CT]
 #set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[3] }]; #IO_L2N_T0_D03_14 Sch=qspi_dq[3]
 #set_property -dict { PACKAGE_PIN L13   IOSTANDARD LVCMOS33 } [get_ports { QSPI_CSN }]; #IO_L6P_T0_FCS_B_14 Sch=qspi_csn
 
-connect_debug_port u_ila_0/probe8 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[5]_5[0]} {design_1_i/seven_segment_0/inst/encoded[5]_5[1]} {design_1_i/seven_segment_0/inst/encoded[5]_5[2]} {design_1_i/seven_segment_0/inst/encoded[5]_5[3]}]]
-connect_debug_port u_ila_0/probe9 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[0]_0[0]} {design_1_i/seven_segment_0/inst/encoded[0]_0[1]} {design_1_i/seven_segment_0/inst/encoded[0]_0[2]} {design_1_i/seven_segment_0/inst/encoded[0]_0[3]}]]
-connect_debug_port u_ila_0/probe11 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[6]_6[0]} {design_1_i/seven_segment_0/inst/encoded[6]_6[1]} {design_1_i/seven_segment_0/inst/encoded[6]_6[2]} {design_1_i/seven_segment_0/inst/encoded[6]_6[3]}]]
-connect_debug_port u_ila_0/probe12 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[3]_3[0]} {design_1_i/seven_segment_0/inst/encoded[3]_3[1]} {design_1_i/seven_segment_0/inst/encoded[3]_3[2]} {design_1_i/seven_segment_0/inst/encoded[3]_3[3]}]]
-connect_debug_port u_ila_0/probe13 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[2]_2[0]} {design_1_i/seven_segment_0/inst/encoded[2]_2[1]} {design_1_i/seven_segment_0/inst/encoded[2]_2[2]} {design_1_i/seven_segment_0/inst/encoded[2]_2[3]}]]
-connect_debug_port u_ila_0/probe14 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[7]_7[0]} {design_1_i/seven_segment_0/inst/encoded[7]_7[1]} {design_1_i/seven_segment_0/inst/encoded[7]_7[2]} {design_1_i/seven_segment_0/inst/encoded[7]_7[3]}]]
-connect_debug_port u_ila_0/probe15 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[4]_4[0]} {design_1_i/seven_segment_0/inst/encoded[4]_4[1]} {design_1_i/seven_segment_0/inst/encoded[4]_4[2]} {design_1_i/seven_segment_0/inst/encoded[4]_4[3]}]]
-connect_debug_port u_ila_0/probe16 [get_nets [list {design_1_i/seven_segment_0/inst/encoded[1]_1[0]} {design_1_i/seven_segment_0/inst/encoded[1]_1[1]} {design_1_i/seven_segment_0/inst/encoded[1]_1[2]} {design_1_i/seven_segment_0/inst/encoded[1]_1[3]}]]
 
-set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
-set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
-set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
-connect_debug_port dbg_hub/clk [get_nets clk_IBUF_BUFG]

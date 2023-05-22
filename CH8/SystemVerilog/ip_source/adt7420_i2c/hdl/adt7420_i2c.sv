@@ -25,7 +25,6 @@ module adt7420_i2c
   localparam TIME_TSUSTA = int'(600/CLK_PER);
   localparam TIME_THIGH  = int'(600/CLK_PER);
   localparam TIME_TLOW   = int'(1300/CLK_PER);
-  localparam TIME_TSUDAT = int'(20/CLK_PER);
   localparam TIME_TSUSTO = int'(600/CLK_PER);
   localparam TIME_THDDAT = int'(30/CLK_PER);
   localparam I2C_ADDR = 7'b1001011; // 0x4B

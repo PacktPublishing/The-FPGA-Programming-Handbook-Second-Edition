@@ -13,8 +13,8 @@ entity adt7420_i2c is
         -- Temperature Sensor Interface
         TMP_SCL : inout std_logic;
         TMP_SDA : inout std_logic;
-        TMP_INT : inout std_logic;
-        TMP_CT  : inout std_logic;
+        TMP_INT : inout std_logic; -- currently port is unused
+        TMP_CT  : inout std_logic; -- currently port is unused
 
         fix_temp_tvalid : out std_logic;
         fix_temp_tdata  : out std_logic_vector(15 downto 0));
@@ -27,7 +27,6 @@ architecture rtl of adt7420_i2c is
   constant TIME_TSUSTA : integer := integer(600/CLK_PER);
   constant TIME_THIGH  : integer := integer(600/CLK_PER);
   constant TIME_TLOW   : integer := integer(1300/CLK_PER);
-  constant TIME_TSUDAT : integer := integer(20/CLK_PER);
   constant TIME_TSUSTO : integer := integer(600/CLK_PER);
   constant TIME_THDDAT : integer := integer(30/CLK_PER);
   constant I2C_ADDR    : std_logic_vector := "1001011"; -- 0x4B
@@ -138,7 +137,6 @@ begin
             counter_reset <= '1';
             spi_state     <= IDLE;
           end if;
-        when others => spi_state     <= IDLE;
       end case;
     end if;
   end process;

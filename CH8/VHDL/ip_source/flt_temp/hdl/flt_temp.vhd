@@ -1,8 +1,11 @@
+-- flt_temp.vhd
+-- ------------------------------------
+-- Component to tie together the Floting point temperature sensor
+-- ------------------------------------
+-- Author : Frank Bruno
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
---USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
-USE ieee.numeric_std.all;
+USE iEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
 
@@ -91,7 +94,7 @@ architecture rtl of flt_temp is
   signal temperature : std_logic_vector(31 downto 0);
   signal temperature_valid : std_logic;
   signal convert_pipe : std_logic_vector(2 downto 0);
-  signal divide : array32_t(16 downto 0) :=
+  constant divide : array32_t(16 downto 0) :=
     (0    => x"3F800000", -- 1
      1    => x"3F000000", -- 1/2
      2    => x"3eaaaaab", -- 1/3
@@ -266,6 +269,7 @@ begin
     variable bin_in  : std_logic_vector(31 downto 0);
     variable shifted : std_logic_vector(NUM_SEGMENTS*4-1 downto 0);
     variable bin2bcd : std_logic_vector(NUM_SEGMENTS*4-1 downto 0);
+    variable digit   : unsigned(3 downto 0);
   begin
     bin_in := "00000000000000000000000" & smooth_data(12 downto 4);
     shifted := (others => '0');
@@ -273,8 +277,9 @@ begin
     for i in 29 downto 1 loop
       shifted := shifted(30 downto 0) & bin_in(i);
       for j in 0 to NUM_SEGMENTS-1 loop
-        if shifted(j*4+3 downto j*4) > 4 then
-          shifted(j*4+3 downto j*4) := shifted(j*4+3 downto j*4) + 3;
+        digit := unsigned(shifted(j*4+3 downto j*4));
+        if digit > 4 then
+          shifted(j*4+3 downto j*4) := std_logic_vector(digit + 3);
         end if;
       end loop;
     end loop;
@@ -286,6 +291,7 @@ begin
     variable bin_in  : std_logic_vector(31 downto 0);
     variable shifted : std_logic_vector(NUM_SEGMENTS*4-1 downto 0);
     variable bin2bcd : std_logic_vector(NUM_SEGMENTS*4-1 downto 0);
+    variable digit   : unsigned(3 downto 0);
   begin
     bin_in := std_logic_vector(to_unsigned(fraction_table(to_integer(unsigned(smooth_data(3 downto 0)))), 32));
     shifted := (others => '0');
@@ -293,8 +299,9 @@ begin
     for i in 29 downto 1 loop
       shifted := shifted(30 downto 0) & bin_in(i);
       for j in 0 to NUM_SEGMENTS-1 loop
-        if shifted(j*4+3 downto j*4) > 4 then
-          shifted(j*4+3 downto j*4) := shifted(j*4+3 downto j*4) + 3;
+        digit := unsigned(shifted(j*4+3 downto j*4));
+        if digit > 4 then
+          shifted(j*4+3 downto j*4) := std_logic_vector(digit + 3);
         end if;
       end loop;
     end loop;

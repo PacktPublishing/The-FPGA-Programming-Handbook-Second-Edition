@@ -1,7 +1,10 @@
+-- seven_segment.vhd
+-- ------------------------------------
+-- Seven segment display modified to use axi streamin interface
+-- ------------------------------------
+-- Author : Frank Bruno
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_misc.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
@@ -26,7 +29,7 @@ architecture rtl of seven_segment is
 
   constant CLKS     : integer := CLK_PER * REFR_RATE;
   constant INTERVAL : integer := integer(100000000.0 / real(CLKS));
-  signal refresh_count : std_logic_vector(natural(log2(real(INTERVAL)))-1 downto 0) := (others => '0');
+  signal refresh_count : integer range 0 to INTERVAL := 0;
   signal anode_count : integer range 0 to NUM_SEGMENTS := 0;
   signal segments    : std_logic_vector(NUM_SEGMENTS*8 + 7 downto 0);
   signal encoded     : std_logic_vector(NUM_SEGMENTS*4 + 3 downto 0);
@@ -57,8 +60,8 @@ begin
   process (clk)
   begin
     if rising_edge(clk) then
-      if refresh_count = std_logic_vector(to_unsigned(INTERVAL, refresh_count'length)) then
-        refresh_count <= (others => '0');
+      if refresh_count = INTERVAL then
+        refresh_count <= 0;
         if anode_count = NUM_SEGMENTS - 1 then
           anode_count <= 0;
         else

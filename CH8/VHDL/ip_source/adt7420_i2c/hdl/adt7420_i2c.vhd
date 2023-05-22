@@ -1,8 +1,11 @@
+-- adt7420_i2c.vhd
+-- ------------------------------------
+--Interface to the ADT7420 I2C interface
+-- ------------------------------------
+-- Author : Frank Bruno
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
---USE IEEE.STD_LOGIC_ARITH.ALL;
-USE IEEE.std_logic_SIGNED.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
 
@@ -13,8 +16,8 @@ entity adt7420_i2c is
         -- Temperature Sensor Interface
         TMP_SCL : inout std_logic;
         TMP_SDA : inout std_logic;
-        TMP_INT : inout std_logic;
-        TMP_CT  : inout std_logic;
+        TMP_INT : inout std_logic; -- currently unused
+        TMP_CT  : inout std_logic; -- currently unused
 
         fix_temp_tvalid : out std_logic;
         fix_temp_tdata  : out std_logic_vector(15 downto 0));
@@ -47,6 +50,7 @@ architecture rtl of adt7420_i2c is
   signal i2c_data     : std_logic_vector(I2CBITS - 1 downto 0);
   signal i2c_en       : std_logic_vector(I2CBITS - 1 downto 0);
   signal i2c_capt     : std_logic_vector(I2CBITS - 1 downto 0);
+  attribute MARK_DEBUG of i2c_data, i2c_en, i2c_capt : signal is "TRUE";
   signal counter      : integer range 0 to TIME_1SEC:= 0;
   attribute MARK_DEBUG of counter : signal is "TRUE";
   signal counter_reset : std_logic := '0';
@@ -144,6 +148,6 @@ begin
   end process;
 
   fix_temp_tvalid <= convert;
-  fix_temp_tdata  <= "000" & temp_data(15 downto ); -- lop off lower three unused bits
+  fix_temp_tdata  <= "000" & temp_data(15 downto 3); -- lop off lower three unused bits
 
 end architecture;
