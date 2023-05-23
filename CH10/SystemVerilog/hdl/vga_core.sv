@@ -1,3 +1,9 @@
+// vga_core.sv
+// ------------------------------------
+// Core of the VGA
+// ------------------------------------
+// Author : Frank Bruno
+// Generate VGA timing, store and display data to the DDR memory.
 module vga_core
   (
    // Register address

@@ -239,3 +239,5 @@ set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 
 # For VHDL version
 set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
+set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]

@@ -1,7 +1,11 @@
+-- text_rom.vhd
+-- ------------------------------------
+-- Simple read only memory implementation to store characters
+-- ------------------------------------
+-- Author : Frank Bruno
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE IEEE.std_logic_SIGNED.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
 

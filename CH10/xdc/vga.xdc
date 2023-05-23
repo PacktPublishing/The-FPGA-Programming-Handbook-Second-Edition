@@ -173,8 +173,13 @@ set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
 #set_property -dict { PACKAGE_PIN B14   IOSTANDARD LVCMOS33 } [get_ports { TMP_CT }]; #IO_L2N_T0_AD8N_15 Sch=tmp_ct
 
 ##Omnidirectional Microphone
+set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33} [get_ports m_clk]
+set_property -dict {PACKAGE_PIN H5 IOSTANDARD LVCMOS33} [get_ports m_data]
+set_property -dict {PACKAGE_PIN F5 IOSTANDARD LVCMOS33} [get_ports m_lr_sel]
 
 ##PWM Audio Amplifier
+set_property -dict {PACKAGE_PIN A11 IOSTANDARD LVCMOS33} [get_ports AUD_PWM]
+set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports AUD_SD]
 
 ##USB-RS232 Interface
 #set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { UART_TXD_IN }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
@@ -207,21 +212,26 @@ set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
 #set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[3] }]; #IO_L2N_T0_D03_14 Sch=qspi_dq[3]
 #set_property -dict { PACKAGE_PIN L13   IOSTANDARD LVCMOS33 } [get_ports { QSPI_CSN }]; #IO_L6P_T0_FCS_B_14 Sch=qspi_csn
 
-create_clock -period 7.410 -name vga_clk -add [get_pins u_clk/clk_out1]
+create_clock -period 7.41 -name vga_clk -add [get_pins u_clk/clk_out1]
+set vga_clk_period [get_property PERIOD [get_clocks vga_clk]]
+set clk200_period  [get_property PERIOD [get_clocks clk_out1_sys_clk]]
+set clkui_period  [get_property PERIOD [get_clocks clk_pll_i]]
 
-set_max_delay -datapath_only -from */horiz_display_start_reg* 11.115
-set_max_delay -datapath_only -from */horiz_display_width_reg* 11.115
-set_max_delay -datapath_only -from */horiz_sync_width_reg* 11.115
-set_max_delay -datapath_only -from */horiz_total_width_reg* 11.115
-set_max_delay -datapath_only -from */vert_display_start_reg* 11.115
-set_max_delay -datapath_only -from */vert_display_width_reg* 11.115
-set_max_delay -datapath_only -from */vert_sync_width_reg* 11.115
-set_max_delay -datapath_only -from */vert_total_width_reg* 11.115
-set_max_delay -datapath_only -from */polarity_reg* 11.115
-set_max_delay -datapath_only -from */pitch_reg_reg* 11.115
-set_max_delay -datapath_only -from *sw_capt_reg*/C 18.462
-set_max_delay -datapath_only -from */mc_addr_reg* 11.115
-set_max_delay -datapath_only -from */mc_words_reg* 11.115
+set_max_delay -datapath_only -from */horiz_display_start_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */horiz_display_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */horiz_sync_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */horiz_total_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */vert_display_start_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */vert_display_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */vert_sync_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */vert_total_width_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */disp_addr_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */polarity_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */pixel_depth_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */pitch_reg_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from *sw_capt_reg*/C [expr 1.5 * $clkui_period]
+set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */mc_words_reg* [expr 1.5 * $vga_clk_period]
 
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
 set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
@@ -229,4 +239,5 @@ set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 
 # For VHDL version
 set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
-
+set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]

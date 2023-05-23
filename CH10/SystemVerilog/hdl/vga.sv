@@ -1,3 +1,10 @@
+// vga.sv
+// ------------------------------------
+// Top level of the VGA Display controller
+// ------------------------------------
+// Author : Frank Bruno
+// Simple VGA controller capable of multiple resolutions and corresponding
+// character generator to display the current mode.
 module vga
   (
    input wire          clk,
@@ -23,7 +30,9 @@ module vga
 
    output [0:0]        ddr2_cs_n,
    output [1:0]        ddr2_dm,
-   output [0:0]        ddr2_odt
+   output [0:0]        ddr2_odt,
+
+   output [15:0]        LED
    );
 
   logic                init_calib_complete;
@@ -215,7 +224,7 @@ module vga
      .sys_clk_i                      (mc_clk),
      // Reference Clock Ports
      .clk_ref_i                      (clk200),
-     .sys_rst                        (1'b0)
+     .sys_rst                        (1'b1)
      );
 
   wire [23:0]          int_vga_rgb;
@@ -681,7 +690,7 @@ module vga
 
   logic [31:0]         disp_addr;
 
-  logic [2:0]          button_sync;
+  (* async_reg = "TRUE" *) logic [2:0]          button_sync;
   logic [4:0]          sw_capt;
   logic [4:0]          wr_count;
 
@@ -692,7 +701,7 @@ module vga
 
   logic [1:0] last_write;
   logic       update_text;
-  (* mark_debug = "TRUE" *) logic [2:0] update_text_sync;
+  (* async_reg = "TRUE" *) logic [2:0] update_text_sync;
 
   initial begin
     update_text      = '0;
@@ -1064,6 +1073,20 @@ module vga
     text_sm = TEXT_IDLE;
   end
 
+  logic [3:0] button_count = '0;
+  assign LED[0] = text_sm == TEXT_IDLE;
+  assign LED[1] = text_sm == TEXT_CLR0;
+  assign LED[2] = text_sm == TEXT_CLR1;
+  assign LED[3] = text_sm == TEXT_CLR2;
+  assign LED[4] = text_sm == TEXT_WRITE0;
+  assign LED[5] = text_sm == TEXT_WRITE1;
+  assign LED[6] = text_sm == TEXT_WRITE2;
+  assign LED[7] = text_sm == TEXT_WRITE3;
+  assign LED[8] = text_sm == TEXT_WRITE4;
+  assign LED[9] = text_sm == TEXT_WRITE5;
+  assign LED[10] = '1;
+  assign LED[11] = '0;
+  assign LED[15:12] = button_count;
   logic [25:0]      total_page;
   logic [2:0][3:0]  char_x;
   logic [12:0]      real_pitch;
@@ -1078,6 +1101,7 @@ module vga
     case (text_sm)
       TEXT_IDLE: begin
         if (^update_text_sync[2:1]) begin
+          button_count <= button_count + 1;
           // Clear the screen
           res_text_capt <= res_text[sw_capt];
           total_page <= resolution[sw_capt].vert_display_width *
