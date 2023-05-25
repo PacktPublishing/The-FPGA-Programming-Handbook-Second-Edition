@@ -1,9 +1,16 @@
+-- i2c_temp_flt.vhd
+-- ------------------------------------
+-- Floating point temperature sensor module
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Floating point version of the temperature sensor project
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
-use WORK.counting_buttons_pkg.all;
 use WORK.temp_pkg.all;
+USE WORK.counting_buttons_pkg.all;
+USE WORK.i2c_temp_flt_components_pkg.all;
 use XPM.vcomponents.all;
 
 entity i2c_temp_flt is
@@ -15,11 +22,14 @@ entity i2c_temp_flt is
         -- Temperature Sensor Interface
         TMP_SCL : inout std_logic;
         TMP_SDA : inout std_logic;
-        TMP_INT : inout std_logic;
-        TMP_CT  : inout std_logic;
+        TMP_INT : inout std_logic; -- Currently unused
+        TMP_CT  : inout std_logic; -- currently unused
 
         -- Switch Interface
         SW      : in    std_logic;
+
+        -- LED Interface
+        LED     : out   std_logic;
 
         -- Data to be displayed
         temp_valid : out    std_logic;
@@ -27,61 +37,6 @@ entity i2c_temp_flt is
 end entity i2c_temp_flt;
 
 architecture rtl of i2c_temp_flt is
-  COMPONENT fix_to_float
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
-    );
-  END COMPONENT;
-  COMPONENT flt_to_fix
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(15 DOWNTO 0)
-    );
-  END COMPONENT;
-  COMPONENT fp_addsub
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_operation_tvalid : IN STD_LOGIC;
-      s_axis_operation_tdata : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
-    );
-  END COMPONENT;
-  COMPONENT fp_fused_mult_add
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_c_tvalid : IN STD_LOGIC;
-      s_axis_c_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
-    );
-  END COMPONENT;
-  COMPONENT fp_mult
-    PORT (
-      aclk : IN STD_LOGIC;
-      s_axis_a_tvalid : IN STD_LOGIC;
-      s_axis_a_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      s_axis_b_tvalid : IN STD_LOGIC;
-      s_axis_b_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      m_axis_result_tvalid : OUT STD_LOGIC;
-      m_axis_result_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
-    );
-  END COMPONENT;
 
   attribute MARK_DEBUG : string;
   constant TIME_1SEC   : integer := integer(INTERVAL/CLK_PER); -- Clock ticks in 1 sec
@@ -89,7 +44,6 @@ architecture rtl of i2c_temp_flt is
   constant TIME_TSUSTA : integer := integer(600/CLK_PER);
   constant TIME_THIGH  : integer := integer(600/CLK_PER);
   constant TIME_TLOW   : integer := integer(1300/CLK_PER);
-  constant TIME_TSUDAT : integer := integer(20/CLK_PER);
   constant TIME_TSUSTO : integer := integer(600/CLK_PER);
   constant TIME_THDDAT : integer := integer(30/CLK_PER);
   constant I2C_ADDR    : std_logic_vector := "1001011"; -- 0x4B
@@ -151,9 +105,10 @@ architecture rtl of i2c_temp_flt is
   signal smooth_convert : std_logic;
   signal smooth_count : integer range 0 to SMOOTHING := 0;
   signal dout : std_logic_vector(31 downto 0);
-  signal sample_count : integer range 0 to 32 := 0;
   signal rden : std_logic := '0';
+  attribute MARK_DEBUG of rden : signal is "TRUE";
   signal convert_pipe : std_logic_vector(2 downto 0);
+  attribute MARK_DEBUG of convert_pipe : signal is "TRUE";
   signal divide : array_t(16 downto 0)(31 downto 0) :=
     (0    => x"3F800000", -- 1
      1    => x"3F000000", -- 1/2
@@ -199,6 +154,8 @@ architecture rtl of i2c_temp_flt is
   signal addsub_data : std_logic_vector(31 downto 0);
   signal addsub_valid : std_logic;
 begin
+
+  LED <= SW;
 
   TMP_SCL <= 'Z' when scl_en else '0';
   TMP_SDA <= 'Z' when sda_en else '0';
@@ -278,7 +235,6 @@ begin
             counter_reset <= '1';
             spi_state     <= IDLE;
           end if;
-        when others => spi_state     <= IDLE;
       end case;
     end if;
   end process;
@@ -342,8 +298,6 @@ begin
          m_axis_result_tdata    => fused_data);
 
       process (clk)
-        variable data_mult : std_logic_vector(51 downto 0);
-        variable data_shift : std_logic_vector(51 downto 0);
       begin
         if rising_edge(clk) then
           rden           <= '0';
@@ -358,7 +312,7 @@ begin
           end if;
           if addsub_valid then
             accumulator <= addsub_data;
-            if fp_add_op = x"0" then
+            if fp_add_op = x"00" then
               convert_pipe(1) <= '1';
               rden            <= '1';
             else
@@ -370,7 +324,7 @@ begin
             fp_add_op       <= x"01"; -- subtract
             convert_pipe(0) <= '1';
             addsub_in(0)    <= accumulator;
-            if smooth_count = 16 then
+            if smooth_count = SMOOTHING then
               addsub_in(1)  <= dout;
             else
               addsub_in(1)  <= x"00000000";
@@ -378,10 +332,9 @@ begin
           end if;
           if convert_pipe(2) then
             -- Drive data into multiplier
-            if sample_count < 16 then sample_count <= sample_count + 1; end if;
-            if smooth_count < 16 then smooth_count <= smooth_count + 1; end if;
+            if smooth_count < SMOOTHING then smooth_count <= smooth_count + 1; end if;
             mult_in(0)    <= accumulator;
-            mult_in(1)    <= divide(sample_count);
+            mult_in(1)    <= divide(smooth_count);
             mult_in_valid <= '1';
           end if;
           if result_valid then
@@ -413,14 +366,14 @@ begin
   process (clk)
     variable sd_int : integer range 0 to 15;
   begin
-    sd_int := to_integer(unsigned(smooth_data(3 downto 0)));
     if rising_edge(clk) then
       temp_valid <= '0';
       if smooth_convert then
         encoded_int  <= bin_to_bcd("00000000000000000000000" & smooth_data(12 downto 4)); -- Decimal portion
+        sd_int       := to_integer(unsigned(smooth_data(3 downto 0)));
         encoded_frac <= bin_to_bcd(std_logic_vector(to_unsigned(fraction_table(sd_int), 32)));
         digit_point  <= "00010000";
-        temp_valid <= '1';
+        temp_valid   <= '1';
       end if;
     end if;
   end process;

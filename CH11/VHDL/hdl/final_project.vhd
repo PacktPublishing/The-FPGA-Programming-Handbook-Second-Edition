@@ -159,6 +159,7 @@ architecture rtl of final_project is
   signal pdm_dout_fifo : std_logic_vector(pdm_length-1 downto 0);
   signal pdm_dout  : pdm_data_t;
   signal pdm_empty : std_logic;
+  attribute MARK_DEBUG of pdm_empty, pdm_pop, pdm_dout : signal is "TRUE";
 
   signal update_temp      : std_logic := '0';
   signal update_temp_sync : std_logic_vector(2 downto 0) := "000";

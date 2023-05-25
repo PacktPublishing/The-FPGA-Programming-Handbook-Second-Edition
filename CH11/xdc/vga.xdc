@@ -230,21 +230,20 @@ set_max_delay -datapath_only -from *sw_capt_reg*/C 18.462
 set_max_delay -datapath_only -from */mc_addr_reg* 11.115
 set_max_delay -datapath_only -from */mc_words_reg* 11.115
 set_max_delay -datapath_only -from *ps2_data_capt_reg* 11.115
-set_false_path -from [get_pins {u_i2c_wrapper/capt_temp_reg*/C}] -to *
 
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
 set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
 set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 set_false_path -from ps2_toggle_reg/C -to ps2_sync_reg[0]/D
+set_false_path -from u_vga_core/vga_sync_toggle_r_reg*/C -to vga_sync_toggle_sync_reg[0]/D
 
 set_false_path -from [get_pins u_vga_core/plusOp/CLK] -to *
 set_false_path -from [get_pins u_vga_core/plusOp/CLK] -to *
-set_false_path -from [get_pins u_vga_core/plusOp__0/CLK] -to *
 
 set_false_path -from [get_pins u_i2c_wrapper/update_temp_reg/C] -to [get_pins {update_temp_sync_reg[0]/D}]
 
-set_false_path -from [get_pins u_vga_core/vga_sync_toggle_*reg/C] -to [get_pins {vga_sync_toggle_sync_reg[0]/D}]
 
-# VHDL timing fixes
-set_max_delay -datapath_only -from [get_pins {u_vga_core/next_addr*_psdsp*/C}] -to [get_pins {u_vga_core/next_addr_reg*/D}] 11.0
-set_max_delay -datapath_only -from [get_pins {u_i2c_wrapper/capt_temp_r_reg*/C}] -to [get_pins {capt_text_reg*/D}] 11.0
+set_max_delay -from [get_pins {u_vga_core/next_addr[12]_i_1_psdsp/C}] -to [get_pins {u_vga_core/next_addr_reg[12]/D}] 11.000
+set_max_delay -datapath_only -from [get_pins u_vga_core/next_addr*_psdsp*/C] -to [get_pins u_vga_core/next_addr_reg*/D] 11.000
+set_max_delay -datapath_only -from [get_pins u_vga_core/next_addr0/CLK] -to [get_pins u_vga_core/next_addr_reg*/D] 11.000
+set_max_delay -datapath_only -from [get_pins u_i2c_wrapper/capt_temp_r_reg*/C] -to [get_pins capt_text_reg*/D] 11.000

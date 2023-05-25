@@ -312,6 +312,8 @@ begin
     end if;
   end process;
 
+vga_sync_toggle <= vga_sync_toggle_r;
+
   process (vga_clk)
     variable gt_start, lt_end, hsync_en, gt_vbstart, lt_vbend, vsync_en : std_logic;
     variable right_side, hsync_val, vb_right, vsync_start : unsigned(11 downto 0);
