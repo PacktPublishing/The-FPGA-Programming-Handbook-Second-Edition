@@ -1,9 +1,9 @@
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE IEEE.std_logic_UNSIGNED.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
+use WORK.counting_buttons_pkg.all;
 use WORK.temp_pkg.all;
 
 entity i2c_wrapper is
@@ -20,28 +20,9 @@ entity i2c_wrapper is
            ftemp       : in    std_logic;
 
            update_temp : out   std_logic;
-           capt_temp   : out   array_t (15 downto 0)(7 downto 0));
+           capt_temp   : out   array_t(15 downto 0)(7 downto 0));
 end entity i2c_wrapper;
 architecture rtl of i2c_wrapper is
-  component i2c_temp_flt is
-    generic (SMOOTHING    : integer := 16;
-             INTERVAL     : integer := 1000000000;
-             NUM_SEGMENTS : integer := 8;
-             CLK_PER      : integer := 10);
-    port (clk     : in std_logic; -- 100Mhz clock
-          -- Temperature Sensor Interface
-          TMP_SCL : inout std_logic;
-          TMP_SDA : inout std_logic;
-          TMP_INT : inout std_logic;
-          TMP_CT  : inout std_logic;
-
-          -- Switch Interface
-          SW      : in    std_logic;
-
-          -- Data to be displayed
-          temp_valid : out    std_logic;
-          encoded    : out array_t (NUM_SEGMENTS-1 downto 0)(3 downto 0));
-  end component i2c_temp_flt;
   signal encoded    : array_t (7 downto 0)(3 downto 0);
   signal temp_valid : std_logic;
   -- capt_temp               "     F 0000.0000";
@@ -54,7 +35,7 @@ begin
   capt_temp <= capt_temp_r;
 
   -- i2C temperature sensor
-  u_i2c_temp_flt : i2c_temp_flt
+  u_i2c_temp_flt : entity work.i2c_temp_flt
     generic map (CLK_PER        => CLK_PER)
     port map    (clk            => clk,
 

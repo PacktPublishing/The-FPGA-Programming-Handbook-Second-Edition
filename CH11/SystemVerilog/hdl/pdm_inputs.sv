@@ -1,3 +1,8 @@
+// pdm_inputs.sv
+// ------------------------------------
+// PDM input block
+// ------------------------------------
+// Author : Frank Bruno
 `timescale 1ns/10ps
 module pdm_inputs
   #

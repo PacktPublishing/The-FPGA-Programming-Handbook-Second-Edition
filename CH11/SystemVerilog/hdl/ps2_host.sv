@@ -1,3 +1,11 @@
+// ps2_host.sv
+// ------------------------------------
+// PS/2 host controller interface
+// ------------------------------------
+// Author : Frank Bruno
+// Takes a PS/2 interface and generate data back into the FPGA.
+// Also allows the FPGA to communicate wit hthe PS/2 device.
+// Currently only keyboards are supported
 module ps2_host
   #
   (

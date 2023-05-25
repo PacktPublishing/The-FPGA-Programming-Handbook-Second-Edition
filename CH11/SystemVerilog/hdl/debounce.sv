@@ -1,3 +1,10 @@
+// debounce.sv
+// ------------------------------------
+// Simple debouncer circuit
+// ------------------------------------
+// Author : Frank Bruno
+// Takes a signal in and ensures that it has switched to a new state
+// for a number of CYCLES before switching the output.
 module debounce
   #
   (

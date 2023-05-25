@@ -1,3 +1,8 @@
+// text_rom.sv
+// ------------------------------------
+// Simple read only memory implementation to store characters
+// ------------------------------------
+// Author : Frank Bruno
 module text_rom
   (
    input              clock, // Clock

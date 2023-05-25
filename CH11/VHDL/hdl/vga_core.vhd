@@ -1,7 +1,12 @@
+-- vga_core.vhd
+-- ------------------------------------
+-- Core of the VGA
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Generate VGA timing, store and display data to the DDR memory.
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE IEEE.std_logic_UNSIGNED.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
 
@@ -79,30 +84,30 @@ architecture rtl of vga_core is
   signal reg_we : std_logic;
   signal reg_din : std_logic_vector(31 downto 0);
   signal reg_be  : std_logic_vector(3 downto 0);
-  signal horiz_display_start_reg : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(47, 12));
-  signal horiz_display_width_reg : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(640, 12));
-  signal horiz_sync_width_reg    : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(96, 12));
-  signal horiz_total_width_reg   : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(799, 12));
-  signal vert_display_start_reg  : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(31, 12));
-  signal vert_display_width_reg  : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(480, 12));
-  signal vert_sync_width_reg     : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(2, 12));
-  signal vert_total_width_reg    : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(524, 12));
-  signal disp_addr_reg           : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0, 32));
+  signal horiz_display_start_reg : unsigned(11 downto 0) := to_unsigned(47, 12);
+  signal horiz_display_width_reg : unsigned(11 downto 0) := to_unsigned(640, 12);
+  signal horiz_sync_width_reg    : unsigned(11 downto 0) := to_unsigned(96, 12);
+  signal horiz_total_width_reg   : unsigned(11 downto 0) := to_unsigned(799, 12);
+  signal vert_display_start_reg  : unsigned(11 downto 0) := to_unsigned(31, 12);
+  signal vert_display_width_reg  : unsigned(11 downto 0) := to_unsigned(480, 12);
+  signal vert_sync_width_reg     : unsigned(11 downto 0) := to_unsigned(2, 12);
+  signal vert_total_width_reg    : unsigned(11 downto 0) := to_unsigned(524, 12);
+  signal disp_addr_reg           : unsigned(31 downto 0) := to_unsigned(0, 32);
   signal pixel_depth_reg         : std_logic_vector(7 downto 0);
-  signal polarity_reg            : std_logic_vector(1 downto 0)  := std_logic_vector(to_unsigned(0, 2));
-  signal pitch_reg               : std_logic_vector(12 downto 0) := std_logic_vector(to_unsigned(5*16, 13));
-  signal horiz_display_start     : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(47, 12));
-  signal horiz_display_width     : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(640, 12));
-  signal horiz_sync_width        : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(96, 12));
-  signal horiz_total_width       : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(799, 12));
-  signal vert_display_start      : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(31, 12));
-  signal vert_display_width      : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(480, 12));
-  signal vert_sync_width         : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(2, 12));
-  signal vert_total_width        : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(524, 12));
-  signal disp_addr               : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0, 32));
+  signal polarity_reg            : unsigned(1 downto 0)  := to_unsigned(0, 2);
+  signal pitch_reg               : unsigned(12 downto 0) := to_unsigned(5*16, 13);
+  signal horiz_display_start     : unsigned(11 downto 0) := to_unsigned(47, 12);
+  signal horiz_display_width     : unsigned(11 downto 0) := to_unsigned(640, 12);
+  signal horiz_sync_width        : unsigned(11 downto 0) := to_unsigned(96, 12);
+  signal horiz_total_width       : unsigned(11 downto 0) := to_unsigned(799, 12);
+  signal vert_display_start      : unsigned(11 downto 0) := to_unsigned(31, 12);
+  signal vert_display_width      : unsigned(11 downto 0) := to_unsigned(480, 12);
+  signal vert_sync_width         : unsigned(11 downto 0) := to_unsigned(2, 12);
+  signal vert_total_width        : unsigned(11 downto 0) := to_unsigned(524, 12);
+  signal disp_addr               : unsigned(31 downto 0) := to_unsigned(0, 32);
   signal pixel_depth             : std_logic_vector(7 downto 0);
-  signal polarity                : std_logic_vector(1 downto 0)  := std_logic_vector(to_unsigned(0, 2));
-  signal pitch                   : std_logic_vector(12 downto 0) := std_logic_vector(to_unsigned(5*16, 13));
+  signal polarity                : unsigned(1 downto 0)  := to_unsigned(0, 2);
+  signal pitch                   : unsigned(12 downto 0) := to_unsigned(5*16, 13);
   signal vga_pop                 : std_logic;
   signal vga_data                : std_logic_vector(127 downto 0);
   signal vga_empty               : std_logic;
@@ -111,15 +116,15 @@ architecture rtl of vga_core is
   signal mc_req_sync             : std_logic_vector(2 downto 0) := "000";
   attribute ASYNC_REG of load_mode_sync : signal is "TRUE";
   attribute ASYNC_REG of mc_req_sync : signal is "TRUE";
-  signal horiz_count             : std_logic_vector(11 downto 0) := (others => '0');
-  signal vert_count              : std_logic_vector(11 downto 0) := (others => '0');
+  signal horiz_count             : unsigned(11 downto 0) := (others => '0');
+  signal vert_count              : unsigned(11 downto 0) := (others => '0');
   signal mc_req                  : std_logic := '0';
-  signal mc_words                : std_logic_vector(8 downto 0);
-  signal mc_addr                 : std_logic_vector(24 downto 0);
+  signal mc_words                : unsigned(8 downto 0);
+  signal mc_addr                 : unsigned(24 downto 0);
   signal fifo_rst                : std_logic := '0';
-  signal scanline                : std_logic_vector(11 downto 0);
+  signal scanline                : unsigned(11 downto 0);
   signal last_hblank             : std_logic;
-  signal pix_count               : std_logic_vector(6 downto 0);
+  signal pix_count               : unsigned(6 downto 0);
   signal rd_rst_busy             : std_logic;
   type scan_cs_t is (SCAN_IDLE, SCAN_OUT);
   signal scan_cs : scan_cs_t := SCAN_IDLE;
@@ -128,12 +133,12 @@ architecture rtl of vga_core is
   type mem_cs_t is (MEM_IDLE, MEM_W4RSTH, MEM_W4RSTL,
                     MEM_W4RDY0, MEM_W4RDY1, MEM_REQ);
   signal mem_cs : mem_cs_t := MEM_IDLE;
-  signal next_addr               : std_logic_vector(28 downto 0);
-  signal len_diff                : std_logic_vector(10 downto 0);
+  signal next_addr               : unsigned(28 downto 0);
+  signal len_diff                : unsigned(10 downto 0);
 
   signal mem_arid_r              : std_logic_vector(3 downto 0) := x"0";
   signal mem_araddr_r            : std_logic_vector(26 downto 0) := (others => '0');
-  signal mem_arlen_r             : std_logic_vector(7 downto 0) := (others => '0');
+  signal mem_arlen_r             : unsigned(7 downto 0) := (others => '0');
   signal mem_arsize_r            : std_logic_vector(2 downto 0) := "100"; -- 16bytes
   signal mem_arburst_r           : std_logic_vector(1 downto 0) := "01";  -- incrementing
   signal mem_arlock_r            : std_logic := '0';
@@ -158,7 +163,7 @@ begin
 
   mem_arid    <= mem_arid_r;
   mem_araddr  <= mem_araddr_r;
-  mem_arlen   <= mem_arlen_r;
+  mem_arlen   <= std_logic_vector(mem_arlen_r);
   mem_arsize  <= mem_arsize_r;
   mem_arburst <= mem_arburst_r;
   mem_arlock  <= mem_arlock_r;
@@ -178,12 +183,10 @@ begin
   vga_vsync   <= vga_vsync_r;
   vga_vblank  <= vga_vblank_r;
   vga_rgb     <= vga_rgb_r;
-  vga_sync_toggle <= vga_sync_toggle_r;
 
   process (reg_clk)
     variable valid : std_logic_vector(1 downto 0);
   begin
-    valid := reg_awvalid & reg_awvalid;
     if rising_edge(reg_clk) then
       reg_we     <= '0';
       reg_bvalid_r <= '0';
@@ -192,6 +195,7 @@ begin
         when SM_IDLE =>
           reg_awready   <= '1';
           reg_wready_r  <= '1';
+          valid := reg_awvalid & reg_awvalid;
           case valid is
             when "11" =>
               -- Addr and data are available
@@ -271,36 +275,36 @@ begin
       if reg_we then
         case reg_addr is
           when std_logic_vector(H_DISP_START_WIDTH) =>
-            if reg_be(0) then horiz_display_start_reg(7 downto 0)  <= reg_din(7 downto 0); end if;
-            if reg_be(1) then horiz_display_start_reg(11 downto 8) <= reg_din(11 downto 8); end if;
-            if reg_be(2) then horiz_display_width_reg(7 downto 0)  <= reg_din(23 downto 16); end if;
-            if reg_be(3) then horiz_display_width_reg(11 downto 8) <= reg_din(27 downto 24); end if;
+            if reg_be(0) then horiz_display_start_reg(7 downto 0)  <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then horiz_display_start_reg(11 downto 8) <= unsigned(reg_din(11 downto 8)); end if;
+            if reg_be(2) then horiz_display_width_reg(7 downto 0)  <= unsigned(reg_din(23 downto 16)); end if;
+            if reg_be(3) then horiz_display_width_reg(11 downto 8) <= unsigned(reg_din(27 downto 24)); end if;
           when std_logic_vector(H_DISP_FPEND_TOTAL) =>
-            if reg_be(0) then horiz_sync_width_reg(7 downto 0)   <= reg_din(7 downto 0); end if;
-            if reg_be(1) then horiz_sync_width_reg(11 downto 08)  <= reg_din(11 downto 8); end if;
-            if reg_be(2) then horiz_total_width_reg(7 downto 00)  <= reg_din(23 downto 16); end if;
-            if reg_be(3) then horiz_total_width_reg(11 downto 08) <= reg_din(27 downto 24); end if;
+            if reg_be(0) then horiz_sync_width_reg(7 downto 0)     <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then horiz_sync_width_reg(11 downto 08)   <= unsigned(reg_din(11 downto 8)); end if;
+            if reg_be(2) then horiz_total_width_reg(7 downto 00)   <= unsigned(reg_din(23 downto 16)); end if;
+            if reg_be(3) then horiz_total_width_reg(11 downto 08)  <= unsigned(reg_din(27 downto 24)); end if;
           when std_logic_vector(V_DISP_START_WIDTH) =>
-            if reg_be(0) then vert_display_start_reg(7 downto 00)  <= reg_din(7 downto 0); end if;
-            if reg_be(1) then vert_display_start_reg(11 downto 08) <= reg_din(11 downto 8); end if;
-            if reg_be(2) then vert_display_width_reg(7 downto 00)  <= reg_din(23 downto 16); end if;
-            if reg_be(3) then vert_display_width_reg(11 downto 08) <= reg_din(27 downto 24); end if;
+            if reg_be(0) then vert_display_start_reg(7 downto 00)  <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then vert_display_start_reg(11 downto 08) <= unsigned(reg_din(11 downto 8)); end if;
+            if reg_be(2) then vert_display_width_reg(7 downto 00)  <= unsigned(reg_din(23 downto 16)); end if;
+            if reg_be(3) then vert_display_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24)); end if;
           when std_logic_vector(V_DISP_FPEND_TOTAL) =>
-            if reg_be(0) then vert_sync_width_reg(7 downto 00)   <= reg_din(7 downto 0); end if;
-            if reg_be(1) then vert_sync_width_reg(11 downto 08)  <= reg_din(11 downto 8); end if;
-            if reg_be(2) then vert_total_width_reg(7 downto 00)  <= reg_din(23 downto 16); end if;
-            if reg_be(3) then vert_total_width_reg(11 downto 08) <= reg_din(27 downto 24); end if;
+            if reg_be(0) then vert_sync_width_reg(7 downto 00)     <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then vert_sync_width_reg(11 downto 08)    <= unsigned(reg_din(11 downto 8)); end if;
+            if reg_be(2) then vert_total_width_reg(7 downto 00)    <= unsigned(reg_din(23 downto 16)); end if;
+            if reg_be(3) then vert_total_width_reg(11 downto 08)   <= unsigned(reg_din(27 downto 24)); end if;
           when std_logic_vector(V_DISP_POLARITY_FORMAT) =>
-            if reg_be(0) then polarity_reg(1 downto 00)     <= reg_din(1 downto 0); end if;
-            if reg_be(1) then pixel_depth_reg(7 downto 00)  <= reg_din(15 downto 8); end if;
+            if reg_be(0) then polarity_reg(1 downto 00)            <= unsigned(reg_din(1 downto 0)); end if;
+            if reg_be(1) then pixel_depth_reg(7 downto 00)         <=          reg_din(15 downto 8); end if;
           when std_logic_vector(DISPLAY_ADDR) =>
-            if reg_be(0) then disp_addr_reg(7 downto 00)    <= reg_din(7 downto 0); end if;
-            if reg_be(1) then disp_addr_reg(15 downto 08)   <= reg_din(15 downto 8); end if;
-            if reg_be(2) then disp_addr_reg(23 downto 016)  <= reg_din(23 downto 16); end if;
-            if reg_be(3) then disp_addr_reg(31 downto 024)  <= reg_din(31 downto 24); end if;
+            if reg_be(0) then disp_addr_reg(7 downto 00)           <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then disp_addr_reg(15 downto 08)          <= unsigned(reg_din(15 downto 8)); end if;
+            if reg_be(2) then disp_addr_reg(23 downto 016)         <= unsigned(reg_din(23 downto 16)); end if;
+            if reg_be(3) then disp_addr_reg(31 downto 024)         <= unsigned(reg_din(31 downto 24)); end if;
           when std_logic_vector(DISPLAY_PITCH) =>
-            if reg_be(0) then pitch_reg(7 downto 00)        <= reg_din(7 downto 0); end if;
-            if reg_be(1) then pitch_reg(12 downto 08)       <= reg_din(12 downto 8); end if;
+            if reg_be(0) then pitch_reg(7 downto 00)               <= unsigned(reg_din(7 downto 0)); end if;
+            if reg_be(1) then pitch_reg(12 downto 08)              <= unsigned(reg_din(12 downto 8)); end if;
           when std_logic_vector(VGA_LOAD_MODE) => if reg_be(0) then load_mode <= not load_mode; end if;
           when others =>
         end case;
@@ -310,43 +314,43 @@ begin
 
   process (vga_clk)
     variable gt_start, lt_end, hsync_en, gt_vbstart, lt_vbend, vsync_en : std_logic;
-    variable right_side, hsync_val, vb_right, vsync_start : std_logic_vector(11 downto 0);
+    variable right_side, hsync_val, vb_right, vsync_start : unsigned(11 downto 0);
   begin
-    if horiz_count > horiz_display_start then
-      gt_start := '1';
-    else
-      gt_start := '0';
-    end if;
-    right_side := horiz_display_start + horiz_display_width;
-    if horiz_count <= right_side then
-      lt_end := '1';
-    else
-      lt_end := '0';
-    end if;
-    hsync_val := horiz_total_width - horiz_sync_width;
-    if horiz_count > hsync_val then
-      hsync_en := '1';
-    else
-      hsync_en := '0';
-    end if;
-    if vert_count > vert_display_start then
-      gt_vbstart := '1';
-    else
-      gt_vbstart := '0';
-    end if;
-    vb_right := vert_display_start + vert_display_width;
-    if vert_count <= vb_right then
-      lt_vbend := '1';
-    else
-      lt_vbend := '0';
-    end if;
-    vsync_start := vert_total_width - vert_sync_width;
-    if vert_count > vsync_start then
-      vsync_en := '1';
-    else
-      vsync_en := '0';
-    end if;
     if rising_edge(vga_clk) then
+      if horiz_count > horiz_display_start then
+        gt_start := '1';
+      else
+        gt_start := '0';
+      end if;
+      right_side := horiz_display_start + horiz_display_width;
+      if horiz_count <= right_side then
+        lt_end := '1';
+      else
+        lt_end := '0';
+      end if;
+      hsync_val := horiz_total_width - horiz_sync_width;
+      if horiz_count > hsync_val then
+        hsync_en := '1';
+      else
+        hsync_en := '0';
+      end if;
+      if vert_count > vert_display_start then
+        gt_vbstart := '1';
+      else
+        gt_vbstart := '0';
+      end if;
+      vb_right := vert_display_start + vert_display_width;
+      if vert_count <= vb_right then
+        lt_vbend := '1';
+      else
+        lt_vbend := '0';
+      end if;
+      vsync_start := vert_total_width - vert_sync_width;
+      if vert_count > vsync_start then
+        vsync_en := '1';
+      else
+        vsync_en := '0';
+      end if;
       load_mode_sync <= load_mode_sync(1 downto 0) & load_mode;
       if xor(load_mode_sync(2 downto 1)) then
         horiz_display_start <= horiz_display_start_reg;
@@ -466,7 +470,7 @@ begin
         when MEM_W4RSTL =>
           if not wr_rst_busy then
             mem_arid_r    <= (others => '0');
-            mem_araddr_r  <= "000000" & mc_addr(20 downto 0);
+            mem_araddr_r  <= "000000" & std_logic_vector(mc_addr(20 downto 0));
             mem_arsize_r  <= "100"; -- 16 bytes
             mem_arburst_r <= "01"; -- incrementing
             mem_arlock_r  <= '0';
@@ -507,7 +511,7 @@ begin
         when MEM_REQ =>
           if not wr_rst_busy then
             mem_arid_r    <= (others => '0');
-            mem_araddr_r  <= next_addr(26 downto 0);
+            mem_araddr_r  <= std_logic_vector(next_addr(26 downto 0));
             mem_arsize_r  <= "100"; -- 16 bytes
             mem_arburst_r <= "01"; -- incrementing
             mem_arlock_r  <= '0';

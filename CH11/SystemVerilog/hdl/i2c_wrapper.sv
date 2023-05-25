@@ -1,3 +1,8 @@
+// i2c_wrapper.sv
+// ------------------------------------
+// Wrap the i2c temperature interface for the final project
+// ------------------------------------
+// Author : Frank Bruno
 module i2c_wrapper
   #
   (

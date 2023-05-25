@@ -1,6 +1,13 @@
+-- ps2_host.vhd
+-- ------------------------------------
+-- PS/2 host controller interface
+-- ------------------------------------
+-- Author : Frank Bruno
+-- Takes a PS/2 interface and generate data back into the FPGA.
+-- Also allows the FPGA to communicate wit hthe PS/2 device.
+-- Currently only keyboards are supported
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE IEEE.std_logic_UNSIGNED.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
 use XPM.vcomponents.all;
@@ -60,7 +67,7 @@ architecture rtl of ps2_host is
                          START1, START2, START3, START4,
                          START5, START6);
   signal start_state : start_state_t := START_IDLE;
-  signal send_set : std_logic;
+  signal send_set : std_logic := '0';
   signal clr_set : std_logic;
   signal send_data : std_logic_vector(7 downto 0);
   type array8_t is array (natural range <>) of std_logic_vector(7 downto 0);

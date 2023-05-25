@@ -1,3 +1,9 @@
+// final_project.sv
+// ------------------------------------
+// Final project top level
+// ------------------------------------
+// Author : Frank Bruno
+// The final project wraps a PS/2 interface, a VGA and also audio
 module final_project
   (
    input wire          clk,

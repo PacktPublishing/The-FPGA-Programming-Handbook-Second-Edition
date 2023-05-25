@@ -1,8 +1,8 @@
 LIBRARY IEEE, XPM;
 USE IEEE.std_logic_1164.all;
-USE IEEE.std_logic_SIGNED.all;
-USE ieee.numeric_std.all;
+USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
+use WORK.counting_buttons_pkg.all;
 use WORK.temp_pkg.all;
 use XPM.vcomponents.all;
 

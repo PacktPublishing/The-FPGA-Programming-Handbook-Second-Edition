@@ -1,3 +1,9 @@
+// i2c_temp_flt.sv
+// ------------------------------------
+// Floating point temperature sensor module
+// ------------------------------------
+// Author : Frank Bruno
+// Floating point version of the temperature sensor project
 `timescale 1ns/10ps
 module i2c_temp_flt
   #
@@ -160,7 +166,6 @@ module i2c_temp_flt
 
   logic [15:0] smooth_data;
   logic        smooth_convert;
-  logic [4:0]  sample_count;
 
   generate
     if (SMOOTHING == 0) begin : g_NO_SMOOTH
@@ -201,7 +206,6 @@ module i2c_temp_flt
         rden         = '0;
         smooth_count = '0;
         accumulator  = '0;
-        sample_count = '0;
         divide[0]    = 32'h3F800000; // 1
         divide[1]    = 32'h3F000000; // 1/2
         divide[2]    = 32'h3eaaaaab; // 1/3
@@ -313,14 +317,13 @@ module i2c_temp_flt
           fp_add_op       <= 8'b1; // subtract
           convert_pipe[0] <= '1;
           addsub_in[0]    <= accumulator.raw;
-          addsub_in[1]    <= (smooth_count == 16) ? dout : '0;
+          addsub_in[1]    <= (smooth_count == SMOOTHING) ? dout : '0;
         end
         if (convert_pipe[2]) begin
           // Drive data into multiplier
-          if (~sample_count[4]) sample_count <= sample_count + 1'b1;
-          if (smooth_count != 16) smooth_count  <= smooth_count + 1'b1;
+          if (smooth_count < SMOOTHING) smooth_count  <= smooth_count + 1'b1;
           mult_in[0]    <= accumulator.raw;
-          mult_in[1]    <= divide[sample_count];
+          mult_in[1]    <= divide[smooth_count];
           mult_in_valid <= '1;
         end
         if (result_valid) begin
