@@ -1,0 +1,158 @@
+#!/bin/bash
+###########################
+#
+#  Copyright (C) 2014 Francis Bruno, All Rights Reserved
+#
+#  This program is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by the Free
+#  Software Foundation; either version 3 of the License, or (at your option)
+#  any later version.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE.
+#  See the GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License along with
+#  this program; if not, see <http://www.gnu.org/licenses>.
+#
+#  This code is available under licenses for commercial use. Please contact
+#  Francis Bruno for more information.
+#
+#  http://www.gplgpu.com
+#  http://www.asicsolutions.com
+#
+# runsim
+# this utility runs the test suite
+# Directory structure:
+# Root: this is the directory to run the stuff in
+# Root->tests: tests are stored gzipped
+#
+# runsim [-a | -f filename | -t test]
+#
+# -a:  Verify all tests
+# -t:  Verify a single test
+
+# setup defaults
+build_list=uart_build
+mode=all
+usage="Usage: $0 [-a | -f test] [-b build_list]"
+
+while getopts "af:t:b:" opt; do
+  case $opt in
+    a ) mode=all;;
+    f ) mode=single
+        filename=$OPTARG ;;
+    b ) build_list=$OPTARG ;;
+    \? ) echo $usage
+         exit 1 ;;
+  esac
+done
+
+# First pass through remove pass and fail lists
+rm -f passed
+rm -f failed
+echo "Tests Passed:" > passed
+echo "Tests Failed:" > failed
+
+case $mode in
+    all )
+
+    #for i in $( ls tests/*.h.gz ); do
+    for i in $( ls tests/* ); do
+        # get the file name
+        filename=$(basename "$i")
+        extension="${filename##*.}"
+        filename="${filename%.*}"
+
+        if [ "$extension" = "h" ]; then
+            echo running test: $filename.h
+            cp tests/$filename.h the_test.h
+        elif [ "$extension" = "gz" ]; then
+            echo running test: $filename.gz
+            cp tests/$filename.gz the_test.h.gz
+            gunzip -f the_test.h.gz
+            filename="${filename%.*}"
+        else
+            continue
+        fi
+
+    # pre clean-up the directory for running
+    rm -f verilog.log
+
+    # Run Ximilnx Xsim
+    echo | xvlog -sv ../../tb/*.sv ../hdl/*.sv $XILINX_VIVADO/data/ip/xpm/xpm_fifo/hdl/*.sv $XILINX_VIVADO/data/ip/xpm/xpm_cdc/hdl/*.sv $XILINX_VIVADO/data/ip/xpm/xpm_memory/hdl/*.sv
+    sync
+    echo | xelab tb_uart -debug typical
+    sync
+    echo | xsim tb_uart -R -log verilog.log
+    # Run MTI
+    #echo | vlib work
+    #sync
+    #echo | vlog -sv -f ../stim/${build_list} -incr +notimingchecks
+    #sync
+    #echo | vsim -novopt tb_uart < vsim_command.do | tee verilog.log
+    # Run VCS
+    #echo | vcs -full64 -R -Mupdate -sverilog +notimingchecks +vcs+nostdout -f ../../stim/${build_list} -l verilog.log -j8
+    #sync
+    # test whether the test passed or failed
+    if grep -Fq "Test FAILED" verilog.log
+    then
+        echo $filename.h >> failed
+    else
+        echo $filename.h >> passed
+    fi
+    gzip verilog.log
+
+    mv verilog.log.gz results/$filename.log.gz
+    rm verilog.log.gz
+    done
+    ;;
+    single )
+    i=$filename
+        # get the file name
+        filename=$(basename "$i")
+        extension="${filename##*.}"
+        filename="${filename%.*}"
+
+        if [ "$extension" = "h" ]; then
+            echo running test: $filename.h
+            cp tests/$filename.h the_test.h
+        elif [ "$extension" = "gz" ]; then
+            echo running test: $filename.gz
+            cp tests/$filename.gz the_test.h.gz
+            gunzip -f the_test.h.gz
+            filename="${filename%.*}"
+        else
+            continue
+        fi
+
+    # pre clean-up the directory for running
+    rm -f verilog.log
+
+    # Run Ximilnx Xsim
+    echo | xvlog -sv ../tb/*.sv ../hdl/*.sv
+    sync
+    echo | xelab tb_uart -debug typical
+    sync
+    echo | xsim tb_uart -R -log verilog.log -gui
+    # Run MTI
+    #echo | vlog -sv -f ../stim/${build_list} -incr +notimingchecks
+    #sync
+    #echo | vsim -novopt tb_uart < vsim_command.do | tee verilog.log
+    # Run VCS
+    #echo | vcs -full64 -R -Mupdate -sverilog +notimingchecks +vcs+nostdout -f ../../stim/${build_list} -l verilog.log -j8
+    sync
+
+    if grep -Fq "Test FAILED" verilog.log
+    then
+        echo $filename.h >> failed
+    else
+        echo $filename.h >> passed
+    fi
+    gzip verilog.log
+
+    mv verilog.log.gz results/$filename.log.gz
+    rm verilog.log.gz
+    ;;
+  esac

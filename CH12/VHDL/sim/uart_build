@@ -1,0 +1,4 @@
+../../tb/tb_uart.v
+../hdl/sync_fifo.v
+../hdl/uart_cpu.v
+../hdl/uart.v
