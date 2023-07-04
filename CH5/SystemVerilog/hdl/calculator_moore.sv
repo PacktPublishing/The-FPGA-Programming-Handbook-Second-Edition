@@ -34,7 +34,8 @@ module calculator_moore
                 WAIT4BUTTON,
                 ADD,
                 SUB,
-                MULT
+                MULT,
+                RESET_S
                 } state_t;
 
   (* mark_debug = "true" *) state_t state;
@@ -58,7 +59,7 @@ module calculator_moore
         // a new value on the accumulator.
         case (1'b1)
           last_op[UP]:     state <= MULT;
-          last_op[DOWN]:   state <= IDLE;
+          last_op[DOWN]:   state <= RESET_S;
           last_op[LEFT]:   state <= ADD;
           last_op[RIGHT]:  state <= SUB;
           default:         state <= IDLE;
@@ -74,6 +75,10 @@ module calculator_moore
       end
       SUB: begin
         accumulator <= accumulator - switch;
+        state       <= IDLE;
+      end
+      RESET_S: begin
+        accumulator <= '0;
         state       <= IDLE;
       end
     endcase // case (state)

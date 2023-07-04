@@ -55,7 +55,10 @@ module calculator_mealy
         state       <= IDLE;
         case (1'b1)
           last_op[UP]:    accumulator <= accumulator * switch;
-          last_op[DOWN]:  state       <= IDLE;
+          last_op[DOWN]:  begin
+            state       <= IDLE;
+            accumulator <= '0;
+          end
           last_op[LEFT]:  accumulator <= accumulator + switch;
           last_op[RIGHT]: accumulator <= accumulator - switch;
           default:        state       <= IDLE;
