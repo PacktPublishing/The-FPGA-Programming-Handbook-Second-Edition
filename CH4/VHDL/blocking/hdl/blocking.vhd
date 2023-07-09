@@ -32,7 +32,7 @@ begin
   begin
     if CK'event and CK = '1' then
       if blocking = "TRUE" then
-        stage := D;                     -- equivalent to non blocking
+        stage := D;                     -- equivalent to blocking
         reg   <= stage;
       else
         reg_stage <= D;
