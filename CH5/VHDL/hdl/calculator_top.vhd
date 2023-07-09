@@ -9,7 +9,6 @@ USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use WORK.calculator_pkg.all;
-USE WORK.counting_buttons_pkg.all;
 
 entity calculator_top is
   generic(
