@@ -44,7 +44,7 @@ module calculator_mealy
       IDLE: begin
         // Wait for data to be operated on to be entered. Then the user presses
         // The operation, add, sub, multiply, clear or equal
-        last_op     <= buttons; // operation to perform
+        last_op          <= buttons; // operation to perform
         if (start) state <= WAIT4BUTTON;
       end
       WAIT4BUTTON: begin
@@ -55,13 +55,9 @@ module calculator_mealy
         state       <= IDLE;
         case (1'b1)
           last_op[UP]:    accumulator <= accumulator * switch;
-          last_op[DOWN]:  begin
-            state       <= IDLE;
-            accumulator <= '0;
-          end
+          last_op[DOWN]:  accumulator <= '0;
           last_op[LEFT]:  accumulator <= accumulator + switch;
           last_op[RIGHT]: accumulator <= accumulator - switch;
-          default:        state       <= IDLE;
         endcase // case (1'b1)
       end
     endcase // case (state)

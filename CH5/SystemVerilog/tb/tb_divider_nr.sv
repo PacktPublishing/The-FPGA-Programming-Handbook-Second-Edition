@@ -71,13 +71,14 @@ module tb;
     repeat (5) @(posedge clk);
 
     repeat (5) @(posedge clk);
+    $display("Test Complete!");
     $finish;
   end // initial begin
 
   always @(posedge clk) begin
     if (done &&
-        (quotient != dividend/divisor) &&
-        (remainder != dividend%divisor)) begin
+        ((quotient != dividend/divisor) ||
+         (remainder != dividend%divisor))) begin
       $display("failure!");
       $display("quotient:   %d", quotient);
       $display("remainder:  %d", remainder);
