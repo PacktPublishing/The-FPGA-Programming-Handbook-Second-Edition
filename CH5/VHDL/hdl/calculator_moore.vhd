@@ -31,12 +31,11 @@ architecture rtl of calculator_moore is
 
   type state_t is (IDLE, WAIT4BUTTON, ADD, SUB, MULT, RESET_S);
 
-  signal op_store, last_op : std_logic_vector(4 downto 0);
-  signal accumulator       : unsigned(BITS - 1 downto 0) := (others => '0');
-  signal state             : state_t                     := IDLE;
+  signal last_op     : std_logic_vector(4 downto 0) := (others => '0');
+  signal accumulator : unsigned(BITS - 1 downto 0)  := (others => '0');
+  signal state       : state_t                      := IDLE;
 
   attribute MARK_DEBUG : string;
-  attribute MARK_DEBUG of op_store : signal is "TRUE";
   attribute MARK_DEBUG of last_op : signal is "TRUE";
   attribute MARK_DEBUG of accumulator : signal is "TRUE";
   attribute MARK_DEBUG of state : signal is "TRUE";
@@ -50,6 +49,7 @@ begin
       if reset then
         state       <= IDLE;
         accumulator <= (others => '0');
+        last_op     <= (others => '0');
       else
         case state is
           when IDLE =>
@@ -87,7 +87,7 @@ begin
           when ADD =>
             accumulator <= accumulator + unsigned(switch);
             state       <= IDLE;
-            
+
           when SUB =>
             accumulator <= accumulator - unsigned(switch);
             state       <= IDLE;

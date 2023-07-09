@@ -15,7 +15,7 @@ entity calculator_top is
   generic(
     BITS         : integer := 32;
     NUM_SEGMENTS : integer := 8;
-    SM_TYPE      : string  := "MEALY";  -- Mealy or Moore
+    SM_TYPE      : string  := "MEALY";  -- MEALY or MOORE
     USE_PLL      : string  := "TRUE"
   );
   port(
