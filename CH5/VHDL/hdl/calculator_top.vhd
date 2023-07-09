@@ -8,7 +8,9 @@ LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
-use WORK.calculator_pkg.all;
+
+use work.calculator_pkg.all;
+USE work.counting_buttons_pkg.all;      -- array_t
 
 entity calculator_top is
   generic(

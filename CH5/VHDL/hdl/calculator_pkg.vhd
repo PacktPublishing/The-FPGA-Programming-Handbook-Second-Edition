@@ -10,6 +10,8 @@ LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 
+USE work.counting_buttons_pkg.all; -- array_t
+
 PACKAGE calculator_pkg IS
 
   constant NUM_SEGMENTS : integer := 8;
@@ -18,8 +20,6 @@ PACKAGE calculator_pkg IS
   constant LEFT         : natural := 2;
   constant RIGHT        : natural := 3;
   constant CENTER       : natural := 4;
-
-  type array_t is array (natural range <>) of std_logic_vector;
 
   function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0)) return array_t;
 
