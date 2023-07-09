@@ -17,8 +17,11 @@ entity simple_ff is
 end entity simple_ff;
 
 architecture rtl of simple_ff is
+
   signal reg : std_logic := '0';        -- optional initial value
+
 begin
+
   FF : process(CK)
   begin
     if CK'event and CK = '1' then
@@ -27,5 +30,7 @@ begin
     -- The following is equivalent:
     -- if rising_edge(CK) then reg <= D; end if;
   end process FF;
+
   Q <= reg;
+
 end architecture rtl;
