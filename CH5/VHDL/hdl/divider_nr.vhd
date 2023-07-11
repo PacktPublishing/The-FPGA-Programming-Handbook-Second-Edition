@@ -62,7 +62,7 @@ begin
           when LEFT_SHIFT =>
             int_remainder <= int_remainder(BITS - 1 downto 0) & quotient(BITS - 1);
             quotient      <= quotient(BITS - 2 downto 0) & '0';
-            if int_remainder(BITS) then
+            if int_remainder(int_remainder'high) then
               state <= ADJ_REMAINDER0;
             else
               state <= ADJ_REMAINDER1;
@@ -75,7 +75,7 @@ begin
             int_remainder <= int_remainder - signed('0' & divisor);
           when UPDATE_QUOTIENT =>
             state       <= TEST_N;
-            quotient(0) <= not int_remainder(BITS);
+            quotient(0) <= not int_remainder(int_remainder'high);
             num_bits    <= num_bits - 1;
           when TEST_N =>
             if num_bits > 0 then
@@ -84,7 +84,7 @@ begin
               state <= TEST_REMAINDER1;
             end if;
           when TEST_REMAINDER1 =>
-            if int_remainder(BITS) then
+            if int_remainder(int_remainder'high) then
               state <= ADJ_REMAINDER2;
             else
               state <= DIV_DONE;
