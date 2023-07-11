@@ -2,7 +2,7 @@
 -- ------------------------------------
 -- Traffic light controller
 -- ------------------------------------
--- Author : Frank Bruno
+-- Author : Frank Bruno, Guy Eschemann
 
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
@@ -23,10 +23,11 @@ end entity traffic_light;
 
 architecture rtl of traffic_light is
 
-  -- Uncomment for faster simulation: 1s -> 1us
-  -- constant COUNT_1S  : integer := 1000 / CLK_PER;
-  constant COUNT_1S  : integer := 1000000000 / CLK_PER;
-  constant COUNT_10S : integer := 10 * COUNT_1S;
+  -- Uncomment for faster simulation: 1s -> 100us
+  -- constant COUNT_1S    : integer := 100000 / CLK_PER;
+  constant COUNT_1S    : integer := 1000000000 / CLK_PER;
+  constant COUNT_10S   : integer := 10 * COUNT_1S;
+  constant COUNT_500US : integer := COUNT_1S / 2000; -- 500 us x 2 gives a 1 kHz PWM base frequency
 
   type light_t is (RED, YELLOW, GREEN);
   type state_t is (
@@ -106,12 +107,19 @@ begin
   end process;
 
   process(clk)
+    variable pwm_count : natural range 0 to COUNT_500US - 1 := 0;
   begin
     if rising_edge(clk) then
-      light_count <= not light_count;
-      R           <= (others => '0');
-      G           <= (others => '0');
-      B           <= (others => '0');
+      if pwm_count = COUNT_500US - 1 then
+        pwm_count   := 0;
+        light_count <= not light_count;
+      else
+        pwm_count := pwm_count + 1;
+      end if;
+
+      R <= (others => '0');
+      G <= (others => '0');
+      B <= (others => '0');
 
       if light_count then
         case left_right is
