@@ -18,8 +18,9 @@ module traffic_light
    output logic [1:0]                B
    );
 
-  localparam COUNT_1S  = int'(100000000 / CLK_PER);
-  localparam COUNT_10S = 10 * int'(100000000 / CLK_PER);
+  localparam COUNT_1S    = int'(100000000 / CLK_PER);
+  localparam COUNT_10S   = 10 * int'(100000000 / CLK_PER);
+  localparam COUNT_500US = int'(COUNT_1S / 2000); // 500 us x 2 gives a 1 kHz PWM base frequency
 
   bit [$clog2(COUNT_10S)-1:0]        counter;
 
@@ -45,10 +46,11 @@ module traffic_light
 
   state_t state;
 
-  logic [2:0]  lr_reg;
-  logic [2:0]  ud_reg;
-  logic        enable_count;
-  logic        light_count;
+  logic [$clog2(COUNT_500US)-1:0] pwm_count;
+  logic [2:0]                     lr_reg;
+  logic [2:0]                     ud_reg;
+  logic                           enable_count;
+  logic                           light_count;
 
   initial begin
     up_down    = RED;
@@ -111,7 +113,13 @@ module traffic_light
   end
 
   always @(posedge clk) begin
-    light_count <= ~light_count;
+    if (pwm_count == COUNT_500US - 1) begin
+      pwm_count   <= '0;
+      light_count <= ~light_count;
+    end else begin
+      pwm_count   <= pwm_count + 1;
+    end
+
     R           <= '0;
     G           <= '0;
     B           <= '0;
