@@ -19,14 +19,15 @@ entity pdm_inputs is
 end entity pdm_inputs;
 
 architecture rtl of pdm_inputs is
-  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / SAMPLE_RATE);
+  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / (SAMPLE_RATE*2));
 
   type array_2d is array (natural range <>) of integer range 0 to 255;
-  signal counter0 : integer range 0 to 127 := 0;
-  signal counter1 : integer range 0 to 127 := 64;
+  signal counter0 : integer range 0 to 199 := 0;
+  signal counter1 : integer range 0 to 199 := 0;
   signal sample_counter : array_2d(1 downto 0) := (others => 0);
   signal clk_counter : integer range 0 to CLK_COUNT := 0;
   signal amplitude_int : unsigned(6 downto 0);
+  signal running : boolean := FALSE;
 begin
 
   amplitude <= std_logic_vector(amplitude_int);
@@ -54,14 +55,29 @@ begin
         m_clk_en    <= not m_clk;
       else
         clk_counter <= clk_counter + 1;
-        if clk_counter = CLK_COUNT - 2 then
-          m_clk_en    <= not m_clk;
-        end if;
       end if;
 
       if m_clk_en then
+        if counter0 = 199 then
+          counter0 <= 0;
+        else
+          counter0 <= counter0 + 1;
+        end if;
+
+        if running then
+          if counter1 = 199 then
+            counter1 <= 0;
+          else
+            counter1 <= counter1 + 1;
+          end if;
+        else
+          if counter0 = 100 then
+            counter1 <= 0;
+            running <= TRUE;
+          end if;
+        end if;
+
         if counter0 = 127 then
-          counter0        <= 0;
           if nextamp0 <= 127 then
             amplitude_int <= to_unsigned(nextamp0, amplitude_int'length);
           else
@@ -69,12 +85,10 @@ begin
           end if;
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
-        else
-          counter0          <= counter0 + 1;
+        elsif counter0 < 127 then
           sample_counter(0) <= sample_counter(0) + 1 when m_data else sample_counter(0);
         end if;
         if counter1 = 127 then
-          counter1        <= 0;
           if nextamp1 <= 127 then
             amplitude_int <= to_unsigned(nextamp1, amplitude_int'length);
           else
@@ -82,11 +96,11 @@ begin
           end if;
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
-        else
-          counter1          <= counter1 + 1;
+        elsif counter1 < 127 then
           sample_counter(1) <= sample_counter(1) + 1 when m_data else sample_counter(1);
         end if;
       end if;
     end if;
+
   end process;
 end architecture rtl;
