@@ -1,3 +1,9 @@
+// i2c_temp.sv
+// ------------------------------------
+// I2C temperature sensor interface
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// This module uses the I2C temperature sensor on the board to read and display the temperature.
 `timescale 1ns/10ps
 module i2c_temp
   #

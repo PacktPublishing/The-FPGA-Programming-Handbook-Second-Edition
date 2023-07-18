@@ -1,3 +1,9 @@
+// pdm_output.sv
+// ------------------------------------
+// PDM output generator
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// This is used by tb_pdm to create a PDM testbench for testing.
 `timescale 1ns/10ps
 module pdm_output
   (
