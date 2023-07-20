@@ -1,3 +1,10 @@
+// tb_temp.sv
+// ------------------------------------
+// temperature Sensor simple testbench
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// this testbench just provides the startup conditions to see how the
+// temperature sensor starts and samples. It doesn't generate inputs.
 `timescale 1ns/10ps
 module tb_temp;
 

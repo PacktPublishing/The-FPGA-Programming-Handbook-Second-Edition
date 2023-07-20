@@ -1,3 +1,9 @@
+// temp_pkg.sv
+// ------------------------------------
+// temperature Sensor simple testbench
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// This file supports the temperature sensor project, provides a binary to BCD conversion function
 `ifndef _TEMP_PKG
 `define _TEMP_PKG
 package temp_pkg;

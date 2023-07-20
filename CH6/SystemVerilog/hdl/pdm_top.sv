@@ -1,3 +1,9 @@
+// pdm_top.sv
+// ------------------------------------
+// Top level of the PDM  module
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// This file encompasses the PDM code for sampling the microphone input.
 `timescale 1ns/10ps
 module pdm_top
   #

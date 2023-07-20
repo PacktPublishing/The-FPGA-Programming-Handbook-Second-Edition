@@ -1,3 +1,10 @@
+// tb_pdm.sv
+// ------------------------------------
+// Test Bench for PDM
+// ------------------------------------
+// Author : Frank Bruno, Guy Eschemann
+// This module generates a PDM waveform and samples the same waveform.
+// The outputs can be visually verfied. Please see the book for how to use it.
 `timescale 1ns/10ps
 module tb_pdm;
 
@@ -31,8 +38,8 @@ module tb_pdm;
      .m_clk,
      .m_lr_sel,
      .m_data,
-     .R, 
-     .G, 
+     .R,
+     .G,
      .B,
      .BTNU,
      .BTNC,
