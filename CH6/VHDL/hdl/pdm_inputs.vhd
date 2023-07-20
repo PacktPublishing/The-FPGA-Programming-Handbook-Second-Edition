@@ -5,34 +5,46 @@ use IEEE.math_real.all;
 
 entity pdm_inputs is
   generic(
-    CLK_FREQ    : integer := 100;       -- MHz
+    CLK_FREQ    : integer := 100;       -- Mhz
     SAMPLE_RATE : integer := 2400000);  -- Hz
   port(
     clk             : in  std_logic;
     -- Microphone interface
-    m_clk           : out std_logic                    := '0';
+    m_clk           : out std_logic                    := '0'; -- 1.536 MHz
     m_clk_en        : out std_logic                    := '0';
     m_data          : in  std_logic;
-    -- Amplitude outputs
+    -- amplitude outputs
     amplitude       : out std_logic_vector(6 downto 0) := 7d"0";
     amplitude_valid : out std_logic);
 end entity pdm_inputs;
 
 architecture rtl of pdm_inputs is
-  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / (SAMPLE_RATE*2));
+  constant CLK_COUNT : integer := integer((CLK_FREQ * 1000000) / (SAMPLE_RATE * 2));
 
   type array_2d is array (natural range <>) of integer range 0 to 255;
-  signal counter0 : integer range 0 to 199 := 0;
-  signal counter1 : integer range 0 to 199 := 0;
-  signal sample_counter : array_2d(1 downto 0) := (others => 0);
-  signal clk_counter : integer range 0 to CLK_COUNT := 0;
-  signal amplitude_int : unsigned(6 downto 0);
-  signal running : boolean := FALSE;
+  signal counter0       : integer range 0 to 199       := 0;
+  signal counter1       : integer range 0 to 199       := 0;
+  signal sample_counter : array_2d(1 downto 0)         := (others => 0);
+  signal clk_counter    : integer range 0 to CLK_COUNT := 0;
+  signal amplitude_int  : unsigned(6 downto 0);
+  signal running        : boolean                      := FALSE;
 begin
 
+  amplitude <= std_logic_vector(amplitude_int);
+
   process(clk)
+    variable nextamp0 : integer range 0 to 128;
+    variable nextamp1 : integer range 0 to 128;
   begin
     if rising_edge(clk) then
+      -- place this within the clocked portion to prevent possible latches.
+      if m_data then
+        nextamp0 := sample_counter(0) + 1;
+        nextamp1 := sample_counter(1) + 1;
+      else
+        nextamp0 := sample_counter(0);
+        nextamp1 := sample_counter(1);
+      end if;
       amplitude_valid <= '0';
       m_clk_en        <= '0';
 
@@ -60,7 +72,7 @@ begin
         else
           if counter0 = 100 then
             counter1 <= 0;
-            running <= TRUE;
+            running  <= TRUE;
           end if;
         end if;
 
