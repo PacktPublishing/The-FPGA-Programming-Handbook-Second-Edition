@@ -14,7 +14,7 @@ use IEEE.numeric_std.all;
 entity pdm_inputs is
   generic(
     CLK_FREQ  : integer := 100;         -- MHz
-    MCLK_FREQ : integer := 2400000      -- Hz
+    MCLK_FREQ : integer := 2500000      -- Hz
   );
   port(
     clk             : in  std_logic;
