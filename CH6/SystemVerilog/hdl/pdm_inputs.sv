@@ -28,29 +28,27 @@ module pdm_inputs
 
   localparam CLK_COUNT = int'((CLK_FREQ*1000000)/(MCLK_FREQ*2));
   localparam WINDOW_SIZE     = 200; // Size of a window
-  localparam COUNTER1_OFFSET = 100; // offset value for counter 1
-  localparam SAMPLE_COUNT    = 128; // Terminal Count for counter 0
-  localparam TERMINAL_COUNT0 = 128; // Terminal Count for counter 1
-  localparam TERMINAL_COUNT1 = 28;  // Terminal Count for counter 1
+  localparam SAMPLE_COUNT    = 128; // Number of samples
+  localparam COUNTER1_OFFSET = WINDOW_SIZE / 2; // offset value for counter 1
+  localparam TERMINAL_COUNT0 = SAMPLE_COUNT; // Terminal Count for counter 1
+  localparam TERMINAL_COUNT1 = SAMPLE_COUNT - COUNTER1_OFFSET;  // Terminal Count for counter 1
 
   logic [7:0]                        counter;
   logic [1:0][7:0]                   sample_counter;
   logic [$clog2(CLK_COUNT)-1:0]      clk_counter;
-  logic                              running;
 
   initial begin
     sample_counter = '0;
     counter        = '0;
     m_clk          = '0;
     clk_counter    = '0;
-    running        = '0;
   end
 
   always @(posedge clk) begin
     amplitude_valid <= '0;
     m_clk_en        <= '0;
 
-    if (clk_counter < CLK_COUNT - 1) begin
+    if (clk_counter == CLK_COUNT - 1) begin
       clk_counter <= '0;
       m_clk       <= ~m_clk;
       m_clk_en    <= ~m_clk;
@@ -63,17 +61,17 @@ module pdm_inputs
       else                         counter <= '0;
 
       if (counter == TERMINAL_COUNT0) begin
-        amplitude         <= sample_counter[0];
+        amplitude         <= sample_counter[0] >= SAMPLE_COUNT ? '1 : sample_counter[0];
         amplitude_valid   <= '1;
         sample_counter[0] <= '0;
-      end else if (counter < TERMINAL_COUNT0-1) begin
+      end else if (counter < TERMINAL_COUNT0) begin
         sample_counter[0] <= sample_counter[0] + m_data;
       end
       if (counter == TERMINAL_COUNT1) begin
-        amplitude         <= sample_counter[1];
+        amplitude         <= sample_counter[1] >= SAMPLE_COUNT ? '1 : sample_counter[1];
         amplitude_valid   <= '1;
         sample_counter[1] <= '0;
-      end else if (counter < TERMINAL_COUNT1-1 || counter >= COUNTER1_OFFSET) begin
+      end else if (counter < TERMINAL_COUNT1 || counter >= COUNTER1_OFFSET) begin
         sample_counter[1] <= sample_counter[1] + m_data;
       end
     end
