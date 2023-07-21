@@ -1,3 +1,10 @@
+-- pdm_top.vhd
+-- ------------------------------------
+-- Top level of the PDM  module
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- This file encompasses the PDM code for sampling the microphone input.
+
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -6,7 +13,8 @@ use IEEE.math_real.all;
 entity pdm_top is
   generic(
     RAM_SIZE : integer := 16384;
-    CLK_FREQ : integer := 100);         -- MHz
+    CLK_FREQ : integer := 100           -- MHz
+  );
   port(
     clk      : in  std_logic;
     -- Microphone interface
@@ -22,37 +30,43 @@ entity pdm_top is
     LED      : out std_logic_vector(15 downto 0) := (others => '0');
     -- PDM output
     AUD_PWM  : out std_logic;
-    AUD_SD   : out std_logic);
+    AUD_SD   : out std_logic
+  );
 end entity pdm_top;
 
 architecture rtl of pdm_top is
-  attribute MARK_DEBUG   : string;
-  attribute ASYNC_REG    : string;
-  signal amplitude       : std_logic_vector(6 downto 0);
-  signal amplitude_valid : std_logic;
-  attribute MARK_DEBUG of amplitude, amplitude_valid : signal is "TRUE";
-  signal button_usync    : std_logic_vector(2 downto 0);
-  signal button_csync    : std_logic_vector(2 downto 0);
-  attribute ASYNC_REG of button_usync, button_csync : signal is "TRUE";
-  signal start_capture   : std_logic                       := '0';
-  signal m_clk_en        : std_logic;
-  signal m_clk_en_del    : std_logic;
-  signal light_count     : integer range 0 to 127          := 0;
-  -- Capture RAM
-  type array_2d is array (natural range <>) of integer range 0 to 127;
-  signal amplitude_store : array_2d(0 to RAM_SIZE - 1);
-  signal start_playback  : std_logic                       := '0';
+
+  type array_2d is array (natural range <>) of std_logic_vector(6 downto 0);
+
+  constant RAM_SIZE_BITS : integer := natural(ceil(log2(real(RAM_SIZE))));
+
+  signal amplitude_store : array_2d(0 to RAM_SIZE - 1); -- capture RAM
   signal ram_wraddr      : integer range 0 to RAM_SIZE - 1 := 0;
   signal ram_rdaddr      : integer range 0 to RAM_SIZE - 1 := 0;
   signal ram_we          : std_logic                       := '0';
-  signal ram_dout        : integer range 0 to 127;
-  signal clr_led         : std_logic_vector(15 downto 0)   := (others => '0');
-  constant RSL2          : integer                         := natural(log2(real(RAM_SIZE)));
-  signal amp_capture     : integer range 0 to 127;
+  signal ram_dout        : std_logic_vector(6 downto 0);
+
+  signal amplitude       : std_logic_vector(6 downto 0);
+  signal amplitude_valid : std_logic;
+  signal button_usync    : std_logic_vector(2 downto 0);
+  signal button_csync    : std_logic_vector(2 downto 0);
+  signal start_capture   : std_logic                     := '0';
+  signal m_clk_en        : std_logic;
+  signal m_clk_en_del    : std_logic;
+  signal light_count     : integer range 0 to 127        := 0;
+  signal start_playback  : std_logic                     := '0';
+  signal clr_led         : std_logic_vector(15 downto 0) := (others => '0');
+  signal amp_capture     : std_logic_vector(6 downto 0);
   signal AUD_PWM_en      : std_logic;
   signal amp_counter     : integer range 0 to 127;
   signal clr_addr        : integer range 0 to 15;
-  signal ram_rdaddr_u    : unsigned(RSL2 - 1 downto 0);
+  signal ram_rdaddr_u    : unsigned(RAM_SIZE_BITS - 1 downto 0);
+
+  attribute MARK_DEBUG : string;
+  attribute MARK_DEBUG of amplitude, amplitude_valid : signal is "TRUE";
+  attribute ASYNC_REG  : string;
+  attribute ASYNC_REG of button_usync, button_csync : signal is "TRUE";
+
 begin
   AUD_SD   <= '1';
   m_lr_sel <= '0';
@@ -84,7 +98,7 @@ begin
 
   -- Capture the Audio data
   process(clk)
-    variable ram_wraddr_u : unsigned(RSL2 - 1 downto 0);
+    variable ram_wraddr_u : unsigned(RAM_SIZE_BITS - 1 downto 0);
     variable led_index    : integer range 0 to 15;
   begin
     if rising_edge(clk) then
@@ -99,14 +113,15 @@ begin
         start_capture <= '1';
         LED           <= (others => '0');
       elsif start_capture and amplitude_valid then
-        ram_wraddr_u   := to_unsigned(ram_wraddr, RSL2);
-        led_index      := to_integer(ram_wraddr_u(RSL2 - 1 downto RSL2 - 4));
+        ram_wraddr_u   := to_unsigned(ram_wraddr, ram_wraddr_u'length);
+        led_index      := to_integer(ram_wraddr_u(ram_wraddr_u'high downto ram_wraddr_u'high - 3));
         LED(led_index) <= '1';
         ram_we         <= '1';
-        ram_wraddr     <= ram_wraddr + 1;
-        if and(ram_wraddr_u) then
+        if ram_wraddr = RAM_SIZE - 1 then
           start_capture <= '0';
-          LED(15)       <= '1';
+          LED(15)       <= '1'; -- TODO: redundant?
+        else
+          ram_wraddr <= ram_wraddr + 1;
         end if;
       end if;
     end if;
@@ -116,14 +131,14 @@ begin
   begin
     if rising_edge(clk) then
       if ram_we then
-        amplitude_store(ram_wraddr) <= to_integer(unsigned(amplitude));
-        ram_dout                    <= amplitude_store(ram_rdaddr);
+        amplitude_store(ram_wraddr) <= amplitude;
       end if;
+      ram_dout <= amplitude_store(ram_rdaddr);
     end if;
   end process;
 
-  ram_rdaddr_u <= to_unsigned(ram_rdaddr, RSL2);
-  clr_addr     <= TO_INTEGER(ram_rdaddr_u(RSL2 - 1 downto RSL2 - 4));
+  ram_rdaddr_u <= to_unsigned(ram_rdaddr, RAM_SIZE_BITS);
+  clr_addr     <= TO_INTEGER(ram_rdaddr_u(RAM_SIZE_BITS - 1 downto RAM_SIZE_BITS - 4));
 
   -- Playback the audio
   process(clk)

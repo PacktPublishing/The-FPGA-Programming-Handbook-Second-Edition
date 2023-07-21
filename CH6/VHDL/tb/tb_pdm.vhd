@@ -73,7 +73,7 @@ begin
 
   clk <= not clk after CLK_PERIOD / 2;
 
-  u_pdm_input : entity work.pdm_top
+  u_pdm_top : entity work.pdm_top
     generic map(
       CLK_FREQ => CLK_FREQ
     )
