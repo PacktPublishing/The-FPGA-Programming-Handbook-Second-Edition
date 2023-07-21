@@ -10,8 +10,10 @@
 module pdm_inputs
   #
   (
-   parameter          CLK_FREQ    = 100,    // Mhz
-   parameter          MCLK_FREQ   = 2400000 // Hz
+   parameter          CLK_FREQ     = 100,     // Mhz
+   parameter          MCLK_FREQ    = 2500000, // Hz
+   localparam         SAMPLE_COUNT = 128,     // Number of samples
+   localparam         SAMPLE_BITS  = $clog2(SAMPLE_COUNT) // bits needed for sample counter
    )
   (
    input wire         clk, // 100Mhz
@@ -22,19 +24,19 @@ module pdm_inputs
    input wire         m_data,
 
    // Amplitude outputs
-   output logic [6:0] amplitude,
+   output logic [SAMPLE_BITS-1:0] amplitude,
    output logic       amplitude_valid
    );
 
   localparam CLK_COUNT = int'((CLK_FREQ*1000000)/(MCLK_FREQ*2));
   localparam WINDOW_SIZE     = 200; // Size of a window
-  localparam SAMPLE_COUNT    = 128; // Number of samples
   localparam COUNTER1_OFFSET = WINDOW_SIZE / 2; // offset value for counter 1
   localparam TERMINAL_COUNT0 = SAMPLE_COUNT; // Terminal Count for counter 1
   localparam TERMINAL_COUNT1 = SAMPLE_COUNT - COUNTER1_OFFSET;  // Terminal Count for counter 1
+  localparam MAX_AMPLITUDE   = 2**SAMPLE_BITS-1; // Maximum count for our samples
 
-  logic [7:0]                        counter;
-  logic [1:0][7:0]                   sample_counter;
+  logic [$clog2(WINDOW_SIZE)-1:0]    counter;
+  logic [1:0][SAMPLE_BITS:0]         sample_counter;
   logic [$clog2(CLK_COUNT)-1:0]      clk_counter;
 
   initial begin
@@ -61,14 +63,14 @@ module pdm_inputs
       else                         counter <= '0;
 
       if (counter == TERMINAL_COUNT0) begin
-        amplitude         <= sample_counter[0] >= SAMPLE_COUNT ? '1 : sample_counter[0];
+        amplitude         <= sample_counter[0] > MAX_AMPLITUDE ? MAX_AMPLITUDE : sample_counter[0];
         amplitude_valid   <= '1;
         sample_counter[0] <= '0;
       end else if (counter < TERMINAL_COUNT0) begin
         sample_counter[0] <= sample_counter[0] + m_data;
       end
       if (counter == TERMINAL_COUNT1) begin
-        amplitude         <= sample_counter[1] >= SAMPLE_COUNT ? '1 : sample_counter[1];
+        amplitude         <= sample_counter[1] > MAX_AMPLITUDE ? MAX_AMPLITUDE : sample_counter[1];
         amplitude_valid   <= '1;
         sample_counter[1] <= '0;
       end else if (counter < TERMINAL_COUNT1 || counter >= COUNTER1_OFFSET) begin
