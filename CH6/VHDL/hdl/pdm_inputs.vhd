@@ -32,14 +32,16 @@ architecture rtl of pdm_inputs is
 
   constant CLK_COUNT       : integer := integer((CLK_FREQ * 1000000) / (MCLK_FREQ * 2));
   constant WINDOW_SIZE     : natural := 200; -- Size of a window
-  constant COUNTER1_OFFSET : natural := 100; -- Offset value for counter 1
-  constant TERMINAL_COUNT0 : natural := 128; -- Terminal Count for counter 1
-  constant TERMINAL_COUNT1 : natural := 28; -- Terminal Count for counter 1
+  constant SAMPLE_COUNT    : natural := 128; -- Number of samples per window
+  constant COUNTER1_OFFSET : natural := WINDOW_SIZE / 2; -- Offset value for counter 1
+  constant TERMINAL_COUNT0 : natural := SAMPLE_COUNT; -- Terminal Count for counter 0
+  constant TERMINAL_COUNT1 : natural := SAMPLE_COUNT - COUNTER1_OFFSET; -- Terminal Count for counter 1
+  constant MAX_AMPLITUDE   : natural := (2 ** amplitude'length) - 1; -- Maximum allowed amplitude output
 
-  type array_2d is array (natural range <>) of integer range 0 to 255;
+  type sample_counter_array_t is array (natural range <>) of integer range 0 to SAMPLE_COUNT;
 
   signal counter        : integer range 0 to WINDOW_SIZE - 1 := 0;
-  signal sample_counter : array_2d(1 downto 0)               := (others => 0);
+  signal sample_counter : sample_counter_array_t(1 downto 0) := (others => 0);
   signal clk_counter    : integer range 0 to CLK_COUNT - 1   := 0;
 
 begin
@@ -66,19 +68,19 @@ begin
           counter <= 0;
         end if;
         if counter = TERMINAL_COUNT0 then
-          amplitude         <= std_logic_vector(to_unsigned(sample_counter(0), amplitude'length));
+          amplitude         <= std_logic_vector(to_unsigned(minimum(MAX_AMPLITUDE, sample_counter(0)), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
-        elsif counter <= TERMINAL_COUNT0 - 1 then
+        elsif counter < TERMINAL_COUNT0 then
           if m_data then
             sample_counter(0) <= sample_counter(0) + 1;
           end if;
         end if;
         if counter = TERMINAL_COUNT1 then
-          amplitude         <= std_logic_vector(to_unsigned(sample_counter(1), amplitude'length));
+          amplitude         <= std_logic_vector(to_unsigned(minimum(MAX_AMPLITUDE, sample_counter(1)), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
-        elsif (counter <= TERMINAL_COUNT1 - 1) or (counter >= COUNTER1_OFFSET) then
+        elsif (counter < TERMINAL_COUNT1) or (counter >= COUNTER1_OFFSET) then
           if m_data then
             sample_counter(1) <= sample_counter(1) + 1;
           end if;
