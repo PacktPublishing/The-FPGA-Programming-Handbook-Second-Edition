@@ -119,7 +119,7 @@ begin
         ram_we         <= '1';
         if ram_wraddr = RAM_SIZE - 1 then
           start_capture <= '0';
-          LED(15)       <= '1'; -- TODO: redundant?
+          LED(15)       <= '1';         -- TODO: redundant?
         else
           ram_wraddr <= ram_wraddr + 1;
         end if;
@@ -158,12 +158,12 @@ begin
           ram_rdaddr  <= ram_rdaddr + 1;
           amp_counter <= 1;
           amp_capture <= ram_dout;
-          if ram_dout /= 0 then
+          if ram_dout /= 7d"0" then
             AUD_PWM_en <= '0';          -- Activate pull up
           end if;
         else
           amp_counter <= amp_counter + 1;
-          if amp_capture < amp_counter then
+          if unsigned(amp_capture) < amp_counter then
             AUD_PWM_en <= '0';          -- Activate pull up
           end if;
         end if;

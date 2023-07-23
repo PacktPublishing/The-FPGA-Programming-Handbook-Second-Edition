@@ -1,3 +1,10 @@
+-- temp_pkg.vhd
+-- ------------------------------------
+-- temperature Sensor simple testbench
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- This file supports the temperature sensor project, provides a binary to BCD conversion function
+  
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
