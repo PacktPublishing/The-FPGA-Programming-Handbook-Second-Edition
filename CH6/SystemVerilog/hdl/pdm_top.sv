@@ -8,8 +8,9 @@
 module pdm_top
   #
   (
-   parameter RAM_SIZE = 16384,
-   parameter CLK_FREQ = 100
+   parameter RAM_SIZE     = 16384,
+   parameter CLK_FREQ     = 100,
+   parameter SAMPLE_COUNT = 128
    )
   (
    input wire          clk, // 100Mhz clock
@@ -41,8 +42,7 @@ module pdm_top
   (*mark_debug = "true" *)logic [6:0]         amplitude;
   (*mark_debug = "true" *)logic               amplitude_valid;
 
-  logic [2:0]          button_usync = '0;
-  logic [2:0]          button_csync = '0;
+  (*async_reg = "true" *)logic [2:0]          button_csync = '0;
   logic                start_capture;
   logic                m_clk_en,              m_clk_en_del;
 
@@ -90,7 +90,6 @@ module pdm_top
     start_capture  = '0;
     start_playback = '0;
     LED            = '0;
-    clr_led        = '0;
   end
 
   // Capture the Audio data
@@ -100,14 +99,16 @@ module pdm_top
     for (int i = 0; i < 16; i++)
       if (clr_led[i]) LED[i] <= '0;
 
+    if (ram_we) ram_wraddr <= ram_wraddr + 1'b1;
     if (button_csync[2:1] == 2'b01) begin
       start_capture <= '1;
       LED           <= '0;
     end else if (start_capture && amplitude_valid) begin
       LED[ram_wraddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4]] <= '1;
       ram_we                      <= '1;
-      ram_wraddr                  <= ram_wraddr + 1'b1;
       if (&ram_wraddr) begin
+        // Note that we do not explicitly reset the ram_wraddr as the counter will wrap
+        // back to 0
         start_capture <= '0;
         LED[15]       <= '1;
       end
@@ -122,34 +123,28 @@ module pdm_top
   logic [6:0] amp_capture = '0;
   logic       AUD_PWM_en = '0;
   logic [6:0] amp_counter = '0;
-  logic [3:0] clr_addr;
-  assign clr_addr = ~ram_rdaddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4];
+  logic       output_valid = '0;
 
   // Playback the audio
-  always @(posedge clk) begin
-    button_usync <= button_usync << 1 | BTNU;
-    m_clk_en_del <= m_clk_en;
-    clr_led      <= '0;
+  pwm_outputs
+    #
+    (
+     .CLK_FREQ         (CLK_FREQ),     // Mhz
+     .RAM_SIZE         (RAM_SIZE)      // Depth of sample storage
+     )
+  u_pwm_outputs
+    (
+     .clk              (clk),
 
-    if (button_usync[2:1] == 2'b01) begin
-      start_playback <= '1;
-      ram_rdaddr     <= '0;
-    end else if (start_playback && m_clk_en_del) begin
-      clr_led[clr_addr] <= '1;
-      AUD_PWM_en <= '1;
-      if (amplitude_valid) begin
-        ram_rdaddr <= ram_rdaddr + 1'b1;
-        amp_counter <= 7'd1;
-        amp_capture <= ram_dout;
-        if (ram_dout != 0) AUD_PWM_en <= '0; // Activate pull up
-      end else begin
-        amp_counter <= amp_counter + 1'b1;
-        if (amp_capture < amp_counter) AUD_PWM_en <= '0; // Activate pull up
-      end
-      if (&ram_rdaddr) start_playback <= '0;
-    end
-  end
+     .start_playback   (BTNU),
+     .ram_rdaddr       (ram_rdaddr),
+     .ram_sample       (ram_dout),
 
-  assign AUD_PWM = AUD_PWM_en ? '0 : 'z;
+     .AUD_PWM_en       (AUD_PWM_en),
+
+     .clr_led          (clr_led)
+     );
+
+  assign AUD_PWM = ~AUD_PWM_en ? '0 : 'z;
 
 endmodule // pdm_top
