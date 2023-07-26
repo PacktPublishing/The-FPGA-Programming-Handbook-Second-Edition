@@ -12,8 +12,9 @@ use IEEE.math_real.all;
 
 entity pdm_top is
   generic(
-    RAM_SIZE : integer := 16384;
-    CLK_FREQ : integer := 100           -- MHz
+    RAM_SIZE     : natural := 16384;    -- bytes
+    CLK_FREQ     : natural := 100;      -- MHz
+    SAMPLE_COUNT : natural := 128
   );
   port(
     clk      : in  std_logic;
@@ -45,17 +46,16 @@ architecture rtl of pdm_top is
   signal ram_rdaddr      : integer range 0 to RAM_SIZE - 1 := 0;
   signal ram_we          : std_logic                       := '0';
   signal ram_dout        : std_logic_vector(6 downto 0);
-
   signal amplitude       : std_logic_vector(6 downto 0);
   signal amplitude_valid : std_logic;
   signal button_usync    : std_logic_vector(2 downto 0);
   signal button_csync    : std_logic_vector(2 downto 0);
-  signal start_capture   : std_logic                     := '0';
+  signal start_capture   : std_logic                       := '0';
   signal m_clk_en        : std_logic;
   signal m_clk_en_del    : std_logic;
-  signal light_count     : integer range 0 to 127        := 0;
-  signal start_playback  : std_logic                     := '0';
-  signal clr_led         : std_logic_vector(15 downto 0) := (others => '0');
+  signal light_count     : integer range 0 to 127          := 0;
+  signal start_playback  : std_logic                       := '0';
+  signal clr_led         : std_logic_vector(15 downto 0)   := (others => '0');
   signal amp_capture     : std_logic_vector(6 downto 0);
   signal AUD_PWM_en      : std_logic;
   signal amp_counter     : integer range 0 to 127;
@@ -83,9 +83,9 @@ begin
       amplitude       => amplitude,
       amplitude_valid => amplitude_valid);
 
+  -- Display using tricolor LED
   process(clk)
   begin
-    -- Display using tricolor LED
     if rising_edge(clk) then
       if m_clk_en then
         light_count <= light_count + 1 when light_count < 127 else 0;
@@ -97,37 +97,51 @@ begin
   end process;
 
   -- Capture the Audio data
-  process(clk)
+  capture : process(clk)
     variable ram_wraddr_u : unsigned(RAM_SIZE_BITS - 1 downto 0);
-    variable led_index    : integer range 0 to 15;
+    variable led_index    : integer range 0 to LED'high;
   begin
     if rising_edge(clk) then
       button_csync <= button_csync(1 downto 0) & BTNC;
       ram_we       <= '0';
+
+      -- Clear LEDs (during playback)
       for i in LED'range loop
         if clr_led(i) then
           LED(i) <= '0';
         end if;
       end loop;
+
+      -- Generate RAM write address
+      if ram_we then
+        if ram_wraddr = RAM_SIZE - 1 then
+          ram_wraddr <= 0;
+        else
+          ram_wraddr <= ram_wraddr + 1;
+        end if;
+      end if;
+
       if button_csync(2 downto 1) = "01" then
         start_capture <= '1';
         LED           <= (others => '0');
       elsif start_capture and amplitude_valid then
+        -- Turn ON the LED corresponding to the current write address region:
+        -- 0x0000 - 0x03FF -> LED 0
+        -- 0x0400 - 0x07FF -> LED 1
+        -- ...
+        -- 0x3C00 - 0x3FFF -> LED 15
         ram_wraddr_u   := to_unsigned(ram_wraddr, ram_wraddr_u'length);
         led_index      := to_integer(ram_wraddr_u(ram_wraddr_u'high downto ram_wraddr_u'high - 3));
         LED(led_index) <= '1';
         ram_we         <= '1';
         if ram_wraddr = RAM_SIZE - 1 then
           start_capture <= '0';
-          LED(15)       <= '1';         -- TODO: redundant?
-        else
-          ram_wraddr <= ram_wraddr + 1;
         end if;
       end if;
     end if;
   end process;
 
-  process(clk)
+  ram : process(clk)
   begin
     if rising_edge(clk) then
       if ram_we then
@@ -141,7 +155,7 @@ begin
   clr_addr     <= TO_INTEGER(ram_rdaddr_u(RAM_SIZE_BITS - 1 downto RAM_SIZE_BITS - 4));
 
   -- Playback the audio
-  process(clk)
+  playback : process(clk)
   begin
     if rising_edge(clk) then
       button_usync <= button_usync(1 downto 0) & BTNU;
@@ -175,4 +189,5 @@ begin
   end process;
 
   AUD_PWM <= '0' when AUD_PWM_en else 'Z';
+
 end architecture rtl;
