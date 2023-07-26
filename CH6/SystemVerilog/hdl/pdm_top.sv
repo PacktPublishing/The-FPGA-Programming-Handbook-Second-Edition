@@ -37,9 +37,10 @@ module pdm_top
    output wire         AUD_SD
    );
 
+  localparam SAMPLE_BITS = $clog2(SAMPLE_COUNT);
   assign AUD_SD = '1;
 
-  (*mark_debug = "true" *)logic [6:0]         amplitude;
+  (*mark_debug = "true" *)logic [SAMPLE_BITS:0] amplitude;
   (*mark_debug = "true" *)logic               amplitude_valid;
 
   (*async_reg = "true" *)logic [2:0]          button_csync = '0;
@@ -75,12 +76,12 @@ module pdm_top
   end
 
   // Capture RAM
-  logic [6:0] amplitude_store[RAM_SIZE];
+  logic [SAMPLE_COUNT:0] amplitude_store[RAM_SIZE];
   logic       start_playback;
   logic [$clog2(RAM_SIZE)-1:0] ram_wraddr;
   logic [$clog2(RAM_SIZE)-1:0] ram_rdaddr;
   logic                        ram_we;
-  logic [6:0]                  ram_dout;
+  logic [SAMPLE_COUNT:0]       ram_dout;
   logic [15:0]                 clr_led;
 
   initial begin
@@ -120,10 +121,7 @@ module pdm_top
     ram_dout <= amplitude_store[ram_rdaddr];
   end
 
-  logic [6:0] amp_capture = '0;
-  logic       AUD_PWM_en = '0;
-  logic [6:0] amp_counter = '0;
-  logic       output_valid = '0;
+  logic       AUD_PWM_en;
 
   // Playback the audio
   pwm_outputs

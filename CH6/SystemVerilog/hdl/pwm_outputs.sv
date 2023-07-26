@@ -19,7 +19,7 @@ module pwm_outputs
 
    input wire                          start_playback, // start the PWM playback
    output logic [$clog2(RAM_SIZE)-1:0] ram_rdaddr, // Ram address for the samples
-   input wire [SAMPLE_BITS-1:0]        ram_sample, // samples from the RAM
+   input wire [SAMPLE_BITS:0]          ram_sample, // samples from the RAM
 
    // Amplitude outputs
    output logic                        AUD_PWM_en,
@@ -36,7 +36,7 @@ module pwm_outputs
   logic                              playback;
   (*mark_debug = "true" *) logic [2:0] start_sync;
   logic [3:0]                        clr_addr;
-  logic [SAMPLE_BITS-1:0]            amp_capture;
+  logic [SAMPLE_BITS:0]              amp_capture;
 
   assign clr_addr = ~ram_rdaddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4];
 
@@ -64,7 +64,7 @@ module pwm_outputs
       clr_led[clr_addr] <= '1;
       AUD_PWM_en        <= '1;
       sample_counter    <= sample_counter + 1'b1;
-      if (sample_counter <= amp_capture) AUD_PWM_en <= '0; // Activate pull up
+      if (sample_counter < amp_capture) AUD_PWM_en <= '0; // Activate pull up
       if (sample_counter == 0) begin
         ram_rdaddr <= ram_rdaddr + 1'b1; // We are capturing the previous sample
         if (ram_sample > 0) AUD_PWM_en <= '0; // Activate pull up
