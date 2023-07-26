@@ -12,14 +12,14 @@ module pwm_outputs
    parameter          RAM_SIZE     = 16384,   // Depth of sample storage
    localparam         SAMPLE_COUNT = 128,     // Number of samples
    localparam         INPUT_FREQ   = 24000,   // Input waveform frequency in Hz
-   localparam         SAMPLE_BITS  = $clog2(SAMPLE_COUNT) // bits needed for sample counter
+   localparam         SAMPLE_BITS  = $clog2(SAMPLE_COUNT+1) // bits needed for sample counter
    )
   (
    input wire                          clk, // 100Mhz
 
    input wire                          start_playback, // start the PWM playback
    output logic [$clog2(RAM_SIZE)-1:0] ram_rdaddr, // Ram address for the samples
-   input wire [SAMPLE_BITS:0]          ram_sample, // samples from the RAM
+   input wire [SAMPLE_BITS-1:0]        ram_sample, // samples from the RAM
 
    // Amplitude outputs
    output logic                        AUD_PWM_en,
@@ -36,7 +36,7 @@ module pwm_outputs
   logic                              playback;
   (*mark_debug = "true" *) logic [2:0] start_sync;
   logic [3:0]                        clr_addr;
-  logic [SAMPLE_BITS:0]              amp_capture;
+  logic [SAMPLE_BITS-1:0]            amp_capture;
 
   assign clr_addr = ~ram_rdaddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4];
 
@@ -72,7 +72,7 @@ module pwm_outputs
       end else if (sample_counter == SAMPLE_COUNT-1) begin
         // We've generated a single sample
         sample_counter   <= '0;
-        if (&ram_rdaddr) begin
+        if (ram_rdaddr == RAM_SIZE - 1) begin
           playback   <= '0;
           ram_rdaddr <= '0;
         end

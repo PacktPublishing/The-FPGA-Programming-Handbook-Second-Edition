@@ -37,10 +37,10 @@ module pdm_top
    output wire         AUD_SD
    );
 
-  localparam SAMPLE_BITS = $clog2(SAMPLE_COUNT);
+  localparam SAMPLE_BITS = $clog2(SAMPLE_COUNT+1);
   assign AUD_SD = '1;
 
-  (*mark_debug = "true" *)logic [SAMPLE_BITS:0] amplitude;
+  (*mark_debug = "true" *)logic [SAMPLE_BITS-1:0] amplitude;
   (*mark_debug = "true" *)logic               amplitude_valid;
 
   (*async_reg = "true" *)logic [2:0]          button_csync = '0;
@@ -76,16 +76,17 @@ module pdm_top
   end
 
   // Capture RAM
-  logic [SAMPLE_COUNT:0] amplitude_store[RAM_SIZE];
-  logic       start_playback;
+  logic [SAMPLE_COUNT-1:0] amplitude_store[RAM_SIZE];
+  logic                    start_playback;        // Note that we test the end of the memory defined in the event it is
+  // not a power of two. If the ram were a power of two we could 
+
   logic [$clog2(RAM_SIZE)-1:0] ram_wraddr;
   logic [$clog2(RAM_SIZE)-1:0] ram_rdaddr;
   logic                        ram_we;
-  logic [SAMPLE_COUNT:0]       ram_dout;
+  logic [SAMPLE_COUNT-1:0]     ram_dout;
   logic [15:0]                 clr_led;
 
   initial begin
-    ram_rdaddr     = '0;
     ram_wraddr     = '0;
     ram_we         = '0;
     start_capture  = '0;
@@ -107,9 +108,8 @@ module pdm_top
     end else if (start_capture && amplitude_valid) begin
       LED[ram_wraddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4]] <= '1;
       ram_we                      <= '1;
-      if (&ram_wraddr) begin
-        // Note that we do not explicitly reset the ram_wraddr as the counter will wrap
-        // back to 0
+      if (ram_wraddr == RAM_SIZE - 1) begin
+        ram_wraddr    <= '0;
         start_capture <= '0;
         LED[15]       <= '1;
       end
@@ -122,6 +122,8 @@ module pdm_top
   end
 
   logic       AUD_PWM_en;
+        // Note that we test the end of the memory defined in the event it is
+  // not a power of two. If the ram were a power of two we could 
 
   // Playback the audio
   pwm_outputs
