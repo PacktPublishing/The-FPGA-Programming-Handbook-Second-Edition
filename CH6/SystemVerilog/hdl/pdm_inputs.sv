@@ -13,7 +13,7 @@ module pdm_inputs
    parameter          CLK_FREQ     = 100,     // Mhz
    parameter          MCLK_FREQ    = 2500000, // Hz
    localparam         SAMPLE_COUNT = 128,     // Number of samples
-   localparam         SAMPLE_BITS  = $clog2(SAMPLE_COUNT) // bits needed for sample counter
+   localparam         SAMPLE_BITS  = $clog2(SAMPLE_COUNT+1) // bits needed for sample counter
    )
   (
    input wire         clk, // 100Mhz
@@ -24,7 +24,7 @@ module pdm_inputs
    input wire         m_data,
 
    // Amplitude outputs
-   output logic [SAMPLE_BITS:0] amplitude,
+   output logic [SAMPLE_BITS-1:0] amplitude,
    output logic       amplitude_valid
    );
 
@@ -35,7 +35,7 @@ module pdm_inputs
   localparam TERMINAL_COUNT1 = SAMPLE_COUNT - COUNTER1_OFFSET;  // Terminal Count for counter 1
 
   logic [$clog2(WINDOW_SIZE)-1:0]    counter;
-  logic [1:0][SAMPLE_BITS:0]         sample_counter;
+  logic [1:0][SAMPLE_BITS-1:0]       sample_counter;
   logic [$clog2(CLK_COUNT)-1:0]      clk_counter;
 
   initial begin
