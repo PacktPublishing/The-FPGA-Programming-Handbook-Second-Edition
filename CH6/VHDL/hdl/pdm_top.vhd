@@ -10,6 +10,8 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
+use work.util_pkg.all;
+
 entity pdm_top is
   generic(
     RAM_SIZE     : natural := 16384;    -- bytes
@@ -37,16 +39,17 @@ end entity pdm_top;
 
 architecture rtl of pdm_top is
 
-  type array_2d is array (natural range <>) of std_logic_vector(6 downto 0);
+  constant RAM_SIZE_BITS : natural := clog2(RAM_SIZE);
+  constant SAMPLE_BITS   : natural := clog2(SAMPLE_COUNT);
 
-  constant RAM_SIZE_BITS : integer := natural(ceil(log2(real(RAM_SIZE))));
+  type array_2d is array (natural range <>) of std_logic_vector(SAMPLE_BITS downto 0);
 
   signal amplitude_store : array_2d(0 to RAM_SIZE - 1); -- capture RAM
   signal ram_wraddr      : integer range 0 to RAM_SIZE - 1 := 0;
   signal ram_rdaddr      : integer range 0 to RAM_SIZE - 1 := 0;
   signal ram_we          : std_logic                       := '0';
-  signal ram_dout        : std_logic_vector(6 downto 0);
-  signal amplitude       : std_logic_vector(6 downto 0);
+  signal ram_dout        : std_logic_vector(SAMPLE_BITS downto 0);
+  signal amplitude       : std_logic_vector(SAMPLE_BITS downto 0);
   signal amplitude_valid : std_logic;
   signal button_usync    : std_logic_vector(2 downto 0);
   signal button_csync    : std_logic_vector(2 downto 0);

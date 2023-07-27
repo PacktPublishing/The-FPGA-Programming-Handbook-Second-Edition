@@ -11,10 +11,13 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
+use work.util_pkg.all;
+
 entity pdm_inputs is
   generic(
-    CLK_FREQ  : integer := 100;         -- MHz
-    MCLK_FREQ : integer := 2500000      -- Hz
+    CLK_FREQ     : natural := 100;      -- MHz
+    MCLK_FREQ    : natural := 2500000;  -- Hz
+    SAMPLE_COUNT : natural := 128
   );
   port(
     clk             : in  std_logic;
@@ -23,7 +26,7 @@ entity pdm_inputs is
     m_clk_en        : out std_logic := '0';
     m_data          : in  std_logic;
     -- Amplitude outputs
-    amplitude       : out std_logic_vector(6 downto 0);
+    amplitude       : out std_logic_vector(clog2(SAMPLE_COUNT) downto 0);
     amplitude_valid : out std_logic := '0'
   );
 end entity pdm_inputs;
@@ -32,11 +35,9 @@ architecture rtl of pdm_inputs is
 
   constant CLK_COUNT       : integer := integer((CLK_FREQ * 1000000) / (MCLK_FREQ * 2));
   constant WINDOW_SIZE     : natural := 200; -- Size of a window
-  constant SAMPLE_COUNT    : natural := 128; -- Number of samples per window
   constant COUNTER1_OFFSET : natural := WINDOW_SIZE / 2; -- Offset value for counter 1
   constant TERMINAL_COUNT0 : natural := SAMPLE_COUNT; -- Terminal Count for counter 0
   constant TERMINAL_COUNT1 : natural := SAMPLE_COUNT - COUNTER1_OFFSET; -- Terminal Count for counter 1
-  constant MAX_AMPLITUDE   : natural := (2 ** amplitude'length) - 1; -- Maximum allowed amplitude output
 
   type sample_counter_array_t is array (natural range <>) of integer range 0 to SAMPLE_COUNT;
 
@@ -68,7 +69,7 @@ begin
           counter <= 0;
         end if;
         if counter = TERMINAL_COUNT0 then
-          amplitude         <= std_logic_vector(to_unsigned(minimum(MAX_AMPLITUDE, sample_counter(0)), amplitude'length));
+          amplitude         <= std_logic_vector(sample_counter(0));
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
         elsif counter < TERMINAL_COUNT0 then
@@ -77,7 +78,7 @@ begin
           end if;
         end if;
         if counter = TERMINAL_COUNT1 then
-          amplitude         <= std_logic_vector(to_unsigned(minimum(MAX_AMPLITUDE, sample_counter(1)), amplitude'length));
+          amplitude         <= std_logic_vector(sample_counter(1));
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
         elsif (counter < TERMINAL_COUNT1) or (counter >= COUNTER1_OFFSET) then
