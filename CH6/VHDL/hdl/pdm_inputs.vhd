@@ -26,7 +26,7 @@ entity pdm_inputs is
     m_clk_en        : out std_logic := '0';
     m_data          : in  std_logic;
     -- Amplitude outputs
-    amplitude       : out std_logic_vector(clog2(SAMPLE_COUNT) downto 0);
+    amplitude       : out std_logic_vector(clog2(SAMPLE_COUNT + 1) - 1 downto 0);
     amplitude_valid : out std_logic := '0'
   );
 end entity pdm_inputs;
@@ -69,7 +69,7 @@ begin
           counter <= 0;
         end if;
         if counter = TERMINAL_COUNT0 then
-          amplitude         <= std_logic_vector(sample_counter(0));
+          amplitude         <= std_logic_vector(to_unsigned(sample_counter(0), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
         elsif counter < TERMINAL_COUNT0 then
@@ -78,7 +78,7 @@ begin
           end if;
         end if;
         if counter = TERMINAL_COUNT1 then
-          amplitude         <= std_logic_vector(sample_counter(1));
+          amplitude         <= std_logic_vector(to_unsigned(sample_counter(1), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
         elsif (counter < TERMINAL_COUNT1) or (counter >= COUNTER1_OFFSET) then

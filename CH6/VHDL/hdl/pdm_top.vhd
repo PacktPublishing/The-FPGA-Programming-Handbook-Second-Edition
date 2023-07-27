@@ -39,36 +39,31 @@ end entity pdm_top;
 
 architecture rtl of pdm_top is
 
-  constant RAM_SIZE_BITS : natural := clog2(RAM_SIZE);
-  constant SAMPLE_BITS   : natural := clog2(SAMPLE_COUNT);
+  constant RAM_ADDR_BITS : natural := clog2(RAM_SIZE);
+  constant SAMPLE_BITS   : natural := clog2(SAMPLE_COUNT + 1);
+  constant MCLK_FREQ     : natural := 2500000;
+  constant INPUT_FREQ    : natural := 25000;
 
-  type array_2d is array (natural range <>) of std_logic_vector(SAMPLE_BITS downto 0);
+  type array_2d is array (natural range <>) of std_logic_vector(SAMPLE_BITS - 1 downto 0);
 
   signal amplitude_store : array_2d(0 to RAM_SIZE - 1); -- capture RAM
-  signal ram_wraddr      : integer range 0 to RAM_SIZE - 1 := 0;
-  signal ram_rdaddr      : integer range 0 to RAM_SIZE - 1 := 0;
-  signal ram_we          : std_logic                       := '0';
-  signal ram_dout        : std_logic_vector(SAMPLE_BITS downto 0);
-  signal amplitude       : std_logic_vector(SAMPLE_BITS downto 0);
+  signal ram_wraddr      : unsigned(RAM_ADDR_BITS - 1 downto 0) := (others => '0');
+  signal ram_rdaddr      : unsigned(RAM_ADDR_BITS - 1 downto 0) := (others => '0');
+  signal ram_we          : std_logic                            := '0';
+  signal ram_dout        : std_logic_vector(SAMPLE_BITS - 1 downto 0);
+  signal amplitude       : std_logic_vector(SAMPLE_BITS - 1 downto 0);
   signal amplitude_valid : std_logic;
-  signal button_usync    : std_logic_vector(2 downto 0);
   signal button_csync    : std_logic_vector(2 downto 0);
-  signal start_capture   : std_logic                       := '0';
+  signal start_capture   : std_logic                            := '0';
   signal m_clk_en        : std_logic;
-  signal m_clk_en_del    : std_logic;
-  signal light_count     : integer range 0 to 127          := 0;
-  signal start_playback  : std_logic                       := '0';
-  signal clr_led         : std_logic_vector(15 downto 0)   := (others => '0');
-  signal amp_capture     : std_logic_vector(6 downto 0);
+  signal light_count     : integer range 0 to 127               := 0;
+  signal clr_led         : std_logic_vector(15 downto 0)        := (others => '0');
   signal AUD_PWM_en      : std_logic;
-  signal amp_counter     : integer range 0 to 127;
-  signal clr_addr        : integer range 0 to 15;
-  signal ram_rdaddr_u    : unsigned(RAM_SIZE_BITS - 1 downto 0);
 
   attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of amplitude, amplitude_valid : signal is "TRUE";
   attribute ASYNC_REG  : string;
-  attribute ASYNC_REG of button_usync, button_csync : signal is "TRUE";
+  attribute ASYNC_REG of button_csync : signal is "TRUE";
 
 begin
   AUD_SD   <= '1';
@@ -76,7 +71,9 @@ begin
 
   u_pdm_inputs : entity work.pdm_inputs
     generic map(
-      CLK_FREQ => CLK_FREQ
+      CLK_FREQ     => CLK_FREQ,
+      MCLK_FREQ    => MCLK_FREQ,
+      SAMPLE_COUNT => SAMPLE_COUNT
     )
     port map(
       clk             => clk,
@@ -101,8 +98,7 @@ begin
 
   -- Capture the Audio data
   capture : process(clk)
-    variable ram_wraddr_u : unsigned(RAM_SIZE_BITS - 1 downto 0);
-    variable led_index    : integer range 0 to LED'high;
+    variable led_index : integer range 0 to LED'high;
   begin
     if rising_edge(clk) then
       button_csync <= button_csync(1 downto 0) & BTNC;
@@ -118,7 +114,7 @@ begin
       -- Generate RAM write address
       if ram_we then
         if ram_wraddr = RAM_SIZE - 1 then
-          ram_wraddr <= 0;
+          ram_wraddr <= (others => '0');
         else
           ram_wraddr <= ram_wraddr + 1;
         end if;
@@ -133,8 +129,7 @@ begin
         -- 0x0400 - 0x07FF -> LED 1
         -- ...
         -- 0x3C00 - 0x3FFF -> LED 15
-        ram_wraddr_u   := to_unsigned(ram_wraddr, ram_wraddr_u'length);
-        led_index      := to_integer(ram_wraddr_u(ram_wraddr_u'high downto ram_wraddr_u'high - 3));
+        led_index      := to_integer(ram_wraddr(ram_wraddr'high downto ram_wraddr'high - 3));
         LED(led_index) <= '1';
         ram_we         <= '1';
         if ram_wraddr = RAM_SIZE - 1 then
@@ -148,48 +143,28 @@ begin
   begin
     if rising_edge(clk) then
       if ram_we then
-        amplitude_store(ram_wraddr) <= amplitude;
+        amplitude_store(to_integer(ram_wraddr)) <= amplitude;
       end if;
-      ram_dout <= amplitude_store(ram_rdaddr);
+      ram_dout <= amplitude_store(to_integer(ram_rdaddr));
     end if;
   end process;
-
-  ram_rdaddr_u <= to_unsigned(ram_rdaddr, RAM_SIZE_BITS);
-  clr_addr     <= TO_INTEGER(ram_rdaddr_u(RAM_SIZE_BITS - 1 downto RAM_SIZE_BITS - 4));
 
   -- Playback the audio
-  playback : process(clk)
-  begin
-    if rising_edge(clk) then
-      button_usync <= button_usync(1 downto 0) & BTNU;
-      m_clk_en_del <= m_clk_en;
-      clr_led      <= (others => '0');
-
-      if button_usync(2 downto 1) = "01" then
-        start_playback <= '1';
-        ram_rdaddr     <= 0;
-      elsif start_playback and m_clk_en_del then
-        clr_led(clr_addr) <= '1';
-        AUD_PWM_en        <= '1';
-        if amplitude_valid then
-          ram_rdaddr  <= ram_rdaddr + 1;
-          amp_counter <= 1;
-          amp_capture <= ram_dout;
-          if ram_dout /= 7d"0" then
-            AUD_PWM_en <= '0';          -- Activate pull up
-          end if;
-        else
-          amp_counter <= amp_counter + 1;
-          if unsigned(amp_capture) < amp_counter then
-            AUD_PWM_en <= '0';          -- Activate pull up
-          end if;
-        end if;
-        if and ram_rdaddr_u then
-          start_playback <= '0';
-        end if;
-      end if;
-    end if;
-  end process;
+  pwm_outputs : entity work.pwm_outputs
+    generic map(
+      RAM_SIZE     => RAM_SIZE,
+      CLK_FREQ     => CLK_FREQ,
+      SAMPLE_COUNT => SAMPLE_COUNT,
+      INPUT_FREQ   => INPUT_FREQ
+    )
+    port map(
+      clk            => clk,
+      start_playback => BTNU,
+      ram_rdaddr     => ram_rdaddr,
+      ram_sample     => ram_dout,
+      AUD_PWM_en     => AUD_PWM_en,
+      clr_led        => clr_led
+    );
 
   AUD_PWM <= '0' when AUD_PWM_en else 'Z';
 

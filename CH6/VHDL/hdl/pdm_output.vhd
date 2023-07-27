@@ -1,3 +1,10 @@
+-- pdm_output.vhd
+-- ------------------------------------
+-- PDM output generator
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- This is used by tb_pdm to create a PDM testbench for testing.
+
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
