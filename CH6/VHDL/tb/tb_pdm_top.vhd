@@ -1,16 +1,26 @@
+-- tb_pdm_top.vhd
+-- ------------------------------------
+-- Test Bench for PDM
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- This module generates a PDM waveform and samples the same waveform.
+-- The outputs can be visually verified. Please see the book for how to use it.
+
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
-entity tb_pdm is
-end entity tb_pdm;
+entity tb_pdm_top is
+end entity tb_pdm_top;
 
-architecture rtl of tb_pdm is
+architecture rtl of tb_pdm_top is
 
   type u6_array_t is array (natural range <>) of unsigned(6 downto 0);
 
-  constant CLK_FREQ   : integer := 100; -- MHz
-  constant CLK_PERIOD : time    := 1 sec / (CLK_FREQ * 1000000);
+  constant CLK_FREQ     : integer := 100; -- MHz
+  constant CLK_PERIOD   : time    := 1 sec / (CLK_FREQ * 1000000);
+  constant RAM_SIZE     : natural := 64;
+  constant SAMPLE_COUNT : natural := 128;
 
   constant SIN_TABLE : u6_array_t(0 to 127) := (
     7x"00", 7x"01", 7x"03", 7x"04",
@@ -75,7 +85,9 @@ begin
 
   u_pdm_top : entity work.pdm_top
     generic map(
-      CLK_FREQ => CLK_FREQ
+      RAM_SIZE     => RAM_SIZE,
+      CLK_FREQ     => CLK_FREQ,
+      SAMPLE_COUNT => SAMPLE_COUNT
     )
     port map(
       clk      => clk,
@@ -91,6 +103,8 @@ begin
       AUD_PWM  => AUD_PWM,
       AUD_SD   => AUD_SD);
 
+  AUD_PWM <= 'H';                       -- simulate the pull-up on the board
+
   u_pdm_output : entity work.pdm_output
     port map(
       clk      => m_clk,
@@ -98,13 +112,47 @@ begin
       data_out => m_data
     );
 
+  -- Test control
+  test : process is
+  begin
+    BTNC <= '0';
+    BTNU <= '0';
+    for i in 1 to 10000 loop
+      wait until rising_edge(clk);
+    end loop;
+    report "start capture";
+    BTNC <= '1';                        -- start capture
+    for i in 1 to 100 loop
+      wait until rising_edge(clk);
+    end loop;
+    BTNC <= '0';
+    wait until (and LED);               -- REVIEW all LEDs ON -> capture complete
+    report "capture done";
+    for i in 1 to 10000 loop
+      wait until rising_edge(clk);
+    end loop;
+--    wait for 1 ms;
+    BTNU <= '1';                        -- start playback
+    for i in 1 to 100 loop
+      wait until rising_edge(clk);
+    end loop;
+    BTNU <= '0';
+    wait until not (or LED);            -- REVIEW all LEDS OFF -> playback complete
+    for i in 1 to 10000 loop
+      wait until rising_edge(clk);
+    end loop;
+    wait for 1 ms;
+    report "Waveform has been sampled and played back. You can view waves.";
+    std.env.stop;
+  end process test;
+
   -- PDM generator
   process(m_clk)
     variable counter   : integer range 0 to 255 := 0;
     variable int_count : integer range 0 to 127 := 0;
   begin
     if rising_edge(m_clk) then
-      if int_count = 127 then
+      if int_count = 127 then           -- Generate a new amplitude sample every 128 m_clk cycles
         if counter = 255 then
           counter := 0;
         else
@@ -121,4 +169,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;
