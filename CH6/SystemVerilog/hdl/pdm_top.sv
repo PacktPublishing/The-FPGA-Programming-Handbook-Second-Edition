@@ -78,7 +78,7 @@ module pdm_top
   // Capture RAM
   logic [SAMPLE_COUNT-1:0] amplitude_store[RAM_SIZE];
   logic                    start_playback;        // Note that we test the end of the memory defined in the event it is
-  // not a power of two. If the ram were a power of two we could 
+  // not a power of two. If the ram were a power of two we could
 
   logic [$clog2(RAM_SIZE)-1:0] ram_wraddr;
   logic [$clog2(RAM_SIZE)-1:0] ram_rdaddr;
@@ -111,7 +111,6 @@ module pdm_top
       if (ram_wraddr == RAM_SIZE - 1) begin
         ram_wraddr    <= '0;
         start_capture <= '0;
-        LED[15]       <= '1;
       end
     end
   end // always @ (posedge clk)
@@ -123,7 +122,7 @@ module pdm_top
 
   logic       AUD_PWM_en;
         // Note that we test the end of the memory defined in the event it is
-  // not a power of two. If the ram were a power of two we could 
+  // not a power of two. If the ram were a power of two we could
 
   // Playback the audio
   pwm_outputs
