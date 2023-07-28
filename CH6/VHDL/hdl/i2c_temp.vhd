@@ -5,13 +5,16 @@
 -- Author : Frank Bruno, Guy Eschemann
 -- This module uses the I2C temperature sensor on the board to read and display the temperature.
 
-LIBRARY IEEE, XPM;
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
+
+library xpm;
+use xpm.vcomponents.all;
+
 use WORK.temp_pkg.all;
 use WORK.counting_buttons_pkg.all;
-use XPM.vcomponents.all;
 
 entity i2c_temp is
   generic(
@@ -131,7 +134,7 @@ begin
   begin
     if rising_edge(clk) then
       scl_en        <= '1';
-      sda_en        <= not i2c_en(I2CBITS - bit_count - 1) or i2c_data(I2CBITS - bit_count - 1);
+      sda_en        <= (not i2c_en(I2CBITS - bit_count - 1)) or i2c_data(I2CBITS - bit_count - 1);
       if counter_reset then
         counter <= 0;
       else
@@ -210,11 +213,14 @@ begin
     end if;
   end process;
 
-  g_NO_SMOOTH : if SMOOTHING = 0 generate
+  g_SMOOTHING : if SMOOTHING = 0 generate
+    
     smooth_data    <= temp_data;
     smooth_convert <= convert;
+    
   else generate
-    process(clk)
+    
+    smooth : process(clk)
     begin
       if rising_edge(clk) then
         rden           <= '0';
@@ -230,9 +236,10 @@ begin
           accumulator <= accumulator - unsigned(dout);
         elsif rden_del then
           smooth_convert <= '1';
-          smooth_data    <= std_logic_vector(accumulator(19 downto 4)); -- REVIEW: does this divide by 16?
+          smooth_data    <= std_logic_vector(accumulator(19 downto 4)); -- FIXME: divide by SMOOTHING factor
         end if;
       end if;
+      
     end process;
 
     u_xpm_fifo_sync : xpm_fifo_sync
