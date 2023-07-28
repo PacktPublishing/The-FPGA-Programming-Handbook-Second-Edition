@@ -19,7 +19,7 @@ architecture rtl of tb_pdm_top is
 
   constant CLK_FREQ     : integer := 100; -- MHz
   constant CLK_PERIOD   : time    := 1 sec / (CLK_FREQ * 1000000);
-  constant RAM_SIZE     : natural := 64;
+  constant RAM_SIZE     : natural := 16384;
   constant SAMPLE_COUNT : natural := 128;
 
   constant SIN_TABLE : u6_array_t(0 to 127) := (
