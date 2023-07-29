@@ -59,6 +59,7 @@ module i2c_temp
   (* mark_debug = "true" *) logic [$clog2(TIME_1SEC)-1:0]    counter;
   logic                            counter_reset;
   (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_count;
+  (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_index;
   (* mark_debug = "true" *) logic [15:0]                     temp_data;
   (* mark_debug = "true" *) logic                            capture_en;
   (* mark_debug = "true" *) logic                            convert;
@@ -95,7 +96,8 @@ module i2c_temp
 
   (* mark_debug = "true" *) spi_t spi_state;
 
-  assign capture_en = i2c_capt[I2CBITS - bit_count - 1];
+  assign bit_index = bit_count == I2CBITS ? '0 : I2CBITS - bit_count - 1;
+  assign capture_en = i2c_capt[bit_index];
 
   initial begin
     scl_en          = '0;
@@ -107,8 +109,8 @@ module i2c_temp
 
   always @(posedge clk) begin
     scl_en                     <= '1;
-    sda_en                     <= ~i2c_en[I2CBITS - bit_count - 1] |
-                                  i2c_data[I2CBITS - bit_count - 1];
+    sda_en                     <= ~i2c_en[bit_index] |
+                                  i2c_data[bit_index];
     if (counter_reset) counter <= '0;
     else counter <= counter + 1'b1;
     counter_reset <= '0;
@@ -139,7 +141,7 @@ module i2c_temp
         end
       end
       TLOW: begin
-        scl_en            <= '0; // Drop the clock
+        scl_en          <= '0; // Drop the clock
         if (counter == TIME_TLOW) begin
           bit_count     <= bit_count + 1'b1;
           counter_reset <= '1;
