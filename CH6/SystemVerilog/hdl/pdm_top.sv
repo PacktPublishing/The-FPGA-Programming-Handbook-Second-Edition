@@ -63,18 +63,30 @@ module pdm_top
      .amplitude_valid     (amplitude_valid)
      );
 
-  logic [6:0]         light_count;
-
-  initial light_count = '0;
+  logic signed [SAMPLE_BITS:0] intensity;
+  logic [SAMPLE_BITS-1:0]      light_count = 1;
 
   // Display capture amplitude using tricolor LED
   // We are looking for positive values, i.e. values > 64 and making the blue
   // intensity based on that.
   always @(posedge clk) begin
-    if (m_clk_en) light_count <= light_count + 1'b1;
-    B           <= ((SAMPLE_COUNT/2 - amplitude) < light_count);
-    R           <= '0;
-    G           <= '0;
+    // Generate 2.5Mhz/64 = 39.062kHz PWM counter
+    if (m_clk_en) begin
+      light_count <= light_count < SAMPLE_COUNT/2 ? light_count + 1'b1 : 1;
+    end
+    // Map amplitude from 0 - 128 to -64 - 4
+    if (amplitude_valid) begin
+      intensity <= signed'({1'b0, amplitude}) - SAMPLE_COUNT/2;
+    end
+    // Use absolute value of intensity to control the brightness of the blue LED
+    // * |intensity| = 0  -> B is off for light count = 1..64 (0% duty cycle)
+    // * |intensity| = 1  -> B is on  for light count = 1, off for light count = 2..64 (1.56% duty cycle)
+    // ...
+    // * |intensity| = 64 -> B is on  for light count = 1..64 (100% duty cycle)
+    if (intensity < 0) B <= light_count <= -intensity;
+    else               B <= light_count <=  intensity;
+    R <= '0;
+    G <= '0;
   end
 
   // Capture RAM
