@@ -9,6 +9,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
+use IEEE.math_real.all;
 
 entity tb_pdm_top is
 end entity tb_pdm_top;
@@ -19,8 +20,9 @@ architecture rtl of tb_pdm_top is
 
   constant CLK_FREQ     : integer := 100; -- MHz
   constant CLK_PERIOD   : time    := 1 sec / (CLK_FREQ * 1000000);
-  constant RAM_SIZE     : natural := 16384;
+  constant RAM_SIZE     : natural := 16384; -- NOTE: reduce to e.g. 1024 for faster simulation
   constant SAMPLE_COUNT : natural := 128;
+  constant SAMPLE_RATE  : natural := 25000; -- Hz
 
   constant SIN_TABLE : u6_array_t(0 to 127) := (
     7x"00", 7x"01", 7x"03", 7x"04",
@@ -120,28 +122,26 @@ begin
     for i in 1 to 10000 loop
       wait until rising_edge(clk);
     end loop;
-    report "start capture";
-    BTNC <= '1';                        -- start capture
+    report "Start capture";
+    BTNC <= '1';
     for i in 1 to 100 loop
       wait until rising_edge(clk);
     end loop;
     BTNC <= '0';
-    wait until (and LED);               -- REVIEW all LEDs ON -> capture complete
-    report "capture done";
-    for i in 1 to 10000 loop
-      wait until rising_edge(clk);
-    end loop;
---    wait for 1 ms;
-    BTNU <= '1';                        -- start playback
+    wait until (and LED);               -- all LEDs ON -> last block is begin written to RAM
+    wait for (real(RAM_SIZE) / real(LED'length * SAMPLE_RATE)) * 1 sec; -- wait until the last block has been captured
+    report "Capture done";
+    report "Start playback";
+    BTNU <= '1';
     for i in 1 to 100 loop
       wait until rising_edge(clk);
     end loop;
     BTNU <= '0';
-    wait until not (or LED);            -- REVIEW all LEDS OFF -> playback complete
+    wait until not (or LED);            -- all LEDs OFF -> last block is begin read from RAM
     for i in 1 to 10000 loop
       wait until rising_edge(clk);
     end loop;
-    wait for 1 ms;
+    wait for (real(RAM_SIZE) / real(LED'length * SAMPLE_RATE)) * 1 sec; -- wait until the last block has been read
     report "Waveform has been sampled and played back. You can view waves.";
     std.env.stop;
   end process test;
