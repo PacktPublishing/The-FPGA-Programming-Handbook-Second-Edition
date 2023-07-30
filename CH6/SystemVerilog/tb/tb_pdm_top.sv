@@ -93,7 +93,8 @@ module tb_pdm_top;
     repeat (100) @(posedge clk);
     BTNC = '0;
     while (~&LED) repeat (100) @(posedge clk);
-    repeat (10000) @(posedge clk);
+    // Add a delay to wait for the entire data capture to complete, 42ms
+    repeat (4200000) @(posedge clk);
     BTNU = '1;
     repeat (100) @(posedge clk);
     BTNU = '0;

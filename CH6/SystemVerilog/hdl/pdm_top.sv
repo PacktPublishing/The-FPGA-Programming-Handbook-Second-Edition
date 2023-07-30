@@ -67,10 +67,12 @@ module pdm_top
 
   initial light_count = '0;
 
-  // Display using tricolor LED
+  // Display capture amplitude using tricolor LED
+  // We are looking for positive values, i.e. values > 64 and making the blue
+  // intensity based on that.
   always @(posedge clk) begin
     if (m_clk_en) light_count <= light_count + 1'b1;
-    B           <= ((40 - amplitude) < light_count);
+    B           <= ((SAMPLE_COUNT/2 - amplitude) < light_count);
     R           <= '0;
     G           <= '0;
   end
@@ -103,14 +105,14 @@ module pdm_top
 
     if (ram_we) ram_wraddr <= ram_wraddr + 1'b1;
     if (button_csync[2:1] == 2'b01) begin
+      ram_wraddr    <= '0;
       start_capture <= '1;
       LED           <= '0;
     end else if (start_capture && amplitude_valid) begin
       LED[ram_wraddr[$clog2(RAM_SIZE)-1:$clog2(RAM_SIZE)-4]] <= '1;
       ram_we                      <= '1;
       if (ram_wraddr == RAM_SIZE - 1) begin
-        ram_wraddr    <= '0;
-        start_capture <= '0;
+         start_capture <= '0;
       end
     end
   end // always @ (posedge clk)
