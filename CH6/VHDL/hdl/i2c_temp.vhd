@@ -148,7 +148,7 @@ begin
 
       case i2c_state is
         when IDLE =>
-          i2c_data  <= '0' & I2C_ADDR & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0' & '1';
+          i2c_data  <= '0' & I2C_ADDR  & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0' & '1';
           i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1' & '1';
           i2c_capt  <= '0' & "0000000" & '0' & '0' & "11111111" & '0' & "11111111" & '0' & '0' & '0';
           bit_count <= 0;
@@ -211,7 +211,7 @@ begin
             convert       <= '1';
             counter_reset <= '1';
             i2c_state     <= IDLE;
-          end if;
+        end if;
       end case;
     end if;
   end process;
@@ -240,7 +240,7 @@ begin
           accumulator <= accumulator - unsigned(dout);
         elsif rden_del then
           smooth_convert <= '1';
-          smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT))(smooth_data'range);
+          smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT)(smooth_data'range));
         end if;
       end if;
 

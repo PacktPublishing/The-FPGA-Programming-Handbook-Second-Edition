@@ -18,4 +18,7 @@
   <Mappings Location="Common Libraries/STD" Library="std"/>
   <Mappings Location="" Library="work"/>
   <Mappings Location="CH3/VHDL" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/adt7420_mdl.vhd" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/tb_pdm_top.vhd" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/tb_temp.vhd" Library="work"/>
 </com.sigasi.hdt.shared.librarymapping.model:LibraryMappings>
