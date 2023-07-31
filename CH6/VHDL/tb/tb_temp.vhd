@@ -15,7 +15,7 @@ end entity tb_temp;
 
 architecture test of tb_temp is
 
-  constant INTERVAL     : natural                       := 10000; -- ns
+  constant INTERVAL     : natural                       := 5000; -- ns
   constant NUM_SEGMENTS : natural                       := 8;
   constant CLK_PER      : natural                       := 10; -- ns
   constant SMOOTHING    : natural                       := 16;
@@ -65,6 +65,10 @@ begin
       scl  => TMP_SCL,
       sda  => TMP_SDA
     );
+
+  -- Simulate I2C pull-ups on the board
+  TMP_SCL <= 'H';
+  TMP_SDA <= 'H';
 
 end architecture test;
 

@@ -151,7 +151,7 @@ begin
           bit_count <= 0;
           sda_en    <= '1';             -- Force to 1 in the beginning.
 
-          if counter = TIME_1SEC then
+          if counter = TIME_1SEC - 1 then
             temp_data     <= (others => '0');
             i2c_state     <= START;
             counter_reset <= '1';
