@@ -134,6 +134,7 @@ begin
       end if;
 
       if button_csync(2 downto 1) = "01" then
+        ram_wraddr    <= (others => '0');
         start_capture <= '1';
         LED           <= (others => '0');
       elsif start_capture and amplitude_valid then
