@@ -18,7 +18,7 @@ use WORK.counting_buttons_pkg.all;
 
 entity i2c_temp is
   generic(
-    SMOOTHING    : integer := 16;
+    SMOOTHING    : integer := 16;       -- must be a power of two
     INTERVAL     : integer := 1000000000; -- ns
     NUM_SEGMENTS : integer := 8;
     CLK_PER      : integer := 10        -- ns
@@ -99,6 +99,7 @@ architecture rtl of i2c_temp is
   signal dout           : std_logic_vector(15 downto 0);
   signal rden, rden_del : std_logic                    := '0';
   signal accumulator    : unsigned(31 downto 0)        := (others => '0');
+  signal bit_index      : natural range 0 to I2CBITS - 1;
 
   attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of sda_en, scl_en : signal is "TRUE";
@@ -114,7 +115,8 @@ begin
   u_seven_segment : entity work.seven_segment
     generic map(
       NUM_SEGMENTS => NUM_SEGMENTS,
-      CLK_PER      => CLK_PER
+      CLK_PER      => CLK_PER,
+      REFR_RATE    => 1000
     )
     port map(
       clk         => clk,
@@ -128,13 +130,14 @@ begin
   TMP_SCL <= 'Z' when scl_en else '0';
   TMP_SDA <= 'Z' when sda_en else '0';
 
-  capture_en <= i2c_capt(I2CBITS - bit_count - 1);
+  bit_index  <= 0 when (bit_count = I2CBITS) else I2CBITS - bit_count - 1;
+  capture_en <= i2c_capt(bit_index);
 
   fsm : process(clk)
   begin
     if rising_edge(clk) then
       scl_en        <= '1';
-      sda_en        <= (not i2c_en(I2CBITS - bit_count - 1)) or i2c_data(I2CBITS - bit_count - 1);
+      sda_en        <= (not i2c_en(bit_index)) or i2c_data(bit_index);
       if counter_reset then
         counter <= 0;
       else
@@ -214,13 +217,14 @@ begin
   end process;
 
   g_SMOOTHING : if SMOOTHING = 0 generate
-    
+
     smooth_data    <= temp_data;
     smooth_convert <= convert;
-    
+
   else generate
-    
+
     smooth : process(clk)
+      constant SMOOTHING_SHIFT : natural := natural(log2(real(SMOOTHING))); -- number of bits to shift to implement division by SMOOTHING factor 
     begin
       if rising_edge(clk) then
         rden           <= '0';
@@ -236,10 +240,10 @@ begin
           accumulator <= accumulator - unsigned(dout);
         elsif rden_del then
           smooth_convert <= '1';
-          smooth_data    <= std_logic_vector(accumulator(19 downto 4)); -- FIXME: divide by SMOOTHING factor
+          smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT))(smooth_data'range);
         end if;
       end if;
-      
+
     end process;
 
     u_xpm_fifo_sync : xpm_fifo_sync

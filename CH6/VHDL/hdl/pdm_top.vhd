@@ -56,7 +56,6 @@ architecture rtl of pdm_top is
   signal button_csync    : std_logic_vector(2 downto 0);
   signal start_capture   : std_logic                            := '0';
   signal m_clk_en        : std_logic;
-  signal light_count     : integer range 0 to 127               := 0;
   signal clr_led         : std_logic_vector(15 downto 0)        := (others => '0');
   signal AUD_PWM_en      : std_logic;
 
@@ -83,14 +82,28 @@ begin
       amplitude       => amplitude,
       amplitude_valid => amplitude_valid);
 
-  -- Display using tricolor LED
+  -- Display capture amplitude using tricolor LED
+  -- We are looking for positive values, i.e. values > 64 and making the blue
+  -- intensity based on that.
   process(clk)
+    variable intensity   : signed(SAMPLE_BITS downto 0)          := (others => '0');
+    variable light_count : natural range 1 to (SAMPLE_COUNT / 2) := 1; -- range [1, 64]
   begin
     if rising_edge(clk) then
+      -- Generate 2.5 MHz / 64 = 39.062 kHz PWM counter
       if m_clk_en then
-        light_count <= light_count + 1 when light_count < 127 else 0;
+        light_count := light_count + 1 when light_count < (SAMPLE_COUNT / 2) else 1;
       end if;
-      B <= '1' when (40 - unsigned(amplitude)) < light_count else '0';
+      -- Capture amplitude sample and map it from range [0, 128] to [-64, 64]
+      if amplitude_valid then
+        intensity := signed('0' & amplitude) - SAMPLE_COUNT / 2;
+      end if;
+      -- Use absolute value of intensity to control the brightness of the blue LED
+      --  * |intensity| = 0  -> B is OFF for light_count = 1..64 (0% duty cycle)
+      --  * |intensity| = 1  -> B is ON for light_count = 1, OFF for light_count = 2..64 (1.56% duty cycle)
+      --  * |intensity| = 64 -> B is ON for light_count = 1..64 (100% duty cycle)
+      B <= '1' when light_count <= abs (intensity) else '0';
+      --
       R <= '0';
       G <= '0';
     end if;
@@ -121,6 +134,7 @@ begin
       end if;
 
       if button_csync(2 downto 1) = "01" then
+        ram_wraddr    <= (others => '0');
         start_capture <= '1';
         LED           <= (others => '0');
       elsif start_capture and amplitude_valid then
