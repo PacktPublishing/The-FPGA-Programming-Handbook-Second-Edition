@@ -30,7 +30,7 @@ end entity seven_segment;
 
 architecture rtl of seven_segment is
 
-  constant INTERVAL : integer := integer(1000000000.0 / (CLK_PER * REFR_RATE));
+  constant INTERVAL : natural := 1000000000 / (CLK_PER * REFR_RATE);
 
   signal refresh_count : integer range 0 to INTERVAL         := 0;
   signal anode_count   : integer range 0 to NUM_SEGMENTS - 1 := 0;
