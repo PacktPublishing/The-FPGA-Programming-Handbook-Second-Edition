@@ -57,7 +57,7 @@ architecture rtl of i2c_temp is
                                              1 + -- 1 bit for ack
                                              8 + -- 8 bits lower data
                                              1 + -- 1 bit for ack
-                                             1 + 1; -- 1 bit for stop
+                                             1; -- 1 bit for stop
 
   constant FRACTION_TABLE : slv16_array_t := (
     0  => std_logic_vector(to_unsigned(0 * 625, 16)),
@@ -148,9 +148,9 @@ begin
 
       case i2c_state is
         when IDLE =>
-          i2c_data  <= '0' & I2C_ADDR  & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0' & '1';
-          i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1' & '1';
-          i2c_capt  <= '0' & "0000000" & '0' & '0' & "11111111" & '0' & "11111111" & '0' & '0' & '0';
+          i2c_data  <= '0' & I2C_ADDR & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0';
+          i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1';
+          i2c_capt  <= '0' & "0000000" & '0' & '0' & "11111111" & '0' & "11111111" & '0' & '0';
           bit_count <= 0;
           sda_en    <= '1';             -- Force to 1 in the beginning.
 
@@ -189,17 +189,21 @@ begin
           scl_en <= '1';                -- Raise the clock
           if counter = TIME_THIGH then
             if capture_en then
-              temp_data <= temp_data(14 downto 0) & TMP_SDA;
+              temp_data <= temp_data(14 downto 0) & to_01(TMP_SDA);
             end if;
             counter_reset <= '1';
             i2c_state     <= THD;
           end if;
 
         when THD =>
-          scl_en <= '0';                -- Drop the clock
+          if bit_count = I2CBITS - 1 then
+            scl_en <= '1';              -- Keep the clock high
+          else
+            scl_en <= '0';              -- Drop the clock
+          end if;
           if counter = TIME_THDDAT then
             counter_reset <= '1';
-            if bit_count = I2CBITS then
+            if bit_count = I2CBITS - 1 then
               i2c_state <= TSTO;
             else
               i2c_state <= TLOW;
@@ -211,7 +215,7 @@ begin
             convert       <= '1';
             counter_reset <= '1';
             i2c_state     <= IDLE;
-        end if;
+          end if;
       end case;
     end if;
   end process;
@@ -224,7 +228,7 @@ begin
   else generate
 
     smooth : process(clk)
-      constant SMOOTHING_SHIFT : natural := natural(log2(real(SMOOTHING))); -- number of bits to shift to implement division by SMOOTHING factor 
+      constant SMOOTHING_SHIFT : natural := natural(log2(real(SMOOTHING))); -- number of bits to shift to implement division by SMOOTHING factor
     begin
       if rising_edge(clk) then
         rden           <= '0';

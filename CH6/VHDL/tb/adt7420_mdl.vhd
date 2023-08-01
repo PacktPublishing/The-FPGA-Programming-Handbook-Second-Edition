@@ -31,8 +31,8 @@ begin
         sda <= 'Z';
 
         -- Wait for START condition
-        wait on sda until sda'event and sda = '0' and scl = 'H';
-        report "START";
+        wait on sda until sda'event and sda = '0' and to_01(scl) = '1';
+        report "I2C START";
 
         -- Receive device address
         for i in addr'high downto addr'low loop
@@ -74,6 +74,10 @@ begin
         sda <= 'Z';
         wait until rising_edge(scl);
         assert to_01(sda) = '1' report "expected NO ACK by master" severity error;
+        
+        -- Wait for STOP condition
+        wait on sda until sda'event and to_01(sda) = '1' and to_01(scl) = '1';
+        report "I2C STOP";
 
     end process i2c;
 
