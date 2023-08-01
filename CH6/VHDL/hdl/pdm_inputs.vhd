@@ -1,51 +1,56 @@
+-- pdm_inputs.vhd
+-- ------------------------------------
+-- Pulse Data Modulation input module
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- This module captures PDM data, in this case from a microphone.
+-- It uses two sets of overlapping windowed data. Please see CH6
+-- of the book for a detailed explanation.
+
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
-use IEEE.math_real.all;
+
+use work.util_pkg.all;
 
 entity pdm_inputs is
-  generic (CLK_FREQ     : integer := 100;      -- Mhz
-           SAMPLE_RATE  : integer := 2400000); -- Hz
-  port (clk         : in std_logic;
-
-        -- Microphone interface
-        m_clk       : out std_logic := '0';
-        m_clk_en    : out std_logic := '0';
-        m_data      : in std_logic;
-
-        -- amplitude outputs
-        amplitude   : out std_logic_vector(6 downto 0) := 7d"0";
-        amplitude_valid : out std_logic);
+  generic(
+    CLK_FREQ     : natural := 100;      -- MHz
+    MCLK_FREQ    : natural := 2500000;  -- Hz
+    SAMPLE_COUNT : natural := 128
+  );
+  port(
+    clk             : in  std_logic;
+    -- Microphone interface
+    m_clk           : out std_logic := '0';
+    m_clk_en        : out std_logic := '0';
+    m_data          : in  std_logic;
+    -- Amplitude outputs
+    amplitude       : out std_logic_vector(clog2(SAMPLE_COUNT + 1) - 1 downto 0);
+    amplitude_valid : out std_logic := '0'
+  );
 end entity pdm_inputs;
 
 architecture rtl of pdm_inputs is
-  constant CLK_COUNT : integer := integer((CLK_FREQ*1000000) / (SAMPLE_RATE*2));
 
-  type array_2d is array (natural range <>) of integer range 0 to 255;
-  signal counter0 : integer range 0 to 199 := 0;
-  signal counter1 : integer range 0 to 199 := 0;
-  signal sample_counter : array_2d(1 downto 0) := (others => 0);
-  signal clk_counter : integer range 0 to CLK_COUNT := 0;
-  signal amplitude_int : unsigned(6 downto 0);
-  signal running : boolean := FALSE;
+  constant CLK_COUNT       : integer := (CLK_FREQ * 1000000) / (MCLK_FREQ * 2);
+  constant WINDOW_SIZE     : natural := 200; -- Size of a window
+  constant COUNTER1_OFFSET : natural := WINDOW_SIZE / 2; -- Offset value for counter 1
+  constant TERMINAL_COUNT0 : natural := SAMPLE_COUNT; -- Terminal Count for counter 0
+  constant TERMINAL_COUNT1 : natural := SAMPLE_COUNT - COUNTER1_OFFSET; -- Terminal Count for counter 1
+
+  type sample_counter_array_t is array (natural range <>) of integer range 0 to SAMPLE_COUNT;
+
+  signal counter        : integer range 0 to WINDOW_SIZE - 1 := 0;
+  signal sample_counter : sample_counter_array_t(1 downto 0) := (others => 0);
+  signal clk_counter    : integer range 0 to CLK_COUNT - 1   := 0;
+
 begin
 
-  amplitude <= std_logic_vector(amplitude_int);
-
-  process (clk)
-    variable nextamp0 : integer range 0 to 128;
-    variable nextamp1 : integer range 0 to 128;
+  process(clk) is
   begin
-
     if rising_edge(clk) then
-      -- place this within the clocked portion to prevent possible latches.
-      if m_data then
-        nextamp0 := sample_counter(0) + 1;
-        nextamp1 := sample_counter(1) + 1;
-      else
-        nextamp0 := sample_counter(0);
-        nextamp1 := sample_counter(1);
-      end if;
+      -- Defaults:
       amplitude_valid <= '0';
       m_clk_en        <= '0';
 
@@ -58,49 +63,31 @@ begin
       end if;
 
       if m_clk_en then
-        if counter0 = 199 then
-          counter0 <= 0;
+        if counter < WINDOW_SIZE - 1 then
+          counter <= counter + 1;
         else
-          counter0 <= counter0 + 1;
+          counter <= 0;
         end if;
-
-        if running then
-          if counter1 = 199 then
-            counter1 <= 0;
-          else
-            counter1 <= counter1 + 1;
-          end if;
-        else
-          if counter0 = 100 then
-            counter1 <= 0;
-            running <= TRUE;
-          end if;
-        end if;
-
-        if counter0 = 127 then
-          if nextamp0 <= 127 then
-            amplitude_int <= to_unsigned(nextamp0, amplitude_int'length);
-          else
-            amplitude_int <= to_unsigned(127, amplitude_int'length);
-          end if;
+        if counter = TERMINAL_COUNT0 then
+          amplitude         <= std_logic_vector(to_unsigned(sample_counter(0), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(0) <= 0;
-        elsif counter0 < 127 then
-          sample_counter(0) <= sample_counter(0) + 1 when m_data else sample_counter(0);
-        end if;
-        if counter1 = 127 then
-          if nextamp1 <= 127 then
-            amplitude_int <= to_unsigned(nextamp1, amplitude_int'length);
-          else
-            amplitude_int <= to_unsigned(127, amplitude_int'length);
+        elsif counter < TERMINAL_COUNT0 then
+          if m_data then
+            sample_counter(0) <= sample_counter(0) + 1;
           end if;
+        end if;
+        if counter = TERMINAL_COUNT1 then
+          amplitude         <= std_logic_vector(to_unsigned(sample_counter(1), amplitude'length));
           amplitude_valid   <= '1';
           sample_counter(1) <= 0;
-        elsif counter1 < 127 then
-          sample_counter(1) <= sample_counter(1) + 1 when m_data else sample_counter(1);
+        elsif (counter < TERMINAL_COUNT1) or (counter >= COUNTER1_OFFSET) then
+          if m_data then
+            sample_counter(1) <= sample_counter(1) + 1;
+          end if;
         end if;
       end if;
     end if;
-
   end process;
+
 end architecture rtl;

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<com.sigasi.hdt.shared.librarymapping.model:LibraryMappings xmlns:com.sigasi.hdt.shared.librarymapping.model="com.sigasi.hdt.vhdl.scoping.librarymapping" Version="2">
+  <Mappings Location="Common Libraries/IEEE" Library="ieee"/>
+  <Mappings Location="Common Libraries/IEEE Synopsys" Library="ieee"/>
+  <Mappings Location="CH10" Library="not mapped"/>
+  <Mappings Location="CH11" Library="not mapped"/>
+  <Mappings Location="CH12" Library="not mapped"/>
+  <Mappings Location="CH13" Library="not mapped"/>
+  <Mappings Location="CH14" Library="not mapped"/>
+  <Mappings Location="CH2" Library="not mapped"/>
+  <Mappings Location="CH3" Library="not mapped"/>
+  <Mappings Location="CH4" Library="not mapped"/>
+  <Mappings Location="CH5" Library="not mapped"/>
+  <Mappings Location="CH6" Library="not mapped"/>
+  <Mappings Location="CH7" Library="not mapped"/>
+  <Mappings Location="CH8" Library="not mapped"/>
+  <Mappings Location="CH9" Library="not mapped"/>
+  <Mappings Location="Common Libraries/STD" Library="std"/>
+  <Mappings Location="" Library="work"/>
+  <Mappings Location="CH3/VHDL" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/adt7420_mdl.vhd" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/tb_pdm_top.vhd" Library="work"/>
+  <Mappings Location="CH6/VHDL/tb/tb_temp.vhd" Library="work"/>
+</com.sigasi.hdt.shared.librarymapping.model:LibraryMappings>

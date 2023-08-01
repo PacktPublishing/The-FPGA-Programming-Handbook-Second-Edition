@@ -8,34 +8,34 @@
 module pdm_top
   #
   (
-   parameter RAM_SIZE     = 16384,
-   parameter CLK_FREQ     = 100,
-   parameter SAMPLE_COUNT = 128
-   )
+  parameter RAM_SIZE     = 16384,
+  parameter CLK_FREQ     = 100,
+  parameter SAMPLE_COUNT = 128
+)
   (
-   input wire          clk, // 100Mhz clock
+  input wire          clk, // 100Mhz clock
 
-   // Microphone interface
-   output logic        m_clk,
-   output logic        m_lr_sel,
-   input wire          m_data,
+  // Microphone interface
+  output logic        m_clk,
+  output logic        m_lr_sel,
+  input wire          m_data,
 
-   // Tricolor LED
-   output logic        R,
-   output logic        G,
-   output logic        B,
+  // Tricolor LED
+  output logic        R,
+  output logic        G,
+  output logic        B,
 
-   // Pushbutton interface
-   input logic         BTNU,
-   input logic         BTNC,
+  // Pushbutton interface
+  input logic         BTNU,
+  input logic         BTNC,
 
-   // LED Array
-   output logic [15:0] LED,
+  // LED Array
+  output logic [15:0] LED,
 
-   // PDM output
-   output wire         AUD_PWM,
-   output wire         AUD_SD
-   );
+  // PDM output
+  output wire         AUD_PWM,
+  output wire         AUD_SD
+);
 
   localparam SAMPLE_BITS = $clog2(SAMPLE_COUNT+1);
   assign AUD_SD = '1;
@@ -50,18 +50,18 @@ module pdm_top
   assign m_lr_sel = '0;
 
   pdm_inputs u_pdm_inputs
-    (
-     .clk                 (clk),     // 2.4Mhz
+  (
+    .clk                 (clk), // 2.4Mhz
 
-     // Microphone interface
-     .m_clk               (m_clk),
-     .m_clk_en            (m_clk_en),
-     .m_data              (m_data),
+    // Microphone interface
+    .m_clk               (m_clk),
+    .m_clk_en            (m_clk_en),
+    .m_data              (m_data),
 
-     // Amplitude outputs
-     .amplitude           (amplitude),
-     .amplitude_valid     (amplitude_valid)
-     );
+    // Amplitude outputs
+    .amplitude           (amplitude),
+    .amplitude_valid     (amplitude_valid)
+  );
 
   logic signed [SAMPLE_BITS:0] intensity;
   logic [SAMPLE_BITS-1:0]      light_count = 1;
@@ -140,23 +140,23 @@ module pdm_top
 
   // Playback the audio
   pwm_outputs
-    #
-    (
-     .CLK_FREQ         (CLK_FREQ),     // Mhz
-     .RAM_SIZE         (RAM_SIZE)      // Depth of sample storage
-     )
+  #
+  (
+  .CLK_FREQ         (CLK_FREQ), // Mhz
+  .RAM_SIZE         (RAM_SIZE) // Depth of sample storage
+  )
   u_pwm_outputs
-    (
-     .clk              (clk),
+  (
+    .clk              (clk),
 
-     .start_playback   (BTNU),
-     .ram_rdaddr       (ram_rdaddr),
-     .ram_sample       (ram_dout),
+    .start_playback   (BTNU),
+    .ram_rdaddr       (ram_rdaddr),
+    .ram_sample       (ram_dout),
 
-     .AUD_PWM_en       (AUD_PWM_en),
+    .AUD_PWM_en       (AUD_PWM_en),
 
-     .clr_led          (clr_led)
-     );
+    .clr_led          (clr_led)
+  );
 
   assign AUD_PWM = ~AUD_PWM_en ? '0 : 'z;
 
