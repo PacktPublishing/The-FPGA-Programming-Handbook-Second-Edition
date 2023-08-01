@@ -109,7 +109,7 @@ begin
     end if;
   end process;
 
-  -- Capture the Audio data
+  -- Capture the audio data
   capture : process(clk)
     variable led_index : integer range 0 to LED'high;
   begin

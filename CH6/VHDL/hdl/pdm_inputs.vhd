@@ -33,7 +33,7 @@ end entity pdm_inputs;
 
 architecture rtl of pdm_inputs is
 
-  constant CLK_COUNT       : integer := integer((CLK_FREQ * 1000000) / (MCLK_FREQ * 2));
+  constant CLK_COUNT       : integer := (CLK_FREQ * 1000000) / (MCLK_FREQ * 2);
   constant WINDOW_SIZE     : natural := 200; -- Size of a window
   constant COUNTER1_OFFSET : natural := WINDOW_SIZE / 2; -- Offset value for counter 1
   constant TERMINAL_COUNT0 : natural := SAMPLE_COUNT; -- Terminal Count for counter 0

@@ -247,7 +247,6 @@ begin
           smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT)(smooth_data'range));
         end if;
       end if;
-
     end process;
 
     u_xpm_fifo_sync : xpm_fifo_sync
@@ -269,15 +268,15 @@ begin
       );
   end generate;
 
-  -- Convert temperature from
+  -- Convert temperature from binary to BCD
   process(clk)
     variable sd_int : integer range 0 to 15;
   begin
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd(23d"0" & smooth_data(15 downto 7)); -- Decimal portion
+        encoded_int  <= bin_to_bcd(23d"0" & smooth_data(15 downto 7)); -- integer portion
         sd_int       := to_integer(unsigned(smooth_data(6 downto 3)));
-        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int));
+        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int)); -- fractional portion
         digit_point  <= "00010000";
       end if;
     end if;
