@@ -11,7 +11,7 @@ module tb_temp;
   parameter  INTERVAL     = 10000;
   parameter  NUM_SEGMENTS = 8;
   parameter  CLK_PER      = 20;
-
+  localparam TEMP         = {9'd20, 4'd8, 3'bxxx}; // 20.5 °C
   logic clk;
 
   // Temperature Sensor Interface
@@ -49,6 +49,18 @@ module tb_temp;
      // 7 segment display
      .anode        (anode),
      .cathode      (cathode)
+     );
+
+  adt7420_mdl
+    #
+    (
+     .I2C_ADDR     (7'h4B)
+     )
+  adt7420_mdl
+    (
+     .temp         (TEMP),
+     .scl          (TMP_SCL),
+     .sda          (TMP_SDA)
      );
 
 endmodule
