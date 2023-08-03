@@ -1,0 +1,1 @@
+../../../CH6/SystemVerilog/tb/adt7420_mdl.sv

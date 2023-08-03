@@ -19,7 +19,7 @@ module i2c_temp
 
    // Temperature Sensor Interface
    inout wire                      TMP_SCL,
-   inout wire                      TMP_SDA,
+   inout tri1                      TMP_SDA,
    inout wire                      TMP_INT,
    inout wire                      TMP_CT,
 
@@ -55,7 +55,9 @@ module i2c_temp
                        1 + // 1 bit for ack
                        8 + // 8 bits lower data
                        1 + // 1 bit for ack
-                       1 + 1;  // 1 bit for stop
+                       1;  // 1 bit for stop
+  localparam SMOOTHING_SHIFT = $clog2(SMOOTHING);
+
   logic [NUM_SEGMENTS-1:0][3:0]    encoded;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_int;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_frac;
@@ -103,8 +105,9 @@ module i2c_temp
                 } spi_t;
 
   (* mark_debug = "true" *) spi_t spi_state;
-
-  assign capture_en = i2c_capt[I2CBITS - bit_count - 1];
+  (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_index;
+  assign bit_index = bit_count == I2CBITS ? '0 : I2CBITS - bit_count - 1;
+  assign capture_en = i2c_capt[bit_index];
 
   initial begin
     scl_en          = '0;
@@ -116,8 +119,8 @@ module i2c_temp
 
   always @(posedge clk) begin
     scl_en                     <= '1;
-    sda_en                     <= ~i2c_en[I2CBITS - bit_count - 1] |
-                                  i2c_data[I2CBITS - bit_count - 1];
+    sda_en                     <= ~i2c_en[bit_index] |
+                                  i2c_data[bit_index];
     if (counter_reset) counter <= '0;
     else counter <= counter + 1'b1;
     counter_reset <= '0;
@@ -125,9 +128,9 @@ module i2c_temp
 
     case (spi_state)
       IDLE: begin
-        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0, 1'b1};
-        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1, 1'b1};
-        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0, 1'b0};
+        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0};
+        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1};
+        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0};
         bit_count <= '0;
         sda_en    <= '1; // Force to 1 in the beginning.
 
@@ -148,7 +151,7 @@ module i2c_temp
         end
       end
       TLOW: begin
-        scl_en            <= '0; // Drop the clock
+        scl_en          <= '0; // Drop the clock
         if (counter == TIME_TLOW) begin
           bit_count     <= bit_count + 1'b1;
           counter_reset <= '1;
@@ -171,10 +174,14 @@ module i2c_temp
         end
       end
       THD: begin
-        scl_en            <= '0; // Drop the clock
+        if (bit_count == I2CBITS-1) begin
+          scl_en      <= '1; // Keep the clock high
+        end else begin
+          scl_en      <= '0; // Drop the clock
+        end
         if (counter == TIME_THDDAT) begin
           counter_reset <= '1;
-          spi_state     <= (bit_count == I2CBITS) ? TSTO : TLOW;
+          spi_state     <= (bit_count == I2CBITS-1) ? TSTO : TLOW;
         end
       end
       TSTO: begin
@@ -197,11 +204,11 @@ module i2c_temp
       assign smooth_convert = convert;
     end else begin : g_SMOOTH
       localparam                  NINE_FIFTHS = 17'b1_11001100_11001100;
-      logic [$clog2(SMOOTHING):0] smooth_count;
+      logic [SMOOTHING_SHIFT:0]   smooth_count;
       logic [12:0]                dout;
       logic                       rden;
       logic [17:0]                accumulator;
-      logic [4:0]                 convert_pipe;
+      logic [1:0]                 convert_pipe;
       logic [16:0]                divide[17];
 
       initial begin
@@ -229,28 +236,22 @@ module i2c_temp
       end
 
       always @(posedge clk) begin
-        rden           <= '0;
-        smooth_convert <= '0;
-        convert_pipe   <= convert_pipe << 1;
+        rden            <= '0;
+        smooth_convert  <= '0;
+        convert_pipe    <= convert_pipe << 1 | rden;
         if (convert) begin
-          convert_pipe[0]           <= '1;
           smooth_count              <= smooth_count + 1'b1;
-          accumulator               <= accumulator + temp_data[15:3];
-        end else if (smooth_count == 16) begin
+          accumulator               <= accumulator + unsigned'(temp_data[15:3]);
+        end else if (smooth_count == SMOOTHING + 1) begin
           rden                    <= '1;
           smooth_count            <= smooth_count - 1'b1;
-        end else if (rden) begin
-          accumulator             <= accumulator - dout;
-        end else if (convert_pipe[2]) begin
-          if (~sample_count[4]) sample_count <= sample_count + 1'b1;
-
-          smooth_data             <= accumulator * divide[sample_count];
-        end else if (convert_pipe[3]) begin
-          smooth_data    <= smooth_data >> 16;
+          accumulator             <= accumulator - unsigned'(dout);
+        end else if (convert_pipe[0]) begin
+          smooth_data    <= accumulator >> SMOOTHING_SHIFT;
           smooth_convert <= ~SW;
-        end else if (convert_pipe[4]) begin
-          smooth_convert          <= SW;
+        end else if (convert_pipe[1]) begin
           smooth_data             <= ((smooth_data * NINE_FIFTHS) >> 16) + (32 << 4);
+          smooth_convert          <= SW;
         end
       end
 
@@ -258,7 +259,8 @@ module i2c_temp
         #
         (
          .FIFO_WRITE_DEPTH       (SMOOTHING),
-         .WRITE_DATA_WIDTH       (16)
+         .WRITE_DATA_WIDTH       (16),
+         .READ_MODE              ("FWFT")
          )
       u_xpm_fifo_sync
         (

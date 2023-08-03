@@ -4,6 +4,7 @@ module tb_temp_flt;
   parameter  INTERVAL     = 10000;
   parameter  NUM_SEGMENTS = 8;
   parameter  CLK_PER      = 20;
+  localparam TEMP         = {9'd20, 4'd8, 3'bxxx}; // 20.5 °C
 
   logic clk;
 
@@ -47,16 +48,16 @@ module tb_temp_flt;
      .cathode      (cathode)
      );
 
-  always @(posedge clk) begin
-    sda_en <= '0;
-    case (u_i2c_temp.bit_count)
-      5'h0a, 5'h0b, 5'h0c, 5'h0d: sda_en <= '1;
-      5'h10, 5'h11: sda_en               <= '1;
-      5'h14, 5'h15, 5'h16, 5'h17: sda_en <= '1;
-      5'h18, 5'h19, 5'h1a: sda_en        <= '1;
-    endcase // case (u_i2c_temp.bit_count)
-  end
-
-  assign TMP_SDA = sda_en ? '0 : 'z;
+  adt7420_mdl
+    #
+    (
+     .I2C_ADDR     (7'h4B)
+     )
+  adt7420_mdl
+    (
+     .temp         (TEMP),
+     .scl          (TMP_SCL),
+     .sda          (TMP_SDA)
+     );
 
 endmodule

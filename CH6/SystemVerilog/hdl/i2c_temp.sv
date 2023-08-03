@@ -18,7 +18,7 @@ module i2c_temp
 
    // Temperature Sensor Interface
    inout wire                      TMP_SCL,
-   inout wire                      TMP_SDA,
+   inout tri1                      TMP_SDA,
    inout wire                      TMP_INT,
    inout wire                      TMP_CT,
 
@@ -46,7 +46,7 @@ module i2c_temp
                        1 + // 1 bit for ack
                        8 + // 8 bits lower data
                        1 + // 1 bit for ack
-                       1 + 1;  // 1 bit for stop
+                       1;  // 1 bit for stop
   logic [NUM_SEGMENTS-1:0][3:0]    encoded;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_int;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_frac;
@@ -118,9 +118,9 @@ module i2c_temp
 
     case (spi_state)
       IDLE: begin
-        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0, 1'b1};
-        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1, 1'b1};
-        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0, 1'b0};
+        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0};
+        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1};
+        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0};
         bit_count <= '0;
         sda_en    <= '1; // Force to 1 in the beginning.
 
@@ -164,10 +164,14 @@ module i2c_temp
         end
       end
       THD: begin
-        scl_en            <= '0; // Drop the clock
+        if (bit_count == I2CBITS-1) begin
+          scl_en      <= '1; // Keep the clock high
+        end else begin
+          scl_en      <= '0; // Drop the clock
+        end
         if (counter == TIME_THDDAT) begin
           counter_reset <= '1;
-          spi_state     <= (bit_count == I2CBITS) ? TSTO : TLOW;
+          spi_state     <= (bit_count == I2CBITS-1) ? TSTO : TLOW;
         end
       end
       TSTO: begin
@@ -188,10 +192,11 @@ module i2c_temp
       assign smooth_data = temp_data;
       assign smooth_convert = convert;
     end else begin : g_SMOOTH
-      logic [$clog2(SMOOTHING):0] smooth_count;
-      logic [15:0]                dout;
-      logic                       rden, rden_del;
-      logic [31:0]                accumulator;
+      localparam SMOOTHING_SHIFT = $clog2(SMOOTHING);
+      logic [SMOOTHING_SHIFT:0] smooth_count;
+      logic [15:0]              dout;
+      logic                     rden, rden_del;
+      logic [31:0]              accumulator;
 
       initial begin
         rden         = '0;
@@ -213,7 +218,7 @@ module i2c_temp
           accumulator             <= accumulator - dout;
         end else if (rden_del) begin
           smooth_convert          <= '1;
-          smooth_data             <= accumulator >> 4;
+          smooth_data             <= accumulator >> SMOOTHING_SHIFT;
         end
       end
 
