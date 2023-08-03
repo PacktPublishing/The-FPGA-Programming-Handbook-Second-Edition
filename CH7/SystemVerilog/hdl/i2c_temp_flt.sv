@@ -18,7 +18,7 @@ module i2c_temp_flt
 
    // Temperature Sensor Interface
    inout wire                      TMP_SCL,
-   inout wire                      TMP_SDA,
+   inout tri1                      TMP_SDA,
    inout wire                      TMP_INT,
    inout wire                      TMP_CT,
 
@@ -42,7 +42,6 @@ module i2c_temp_flt
   localparam TIME_TSUSTA = int'(600/CLK_PER);
   localparam TIME_THIGH  = int'(600/CLK_PER);
   localparam TIME_TLOW   = int'(1300/CLK_PER);
-  localparam TIME_TSUDAT = int'(20/CLK_PER);
   localparam TIME_TSUSTO = int'(600/CLK_PER);
   localparam TIME_THDDAT = int'(30/CLK_PER);
   localparam I2C_ADDR = 7'b1001011; // 0x4B
@@ -54,7 +53,9 @@ module i2c_temp_flt
                        1 + // 1 bit for ack
                        8 + // 8 bits lower data
                        1 + // 1 bit for ack
-                       1 + 1;  // 1 bit for stop
+                       1;  // 1 bit for stop
+  localparam SMOOTHING_SHIFT = $clog2(SMOOTHING);
+
   logic [NUM_SEGMENTS-1:0][3:0]    encoded;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_int;
   logic [NUM_SEGMENTS-1:0][3:0]    encoded_frac;
@@ -102,8 +103,9 @@ module i2c_temp_flt
                 } spi_t;
 
   (* mark_debug = "true" *) spi_t spi_state;
-
-  assign capture_en = i2c_capt[I2CBITS - bit_count - 1];
+  (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_index;
+  assign bit_index = bit_count == I2CBITS ? '0 : I2CBITS - bit_count - 1;
+  assign capture_en = i2c_capt[bit_index];
 
   initial begin
     scl_en          = '0;
@@ -124,9 +126,9 @@ module i2c_temp_flt
 
     case (spi_state)
       IDLE: begin
-        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0, 1'b1};
-        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1, 1'b1};
-        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0, 1'b0};
+        i2c_data  <= {1'b0, I2C_ADDR, 1'b1, 1'b0, 8'b00, 1'b0, 8'b00, 1'b1, 1'b0};
+        i2c_en    <= {1'b1, 7'h7F,    1'b1, 1'b0, 8'b00, 1'b1, 8'b00, 1'b1, 1'b1};
+        i2c_capt  <= {1'b0, 7'h00,    1'b0, 1'b0, 8'hFF, 1'b0, 8'hFF, 1'b0, 1'b0};
         bit_count <= '0;
         sda_en    <= '1; // Force to 1 in the beginning.
 
@@ -170,7 +172,11 @@ module i2c_temp_flt
         end
       end
       THD: begin
-        scl_en            <= '0; // Drop the clock
+        if (bit_count == I2CBITS-1) begin
+          scl_en      <= '1; // Keep the clock high
+        end else begin
+          scl_en      <= '0; // Drop the clock
+        end
         if (counter == TIME_THDDAT) begin
           counter_reset <= '1;
           spi_state     <= (bit_count == I2CBITS) ? TSTO : TLOW;
@@ -207,7 +213,7 @@ module i2c_temp_flt
                       logic [31:0] raw;
                     } float_u;
 
-      logic [$clog2(SMOOTHING):0] smooth_count;
+      logic [SMOOTHING_SHIFT:0] smooth_count;
       (* mark_debug = "true" *) logic [31:0]                dout;
       (* mark_debug = "true" *) logic                       rden;
       (* mark_debug = "true" *) float_u                     accumulator; // 0.0 FP
