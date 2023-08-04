@@ -97,7 +97,7 @@ architecture rtl of i2c_temp is
   signal smooth_convert : std_logic;
   signal smooth_count   : integer range 0 to SMOOTHING + 1 := 0;
   signal dout           : std_logic_vector(15 downto 0);
-  signal rden, rden_del : std_logic                        := '0';
+  signal rden           : std_logic                        := '0';
   signal accumulator    : unsigned(31 downto 0)            := (others => '0');
   signal bit_index      : natural range 0 to I2CBITS - 1;
 
@@ -232,7 +232,6 @@ begin
     begin
       if rising_edge(clk) then
         rden           <= '0';
-        rden_del       <= rden;
         smooth_convert <= '0';
         if convert then
           smooth_count <= smooth_count + 1;
@@ -241,7 +240,7 @@ begin
           rden         <= '1';
           smooth_count <= smooth_count - 1;
           accumulator  <= accumulator - unsigned(dout);
-        elsif rden_del then
+        elsif rden then
           smooth_convert <= '1';
           smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT)(smooth_data'range));
         end if;
