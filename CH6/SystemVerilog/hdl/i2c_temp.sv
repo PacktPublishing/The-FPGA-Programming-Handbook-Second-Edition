@@ -210,15 +210,14 @@ module i2c_temp
         smooth_convert <= '0;
         if (convert) begin
           smooth_count              <= smooth_count + 1'b1;
-          accumulator               <= accumulator + temp_data;
-        end else if (smooth_count == 16) begin
+          accumulator               <= accumulator + unsigned'({temp_data[15:3], 3'b0});
+        end else if (smooth_count == SMOOTHING+1) begin
           rden                    <= '1;
           smooth_count            <= smooth_count - 1'b1;
+          accumulator             <= accumulator - unsigned'(dout);
         end else if (rden) begin
-          accumulator             <= accumulator - dout;
-        end else if (rden_del) begin
-          smooth_convert          <= '1;
           smooth_data             <= accumulator >> SMOOTHING_SHIFT;
+          smooth_convert          <= '1;
         end
       end
 
@@ -226,8 +225,9 @@ module i2c_temp
         #
         (
          .FIFO_WRITE_DEPTH       (SMOOTHING),
-         .WRITE_DATA_WIDTH       (16)
-         )
+         .WRITE_DATA_WIDTH       (16),
+         .READ_MODE              ("FWFT")
+        )
       u_xpm_fifo_sync
         (
          .sleep                  ('0),
@@ -235,7 +235,7 @@ module i2c_temp
 
          .wr_clk                 (clk),
          .wr_en                  (convert),
-         .din                    (temp_data),
+         .din                    ({temp_data[15:3], 3'b0}),
          .full                   (),
          .prog_full              (),
          .wr_data_count          (),
