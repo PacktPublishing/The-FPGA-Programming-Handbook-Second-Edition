@@ -81,24 +81,24 @@ architecture rtl of i2c_temp is
   signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
   signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
   signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0);
-  signal sda_en         : std_logic                    := '0';
-  signal scl_en         : std_logic                    := '0';
+  signal sda_en         : std_logic                        := '0';
+  signal scl_en         : std_logic                        := '0';
   signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0);
   signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0);
   signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal counter        : integer range 0 to TIME_1SEC := 0;
-  signal counter_reset  : std_logic                    := '0';
-  signal bit_count      : integer range 0 to I2CBITS   := 0;
+  signal counter        : integer range 0 to TIME_1SEC     := 0;
+  signal counter_reset  : std_logic                        := '0';
+  signal bit_count      : integer range 0 to I2CBITS       := 0;
   signal temp_data      : std_logic_vector(15 downto 0);
   signal capture_en     : std_logic;
   signal convert        : std_logic;
-  signal i2c_state      : spi_t                        := IDLE;
+  signal i2c_state      : spi_t                            := IDLE;
   signal smooth_data    : std_logic_vector(15 downto 0);
   signal smooth_convert : std_logic;
-  signal smooth_count   : integer range 0 to SMOOTHING := 0;
+  signal smooth_count   : integer range 0 to SMOOTHING + 1 := 0;
   signal dout           : std_logic_vector(15 downto 0);
-  signal rden, rden_del : std_logic                    := '0';
-  signal accumulator    : unsigned(31 downto 0)        := (others => '0');
+  signal rden, rden_del : std_logic                        := '0';
+  signal accumulator    : unsigned(31 downto 0)            := (others => '0');
   signal bit_index      : natural range 0 to I2CBITS - 1;
 
   attribute MARK_DEBUG : string;
@@ -237,11 +237,10 @@ begin
         if convert then
           smooth_count <= smooth_count + 1;
           accumulator  <= accumulator + unsigned(temp_data);
-        elsif smooth_count = SMOOTHING then
+        elsif smooth_count = SMOOTHING + 1 then
           rden         <= '1';
           smooth_count <= smooth_count - 1;
-        elsif rden then
-          accumulator <= accumulator - unsigned(dout);
+          accumulator  <= accumulator - unsigned(dout);
         elsif rden_del then
           smooth_convert <= '1';
           smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT)(smooth_data'range));
@@ -251,9 +250,10 @@ begin
 
     u_xpm_fifo_sync : xpm_fifo_sync
       generic map(
-        FIFO_WRITE_DEPTH => SMOOTHING,
+        FIFO_WRITE_DEPTH => SMOOTHING + 1,
         WRITE_DATA_WIDTH => 16,
-        READ_DATA_WIDTH  => 16
+        READ_DATA_WIDTH  => 16,
+        READ_MODE        => "FWFT"
       )
       port map(
         sleep         => '0',
