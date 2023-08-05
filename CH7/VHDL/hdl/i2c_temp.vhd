@@ -42,9 +42,11 @@ end entity i2c_temp;
 
 architecture rtl of i2c_temp is
 
+  -- Types
   type spi_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
   type slv16_array_t is array (0 to 15) of std_logic_vector(15 downto 0);
 
+  -- Constants
   constant TIME_1SEC   : integer          := INTERVAL / CLK_PER; -- Clock ticks in 1 sec
   constant TIME_THDSTA : integer          := 600 / CLK_PER;
   constant TIME_TSUSTA : integer          := 600 / CLK_PER;
@@ -62,7 +64,7 @@ architecture rtl of i2c_temp is
                                              8 + -- 8 bits lower data
                                              1 + -- 1 bit for ack
                                              1; -- 1 bit for stop
-  
+
   -- Celsius to Farenheit conversion factor (9/5), in Q1.16 format
   constant NINE_FIFTHS : std_logic_vector(16 downto 0) := "11100110011001100";
 
@@ -106,31 +108,34 @@ architecture rtl of i2c_temp is
     16 => "00001000000000000"           -- 1/16
   );
 
-  signal encoded        : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0);
-  signal sda_en         : std_logic                    := '0';
-  signal scl_en         : std_logic                    := '0';
-  signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal counter        : integer range 0 to TIME_1SEC := 0;
-  signal counter_reset  : std_logic                    := '0';
-  signal bit_count      : integer range 0 to I2CBITS   := 0;
-  signal temp_data      : std_logic_vector(15 downto 0);
-  signal capture_en     : std_logic;
-  signal convert        : std_logic;
-  signal i2c_state      : spi_t                        := IDLE;
-  signal smooth_data    : unsigned(28 downto 0);
-  signal smooth_convert : std_logic;
-  signal smooth_count   : integer range 0 to SMOOTHING := 0;
-  signal dout           : std_logic_vector(15 downto 0);
-  signal sample_count   : integer range 0 to 32        := 0;
-  signal rden           : std_logic                    := '0';
-  signal accumulator    : unsigned(17 downto 0)        := (others => '0');
-  signal bit_index      : natural range 0 to I2CBITS - 1;
-  signal convert_pipe   : std_logic_vector(4 downto 0);
+  -- Registered signals with initial values
+  signal encoded        : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0)    := (others => '0');
+  signal sda_en         : std_logic                                      := '0';
+  signal scl_en         : std_logic                                      := '0';
+  signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal counter        : integer range 0 to TIME_1SEC                   := 0;
+  signal counter_reset  : std_logic                                      := '0';
+  signal bit_count      : integer range 0 to I2CBITS                     := 0;
+  signal temp_data      : std_logic_vector(15 downto 0)                  := (others => '0');
+  signal convert        : std_logic                                      := '0';
+  signal i2c_state      : spi_t                                          := IDLE;
+  signal smooth_data    : unsigned(28 downto 0)                          := (others => '0');
+  signal smooth_convert : std_logic                                      := '0';
+  signal smooth_count   : integer range 0 to SMOOTHING + 1               := 0;
+  signal sample_count   : integer range 0 to 32                          := 0;
+  signal rden           : std_logic                                      := '0';
+  signal accumulator    : unsigned(17 downto 0)                          := (others => '0');
+  signal convert_pipe   : std_logic_vector(4 downto 0)                   := (others => '0');
+
+  -- Unregistered signals
+  signal capture_en : std_logic;
+  signal dout       : std_logic_vector(12 downto 0);
+  signal bit_index  : natural range 0 to I2CBITS - 1;
 
   attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of sda_en, scl_en : signal is "TRUE";
@@ -253,11 +258,12 @@ begin
   end process;
 
   g_SMOOTHING : if SMOOTHING = 0 generate
-    smooth_data    <= resize(unsigned(temp_data(15 downto 3)), smooth_data'length);
+
+    smooth_data    <= resize(unsigned(temp_data(temp_data'high downto 3)) & 3d"0", smooth_data'length);
     smooth_convert <= convert;
 
   else generate
-
+    /*
     process(clk)
     begin
       if rising_edge(clk) then
@@ -267,12 +273,11 @@ begin
         if convert then
           convert_pipe(0) <= '1';
           smooth_count    <= smooth_count + 1;
-          accumulator     <= accumulator + unsigned(temp_data(15 downto 3));
-        elsif smooth_count = SMOOTHING then
+          accumulator     <= accumulator + (unsigned(temp_data(temp_data'high downto 3)) & 3d"0");
+        elsif smooth_count = SMOOTHING + 1 then
           rden         <= '1';
           smooth_count <= smooth_count - 1;
-        elsif rden then
-          accumulator <= accumulator - unsigned(dout);
+          accumulator  <= accumulator - unsigned(dout);
         elsif convert_pipe(2) then
           if sample_count < SMOOTHING then
             sample_count <= sample_count + 1;
@@ -284,11 +289,12 @@ begin
         end if;
       end if;
     end process;
-    /*
+    */
+
     smooth : process(clk)
-      variable data_mult       : unsigned(45 downto 0);
-      variable data_shift      : unsigned(45 downto 0);
-      variable smooth_data_int : unsigned(34 downto 0);
+      variable data_mult_u46_q20 : unsigned(45 downto 0);
+      variable data_shift_u30_q4 : unsigned(29 downto 0);
+      variable data_add_u30_q4   : unsigned(29 downto 0);
     begin
       if rising_edge(clk) then
         rden           <= '0';
@@ -297,18 +303,16 @@ begin
         if convert then
           convert_pipe(0) <= '1';
           smooth_count    <= smooth_count + 1;
-          accumulator     <= accumulator + unsigned(temp_data(15 downto 3));
-        elsif smooth_count = SMOOTHING then
+          accumulator     <= accumulator + unsigned(temp_data(temp_data'high downto 3));
+        elsif smooth_count = SMOOTHING + 1 then
           rden         <= '1';
           smooth_count <= smooth_count - 1;
-        elsif rden then
-          accumulator <= accumulator - unsigned(dout);
+          accumulator  <= accumulator - unsigned(dout);
         elsif convert_pipe(2) then
           if sample_count < SMOOTHING then
             sample_count <= sample_count + 1;
           end if;
-          smooth_data_int := accumulator * unsigned(DIVIDE(sample_count));
-          smooth_data     <= smooth_data_int(smooth_data'range);
+          smooth_data <= resize(accumulator * unsigned(DIVIDE(sample_count)), smooth_data'length);
         elsif convert_pipe(3) then
           -- If SW is not set, output the temperature in degrees Celsius
           smooth_convert <= not SW;
@@ -316,27 +320,28 @@ begin
         elsif convert_pipe(4) then
           -- If SW is set, output the temperature in degrees Farenheit
           -- °F = (°C * 9/5) + 32
-          smooth_convert  <= SW;
-          data_mult       := smooth_data * unsigned(NINE_FIFTHS);
-          data_shift      := shift_right(unsigned(data_mult), 16);
-          smooth_data_int := unsigned(data_shift(34 downto 0)) + to_unsigned(32 * 16, 10);
-          smooth_data     <= smooth_data_int(smooth_data'range);
+          smooth_convert    <= SW;
+          data_mult_u46_q20 := smooth_data * unsigned(NINE_FIFTHS);
+          data_shift_u30_q4 := resize(shift_right(unsigned(data_mult_u46_q20), 16), data_mult_u46_q20'length - 16);
+          data_add_u30_q4   := data_shift_u30_q4 + 32 * 16;
+          smooth_data       <= resize(data_add_u30_q4, smooth_data'length);
         end if;
       end if;
     end process;
-*/
+
     u_xpm_fifo_sync : xpm_fifo_sync
       generic map(
-        FIFO_WRITE_DEPTH => SMOOTHING,
-        WRITE_DATA_WIDTH => 16,
-        READ_DATA_WIDTH  => 16
+        FIFO_WRITE_DEPTH => SMOOTHING + 1,
+        WRITE_DATA_WIDTH => 13,
+        READ_DATA_WIDTH  => 13,
+        READ_MODE        => "FWFT"
       )
       port map(
         sleep         => '0',
         rst           => '0',
         wr_clk        => clk,
         wr_en         => convert,
-        din           => temp_data,
+        din           => temp_data(temp_data'high downto 3),
         rd_en         => rden,
         dout          => dout,
         injectsbiterr => '0',
@@ -350,9 +355,9 @@ begin
   begin
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd(23d"0" & smooth_data(15 downto 7)); -- integer portion
-        sd_int       := to_integer(unsigned(smooth_data(6 downto 3)));
-        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int)); -- fractional portion
+        encoded_int  <= bin_to_bcd(std_logic_vector(23d"0" & smooth_data(15 downto 7)), NUM_SEGMENTS); -- integer portion
+        sd_int       := to_integer(smooth_data(6 downto 3));
+        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int), NUM_SEGMENTS); -- fractional portion
         digit_point  <= "00010000";
       end if;
     end if;
