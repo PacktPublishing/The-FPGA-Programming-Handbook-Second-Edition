@@ -31,7 +31,7 @@ module adt7420_mdl
 
       // Wait for START condition
       wait (scl === 1);
-      @(posedge sda_in);
+      @(negedge sda_in);
 
       // Receive device address
       do begin

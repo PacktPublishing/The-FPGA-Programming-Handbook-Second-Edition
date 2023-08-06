@@ -4,9 +4,9 @@ module tb_temp_flt;
   parameter  INTERVAL     = 10000;
   parameter  NUM_SEGMENTS = 8;
   parameter  CLK_PER      = 20;
-  localparam TEMP         = {9'd20, 4'd8, 3'bxxx}; // 20.5 °C
 
   logic clk;
+  logic SW, LED;
 
   // Temperature Sensor Interface
   tri1 TMP_SCL;
@@ -19,9 +19,26 @@ module tb_temp_flt;
   logic [7:0]              cathode;
   logic                    sda_en;
 
+  // temperature for simulation
+  logic signed [15:0]      TEMP;
+
   initial clk = '0;
   always begin
     clk = #(CLK_PER/2) ~clk;
+  end
+
+  initial begin
+    SW = '0;
+    TEMP         = {9'd20, 4'd8, 3'bxxx}; // 20.5 °C
+    repeat (1000000) @(posedge clk);
+    SW = '1;
+    repeat (1000000) @(posedge clk);
+    TEMP         = {-9'sd20, 4'd8, 3'bxxx}; // -20.5 °C
+    SW = '0;
+    repeat (1000000) @(posedge clk);
+    SW = '1;
+    repeat (1000000) @(posedge clk);
+    $stop;
   end
 
   i2c_temp_flt
@@ -41,7 +58,8 @@ module tb_temp_flt;
      .TMP_INT      (TMP_INT),
      .TMP_CT       (TMP_CT),
 
-     .SW           (1'b1),
+     .SW           (SW),
+     .LED          (LED),
 
      // 7 segment display
      .anode        (anode),

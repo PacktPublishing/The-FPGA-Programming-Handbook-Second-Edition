@@ -68,7 +68,7 @@ module i2c_temp_flt
   (* mark_debug = "true" *) logic [$clog2(TIME_1SEC)-1:0]    counter;
   logic                            counter_reset;
   (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_count;
-  (* mark_debug = "true" *) logic [15:0]                     temp_data;
+  (* mark_debug = "true" *) logic signed [15:0]              temp_data;
   (* mark_debug = "true" *) logic                            capture_en;
   (* mark_debug = "true" *) logic                            convert;
 
@@ -192,12 +192,12 @@ module i2c_temp_flt
     endcase
   end
 
-  (* mark_debug = "true" *) logic [15:0] smooth_data;
-  (* mark_debug = "true" *) logic        smooth_convert;
+  (* mark_debug = "true" *) logic signed [15:0] smooth_data;
+  (* mark_debug = "true" *) logic               smooth_convert;
 
   generate
     if (SMOOTHING == 0) begin : g_NO_SMOOTH
-      assign smooth_data = temp_data >> 3;
+      assign smooth_data = temp_data >>> 3;
       assign smooth_convert = convert;
     end else begin : g_SMOOTH
       localparam                  NINE_FIFTHS = 17'b1_11001100_11001100;
@@ -267,7 +267,7 @@ module i2c_temp_flt
         (
          .aclk                   (clk),
          .s_axis_a_tvalid        (convert),
-         .s_axis_a_tdata         ({3'b0, temp_data[15:3]}),
+         .s_axis_a_tdata         ({{3{temp_data[15]}}, temp_data[15:3]}),
          .m_axis_result_tvalid   (temp_float_valid),
          .m_axis_result_tdata    (temp_float)
          );
@@ -335,7 +335,7 @@ module i2c_temp_flt
           accumulator.raw <= addsub_data;
           if (~|fp_add_op) begin
             convert_pipe[1] <= '1;
-            rden            <= '1;
+            rden            <= (smooth_count == SMOOTHING);
           end else begin
             convert_pipe[2] <= '1;
           end
@@ -416,10 +416,15 @@ module i2c_temp_flt
 
   // convert temperature from
   always @(posedge clk) begin
+    digit_point  <= 8'b00010000;
     if (smooth_convert) begin
-      encoded_int  <= bin_to_bcd(smooth_data[12:4]); // Decimal portion
-      fraction     <= bin_to_bcd(fraction_table[smooth_data[3:0]]);
-      digit_point  <= 8'b00010000;
+      if (smooth_data < 0) begin
+        encoded_int  <= '0;
+        fraction     <= '0;
+      end else begin
+        encoded_int  <= bin_to_bcd(smooth_data[12:4]); // Decimal portion
+        fraction     <= bin_to_bcd(fraction_table[smooth_data[3:0]]);
+      end
     end
   end // always @ (posedge clk)
 
