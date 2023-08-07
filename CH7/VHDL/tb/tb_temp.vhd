@@ -19,8 +19,7 @@ architecture test of tb_temp is
   constant NUM_SEGMENTS : natural                       := 8;
   constant CLK_PER      : natural                       := 10; -- ns
   constant SMOOTHING    : natural                       := 16;
---  constant TEMP         : std_logic_vector(15 downto 0) := 9d"20" & 4d"8" & "XXX"; -- 20.5 deg (C)
-  constant TEMP         : std_logic_vector(15 downto 0) := 16x"7FF8";
+  constant TEMP         : std_logic_vector(15 downto 0) := 9d"20" & 4d"8" & "XXX"; -- 20.5 deg (C)
 
   signal clk            : std_logic                     := '0';
 

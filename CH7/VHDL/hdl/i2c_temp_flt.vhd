@@ -92,7 +92,7 @@ architecture rtl of i2c_temp is
   );
 
   -- Divisor reciprocals, in 32-bit floating point format
-  constant DIVIDE : array_t(0 to SMOOTHING)(31 downto 0) := (
+  constant DIVIDE : array_t(0 to 16)(31 downto 0) := (
     0  => x"3F800000",                  -- 1
     1  => x"3F000000",                  -- 1/2
     2  => x"3eaaaaab",                  -- 1/3
@@ -130,7 +130,7 @@ architecture rtl of i2c_temp is
   signal smooth_data       : std_logic_vector(15 downto 0)                  := (others => '0');
   signal rden              : std_logic                                      := '0';
   signal convert_pipe      : std_logic_vector(2 downto 0)                   := (others => '0');
-  signal accumulator       : std_logic_vector(31 downto 0)                  := x"00000000"; -- REVIEW: does this correspond to 0.0f?
+  signal accumulator       : std_logic_vector(31 downto 0)                  := x"00000000";
   signal temperature       : std_logic_vector(31 downto 0)                  := (others => '0');
   signal temperature_valid : std_logic                                      := '0';
   signal mult_in           : array_t(1 downto 0)(31 downto 0)               := (others => (others => '0'));
@@ -169,6 +169,8 @@ architecture rtl of i2c_temp is
   attribute MARK_DEBUG of convert_pipe : signal is "TRUE";
 
 begin
+
+  assert SMOOTHING <= 16 report "SMOOTHING factor must be <= 16" severity failure;
 
   LED <= SW;
 
@@ -381,12 +383,14 @@ begin
             rden         <= '1';
             addsub_in(1) <= dout;
           else
-            smooth_count <= smooth_count + 1;
             addsub_in(1) <= x"00000000";
           end if;
         end if;
         -- Stage 2: divide accumulator by number of accumulated samples 
         if convert_pipe(2) then
+          if smooth_count < SMOOTHING then
+            smooth_count <= smooth_count + 1;
+          end if;
           mult_in(0)    <= accumulator;
           mult_in(1)    <= DIVIDE(smooth_count);
           mult_in_valid <= '1';
@@ -426,13 +430,13 @@ begin
 
   -- Convert temperature from binary to BCD
   process(clk)
-    variable sd_int : integer range 0 to 15;
+    variable frac_int : integer range 0 to 15;
   begin
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd(22d"0" & smooth_data(13 downto 4), NUM_SEGMENTS); -- Decimal portion
-        sd_int       := to_integer(unsigned(smooth_data(3 downto 0)));
-        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int), NUM_SEGMENTS);
+        encoded_int  <= bin_to_bcd(22d"0" & smooth_data(13 downto 4), NUM_SEGMENTS); -- integer part
+        frac_int       := to_integer(unsigned(smooth_data(3 downto 0)));
+        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(frac_int), NUM_SEGMENTS); -- fractional part
       end if;
     end if;
   end process;
