@@ -17,7 +17,7 @@ use work.counting_buttons_pkg.all;
 entity parallel is
   port(
     clk       : in  std_logic;
-    in_data   :     array_t(255 downto 0)(31 downto 0);
+    in_data   : in  array_t(255 downto 0)(31 downto 0);
     in_valid  : in  std_logic;
     out_data  : out std_logic_vector(39 downto 0);
     out_valid : out std_logic

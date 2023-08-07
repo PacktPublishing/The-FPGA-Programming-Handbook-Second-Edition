@@ -44,7 +44,7 @@ end entity i2c_temp;
 architecture rtl of i2c_temp is
 
   -- Types
-  type spi_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
+  type i2c_state_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
   type slv16_array_t is array (0 to 15) of std_logic_vector(15 downto 0);
 
   -- Constants
@@ -124,11 +124,11 @@ architecture rtl of i2c_temp is
   signal bit_count      : integer range 0 to I2CBITS                     := 0;
   signal temp_data      : std_logic_vector(15 downto 0)                  := (others => '0');
   signal convert        : std_logic                                      := '0';
-  signal i2c_state      : spi_t                                          := IDLE;
+  signal i2c_state      : i2c_state_t                                    := IDLE;
   signal smooth_data    : unsigned(28 downto 0)                          := (others => '0');
   signal smooth_convert : std_logic                                      := '0';
   signal smooth_count   : integer range 0 to SMOOTHING + 1               := 0;
-  signal sample_count   : integer range 0 to 32                          := 0;
+  signal sample_count   : integer range 0 to SMOOTHING                   := 0;
   signal rden           : std_logic                                      := '0';
   signal accumulator    : unsigned(17 downto 0)                          := (others => '0');
   signal convert_pipe   : std_logic_vector(4 downto 0)                   := (others => '0');
@@ -150,6 +150,7 @@ architecture rtl of i2c_temp is
 begin
 
   LED <= SW;
+
   u_seven_segment : entity work.seven_segment
     generic map(
       NUM_SEGMENTS => NUM_SEGMENTS,
@@ -260,37 +261,10 @@ begin
 
   g_SMOOTHING : if SMOOTHING = 0 generate
 
-    smooth_data    <= resize(unsigned(temp_data(temp_data'high downto 3)) & 3d"0", smooth_data'length);
+    smooth_data    <= resize(unsigned(temp_data(temp_data'high downto 3)), smooth_data'length);
     smooth_convert <= convert;
 
   else generate
-    /*
-    process(clk)
-    begin
-      if rising_edge(clk) then
-        rden           <= '0';
-        smooth_convert <= '0';
-        convert_pipe   <= convert_pipe sll 1;
-        if convert then
-          convert_pipe(0) <= '1';
-          smooth_count    <= smooth_count + 1;
-          accumulator     <= accumulator + (unsigned(temp_data(temp_data'high downto 3)) & 3d"0");
-        elsif smooth_count = SMOOTHING + 1 then
-          rden         <= '1';
-          smooth_count <= smooth_count - 1;
-          accumulator  <= accumulator - unsigned(dout);
-        elsif convert_pipe(2) then
-          if sample_count < SMOOTHING then
-            sample_count <= sample_count + 1;
-          end if;
-          smooth_data <= resize(accumulator * unsigned(DIVIDE(sample_count)), smooth_data'length);
-        elsif convert_pipe(3) then
-          smooth_convert <= '1';
-          smooth_data    <= shift_right(smooth_data, 16);
-        end if;
-      end if;
-    end process;
-    */
 
     smooth : process(clk)
       variable data_mult_u46_q20 : unsigned(45 downto 0);
