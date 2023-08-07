@@ -134,9 +134,11 @@ architecture rtl of i2c_temp is
   signal convert_pipe   : std_logic_vector(4 downto 0)                   := (others => '0');
 
   -- Unregistered signals
-  signal capture_en : std_logic;
-  signal dout       : std_logic_vector(12 downto 0);
-  signal bit_index  : natural range 0 to I2CBITS - 1;
+  signal capture_en       : std_logic;
+  signal dout             : std_logic_vector(12 downto 0);
+  signal bit_index        : natural range 0 to I2CBITS - 1;
+  signal temp_data_s13_q4 : signed(12 downto 0);
+  signal temp_data_u13_q4 : unsigned(12 downto 0);
 
   attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of sda_en, scl_en : signal is "TRUE";
@@ -148,6 +150,8 @@ architecture rtl of i2c_temp is
   attribute MARK_DEBUG of i2c_state : signal is "TRUE";
 
 begin
+
+  assert SMOOTHING <= 16 report "SMOOTHING factor must be <= 16" severity failure;
 
   LED <= SW;
 
@@ -259,9 +263,16 @@ begin
     end if;
   end process;
 
+  -- Strip alarm flags from temperature value (bits 2..0)
+  temp_data_s13_q4 <= signed(temp_data(temp_data'high downto 3));
+
+  -- Clip negative temperatures at zero, as we're not supporting negative 
+  -- temperatures yet.
+  temp_data_u13_q4 <= unsigned(temp_data_s13_q4(12 downto 0)) when temp_data_s13_q4 >= 0 else 13d"0";
+
   g_SMOOTHING : if SMOOTHING = 0 generate
 
-    smooth_data    <= resize(unsigned(temp_data(temp_data'high downto 3)), smooth_data'length);
+    smooth_data    <= resize(temp_data_u13_q4, smooth_data'length);
     smooth_convert <= convert;
 
   else generate
@@ -278,7 +289,7 @@ begin
         if convert then
           convert_pipe(0) <= '1';
           smooth_count    <= smooth_count + 1;
-          accumulator     <= accumulator + unsigned(temp_data(temp_data'high downto 3));
+          accumulator     <= accumulator + temp_data_u13_q4;
         elsif smooth_count = SMOOTHING + 1 then
           rden         <= '1';
           smooth_count <= smooth_count - 1;
@@ -316,7 +327,7 @@ begin
         rst           => '0',
         wr_clk        => clk,
         wr_en         => convert,
-        din           => temp_data(temp_data'high downto 3),
+        din           => std_logic_vector(temp_data_u13_q4),
         rd_en         => rden,
         dout          => dout,
         injectsbiterr => '0',
@@ -326,18 +337,18 @@ begin
 
   -- Convert temperature from binary to BCD
   process(clk)
-    variable sd_int : integer range 0 to 15;
+    variable frac_int : integer range 0 to 15;
   begin
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd(std_logic_vector(23d"0" & smooth_data(15 downto 7)), NUM_SEGMENTS); -- integer portion
-        sd_int       := to_integer(smooth_data(6 downto 3));
-        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(sd_int), NUM_SEGMENTS); -- fractional portion
-        digit_point  <= "00010000";
+        encoded_int  <= bin_to_bcd(std_logic_vector(22d"0" & smooth_data(13 downto 4)), NUM_SEGMENTS); -- integer portion
+        frac_int       := to_integer(smooth_data(3 downto 0));
+        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(frac_int), NUM_SEGMENTS); -- fractional portion
       end if;
     end if;
   end process;
 
+  digit_point  <= "00010000";
   encoded <= encoded_int(3 downto 0) & encoded_frac(3 downto 0);
 
 end architecture;
