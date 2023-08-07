@@ -13,8 +13,9 @@ use IEEE.math_real.all;
 library xpm;
 use xpm.vcomponents.all;
 
-use WORK.temp_pkg.all;
-use WORK.counting_buttons_pkg.all;
+use work.temp_pkg.all;
+use work.counting_buttons_pkg.all;
+use work.util_pkg.all;
 
 entity i2c_temp is
   generic(
@@ -254,7 +255,7 @@ begin
 
     u_xpm_fifo_sync : xpm_fifo_sync
       generic map(
-        FIFO_WRITE_DEPTH => SMOOTHING + 1,
+        FIFO_WRITE_DEPTH => 2 ** clog2(SMOOTHING + 1), -- must be a power of two
         WRITE_DATA_WIDTH => 16,
         READ_DATA_WIDTH  => 16,
         READ_MODE        => "FWFT"
