@@ -13,8 +13,9 @@ use IEEE.math_real.all;
 library xpm;
 use xpm.vcomponents.all;
 
-use WORK.temp_pkg.all;
-use WORK.counting_buttons_pkg.all;
+use work.temp_pkg.all;
+use work.counting_buttons_pkg.all;
+use work.util_pkg.all;
 
 entity i2c_temp is
   generic(
@@ -38,9 +39,11 @@ end entity i2c_temp;
 
 architecture rtl of i2c_temp is
 
+  -- Types
   type spi_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
   type slv16_array_t is array (0 to 15) of std_logic_vector(15 downto 0);
 
+  -- Constants
   constant TIME_1SEC   : integer          := INTERVAL / CLK_PER; -- Clock ticks in 1 sec
   constant TIME_THDSTA : integer          := 600 / CLK_PER;
   constant TIME_TSUSTA : integer          := 600 / CLK_PER;
@@ -77,29 +80,32 @@ architecture rtl of i2c_temp is
     14 => std_logic_vector(to_unsigned(14 * 625, 16)),
     15 => std_logic_vector(to_unsigned(15 * 625, 16)));
 
+  -- Registered signals with initial values
   signal encoded        : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
-  signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0);
-  signal sda_en         : std_logic                    := '0';
-  signal scl_en         : std_logic                    := '0';
-  signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal counter        : integer range 0 to TIME_1SEC := 0;
-  signal counter_reset  : std_logic                    := '0';
-  signal bit_count      : integer range 0 to I2CBITS   := 0;
-  signal temp_data      : std_logic_vector(15 downto 0);
-  signal capture_en     : std_logic;
-  signal convert        : std_logic;
-  signal i2c_state      : spi_t                        := IDLE;
-  signal smooth_data    : std_logic_vector(15 downto 0);
-  signal smooth_convert : std_logic;
-  signal smooth_count   : integer range 0 to SMOOTHING := 0;
-  signal dout           : std_logic_vector(15 downto 0);
-  signal rden, rden_del : std_logic                    := '0';
-  signal accumulator    : unsigned(31 downto 0)        := (others => '0');
-  signal bit_index      : natural range 0 to I2CBITS - 1;
+  signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0)    := (others => '0');
+  signal sda_en         : std_logic                                      := '0';
+  signal scl_en         : std_logic                                      := '0';
+  signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal counter        : integer range 0 to TIME_1SEC                   := 0;
+  signal counter_reset  : std_logic                                      := '0';
+  signal bit_count      : integer range 0 to I2CBITS                     := 0;
+  signal temp_data      : std_logic_vector(15 downto 0)                  := (others => '0');
+  signal convert        : std_logic                                      := '0';
+  signal i2c_state      : spi_t                                          := IDLE;
+  signal smooth_data    : std_logic_vector(15 downto 0)                  := (others => '0');
+  signal smooth_convert : std_logic                                      := '0';
+  signal smooth_count   : integer range 0 to SMOOTHING + 1               := 0;
+  signal rden           : std_logic                                      := '0';
+  signal accumulator    : unsigned(31 downto 0)                          := (others => '0');
+
+  -- Unregistered signals
+  signal capture_en : std_logic;
+  signal dout       : std_logic_vector(15 downto 0);
+  signal bit_index  : natural range 0 to I2CBITS - 1;
 
   attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of sda_en, scl_en : signal is "TRUE";
@@ -222,7 +228,7 @@ begin
 
   g_SMOOTHING : if SMOOTHING = 0 generate
 
-    smooth_data    <= temp_data;
+    smooth_data    <= temp_data(temp_data'high downto 3) & 3d"0";
     smooth_convert <= convert;
 
   else generate
@@ -232,17 +238,15 @@ begin
     begin
       if rising_edge(clk) then
         rden           <= '0';
-        rden_del       <= rden;
         smooth_convert <= '0';
         if convert then
           smooth_count <= smooth_count + 1;
-          accumulator  <= accumulator + unsigned(temp_data);
-        elsif smooth_count = SMOOTHING then
+          accumulator  <= accumulator + (unsigned(temp_data(temp_data'high downto 3)) & 3d"0");
+        elsif smooth_count = SMOOTHING + 1 then
           rden         <= '1';
           smooth_count <= smooth_count - 1;
+          accumulator  <= accumulator - unsigned(dout);
         elsif rden then
-          accumulator <= accumulator - unsigned(dout);
-        elsif rden_del then
           smooth_convert <= '1';
           smooth_data    <= std_logic_vector(shift_right(accumulator, SMOOTHING_SHIFT)(smooth_data'range));
         end if;
@@ -251,16 +255,17 @@ begin
 
     u_xpm_fifo_sync : xpm_fifo_sync
       generic map(
-        FIFO_WRITE_DEPTH => SMOOTHING,
+        FIFO_WRITE_DEPTH => 2 ** clog2(SMOOTHING + 1), -- must be a power of two
         WRITE_DATA_WIDTH => 16,
-        READ_DATA_WIDTH  => 16
+        READ_DATA_WIDTH  => 16,
+        READ_MODE        => "FWFT"
       )
       port map(
         sleep         => '0',
         rst           => '0',
         wr_clk        => clk,
         wr_en         => convert,
-        din           => temp_data,
+        din           => temp_data(temp_data'high downto 3) & 3d"0",
         rd_en         => rden,
         dout          => dout,
         injectsbiterr => '0',

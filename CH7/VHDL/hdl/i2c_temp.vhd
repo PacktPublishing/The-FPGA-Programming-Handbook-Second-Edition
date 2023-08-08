@@ -1,151 +1,186 @@
 -- i2c_temp.vhd
 -- ------------------------------------
--- Temperature sensor and display
+-- I2C temperature sensor interface
 -- ------------------------------------
--- Author : Frank Bruno
--- Read from the ADT7420 Temperature sensor and display temperature on the
--- seven segment display
-LIBRARY IEEE, XPM;
+-- Author : Frank Bruno, Guy Eschemann
+-- This module uses the I2C temperature sensor on the board to read and display the temperature.
+
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
-use WORK.temp_pkg.all;
-USE WORK.counting_buttons_pkg.all;
-use XPM.vcomponents.all;
+
+library xpm;
+use xpm.vcomponents.all;
+
+use work.temp_pkg.all;
+use work.counting_buttons_pkg.all;
+use work.util_pkg.all;
 
 entity i2c_temp is
-  generic (SMOOTHING    : integer := 16;
-           INTERVAL     : integer := 1000000000;
-           NUM_SEGMENTS : integer := 8;
-           CLK_PER      : integer := 10);
-  port (clk     : in std_logic; -- 100Mhz clock
-        -- Temperature Sensor Interface
-        TMP_SCL : inout std_logic;
-        TMP_SDA : inout std_logic;
-        TMP_INT : inout std_logic;
-        TMP_CT  : inout std_logic;
-
-        -- Switch Interface
-        SW      : in    std_logic;
-
-        -- LED Interface
-        LED     : out   std_logic;
-
-        -- 7 segment display
-        anode   : out std_logic_vector(NUM_SEGMENTS-1 downto 0);
-        cathode : out std_logic_vector(7 downto 0));
+  generic(
+    SMOOTHING    : integer := 16;       -- must be a power of two
+    INTERVAL     : integer := 1000000000; -- ns
+    NUM_SEGMENTS : integer := 8;
+    CLK_PER      : integer := 10        -- ns
+  );
+  port(
+    clk     : in    std_logic;          -- 100 MHz clock
+    -- Temperature Sensor Interface
+    TMP_SCL : inout std_logic;
+    TMP_SDA : inout std_logic;
+    TMP_INT : inout std_logic;
+    TMP_CT  : inout std_logic;
+    -- Switch Interface
+    SW      : in    std_logic;
+    -- LED Interface
+    LED     : out   std_logic;
+    -- 7 segment display
+    anode   : out   std_logic_vector(NUM_SEGMENTS - 1 downto 0);
+    cathode : out   std_logic_vector(7 downto 0)
+  );
 end entity i2c_temp;
 
 architecture rtl of i2c_temp is
-  attribute MARK_DEBUG : string;
-  constant TIME_1SEC   : integer := integer(INTERVAL/CLK_PER); -- Clock ticks in 1 sec
-  constant TIME_THDSTA : integer := integer(600/CLK_PER);
-  constant TIME_TSUSTA : integer := integer(600/CLK_PER);
-  constant TIME_THIGH  : integer := integer(600/CLK_PER);
-  constant TIME_TLOW   : integer := integer(1300/CLK_PER);
-  constant TIME_TSUDAT : integer := integer(20/CLK_PER);
-  constant TIME_TSUSTO : integer := integer(600/CLK_PER);
-  constant TIME_THDDAT : integer := integer(30/CLK_PER);
+
+  -- Types
+  type i2c_state_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
+  type slv16_array_t is array (0 to 15) of std_logic_vector(15 downto 0);
+
+  -- Constants
+  constant TIME_1SEC   : integer          := INTERVAL / CLK_PER; -- Clock ticks in 1 sec
+  constant TIME_THDSTA : integer          := 600 / CLK_PER;
+  constant TIME_TSUSTA : integer          := 600 / CLK_PER;
+  constant TIME_THIGH  : integer          := 600 / CLK_PER;
+  constant TIME_TLOW   : integer          := 1300 / CLK_PER;
+  constant TIME_TSUSTO : integer          := 600 / CLK_PER;
+  constant TIME_THDDAT : integer          := 30 / CLK_PER;
   constant I2C_ADDR    : std_logic_vector := "1001011"; -- 0x4B
-  constant I2CBITS     : integer := 1 + -- start
-                                    7 + -- 7 bits for address
-                                    1 + -- 1 bit for read
-                                    1 + -- 1 bit for ack back
-                                    8 + -- 8 bits upper data
-                                    1 + -- 1 bit for ack
-                                    8 + -- 8 bits lower data
-                                    1 + -- 1 bit for ack
-                                    1 + 1;  -- 1 bit for stop
+  constant I2CBITS     : integer          := 1 + -- start
+                                             7 + -- 7 bits for address
+                                             1 + -- 1 bit for read
+                                             1 + -- 1 bit for ack back
+                                             8 + -- 8 bits upper data
+                                             1 + -- 1 bit for ack
+                                             8 + -- 8 bits lower data
+                                             1 + -- 1 bit for ack
+                                             1; -- 1 bit for stop
+
+  -- Celsius to Farenheit conversion factor (9/5), in Q1.16 format
   constant NINE_FIFTHS : std_logic_vector(16 downto 0) := "11100110011001100";
-  signal encoded      : array_t (NUM_SEGMENTS-1 downto 0)(3 downto 0);
-  signal encoded_int  : array_t (NUM_SEGMENTS-1 downto 0)(3 downto 0);
-  signal encoded_frac : array_t (NUM_SEGMENTS-1 downto 0)(3 downto 0);
-  signal digit_point  : std_logic_vector(NUM_SEGMENTS-1 downto 0);
-  signal sda_en       : std_logic := '0';
-  signal scl_en       : std_logic := '0';
+
+  constant FRACTION_TABLE : slv16_array_t := (
+    0  => std_logic_vector(to_unsigned(0 * 625, 16)),
+    1  => std_logic_vector(to_unsigned(1 * 625, 16)),
+    2  => std_logic_vector(to_unsigned(2 * 625, 16)),
+    3  => std_logic_vector(to_unsigned(3 * 625, 16)),
+    4  => std_logic_vector(to_unsigned(4 * 625, 16)),
+    5  => std_logic_vector(to_unsigned(5 * 625, 16)),
+    6  => std_logic_vector(to_unsigned(6 * 625, 16)),
+    7  => std_logic_vector(to_unsigned(7 * 625, 16)),
+    8  => std_logic_vector(to_unsigned(8 * 625, 16)),
+    9  => std_logic_vector(to_unsigned(9 * 625, 16)),
+    10 => std_logic_vector(to_unsigned(10 * 625, 16)),
+    11 => std_logic_vector(to_unsigned(11 * 625, 16)),
+    12 => std_logic_vector(to_unsigned(12 * 625, 16)),
+    13 => std_logic_vector(to_unsigned(13 * 625, 16)),
+    14 => std_logic_vector(to_unsigned(14 * 625, 16)),
+    15 => std_logic_vector(to_unsigned(15 * 625, 16))
+  );
+
+  -- Divisor reciprocals, in Q1.16 format
+  constant DIVIDE : array_t(16 downto 0)(16 downto 0) := (
+    0  => "10000000000000000",          -- 1
+    1  => "01000000000000000",          -- 1/2
+    2  => "00101010101010101",          -- 1/3
+    3  => "00100000000000000",          -- 1/4
+    4  => "00011001100110011",          -- 1/5
+    5  => "00010101010101010",          -- 1/6
+    6  => "00010010010010010",          -- 1/7
+    7  => "00010000000000000",          -- 1/8
+    8  => "00001110001110001",          -- 1/9
+    9  => "00001100110011001",          -- 1/10
+    10 => "00001011101000101",          -- 1/11
+    11 => "00001010101010101",          -- 1/12
+    12 => "00001001110110001",          -- 1/13
+    13 => "00001001001001001",          -- 1/14
+    14 => "00001000100010001",          -- 1/15
+    15 => "00001000000000000",          -- 1/16
+    16 => "00001000000000000"           -- 1/16
+  );
+
+  -- Registered signals with initial values
+  signal encoded        : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_int    : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_frac   : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal digit_point    : std_logic_vector(NUM_SEGMENTS - 1 downto 0)    := (others => '0');
+  signal sda_en         : std_logic                                      := '0';
+  signal scl_en         : std_logic                                      := '0';
+  signal i2c_data       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_en         : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal i2c_capt       : std_logic_vector(I2CBITS - 1 downto 0)         := (others => '0');
+  signal counter        : integer range 0 to TIME_1SEC                   := 0;
+  signal counter_reset  : std_logic                                      := '0';
+  signal bit_count      : integer range 0 to I2CBITS                     := 0;
+  signal temp_data      : std_logic_vector(15 downto 0)                  := (others => '0');
+  signal convert        : std_logic                                      := '0';
+  signal i2c_state      : i2c_state_t                                    := IDLE;
+  signal smooth_data    : unsigned(28 downto 0)                          := (others => '0');
+  signal smooth_convert : std_logic                                      := '0';
+  signal smooth_count   : integer range 0 to SMOOTHING + 1               := 0;
+  signal sample_count   : integer range 0 to SMOOTHING                   := 0;
+  signal rden           : std_logic                                      := '0';
+  signal accumulator    : unsigned(17 downto 0)                          := (others => '0');
+  signal convert_pipe   : std_logic_vector(4 downto 0)                   := (others => '0');
+
+  -- Unregistered signals
+  signal capture_en       : std_logic;
+  signal dout             : std_logic_vector(12 downto 0);
+  signal bit_index        : natural range 0 to I2CBITS - 1;
+  signal temp_data_s13_q4 : signed(12 downto 0);
+  signal temp_data_u13_q4 : unsigned(12 downto 0);
+
+  attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of sda_en, scl_en : signal is "TRUE";
-  signal i2c_data     : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_en       : std_logic_vector(I2CBITS - 1 downto 0);
-  signal i2c_capt     : std_logic_vector(I2CBITS - 1 downto 0);
-  signal counter      : integer range 0 to TIME_1SEC:= 0;
   attribute MARK_DEBUG of counter : signal is "TRUE";
-  signal counter_reset : std_logic := '0';
-  signal bit_count    : integer range 0 to I2CBITS := 0;
   attribute MARK_DEBUG of bit_count : signal is "TRUE";
-  signal temp_data    : std_logic_vector(15 downto 0);
-  signal capture_en   : std_logic;
-  signal convert      : std_logic;
   attribute MARK_DEBUG of temp_data : signal is "TRUE";
   attribute MARK_DEBUG of capture_en : signal is "TRUE";
   attribute MARK_DEBUG of convert : signal is "TRUE";
-  type spi_t is (IDLE, START, TLOW, TSU, THIGH, THD, TSTO);
-  signal spi_state : spi_t := IDLE;
-  attribute MARK_DEBUG of spi_state : signal is "TRUE";
-  signal fraction : array_t(3 downto 0)(3 downto 0);
-  type int_array is array (0 to 15) of integer range 0 to 65535;
-  signal fraction_table : int_array :=
-    (0  => 0*625,
-     1  => 1*625,
-     2  => 2*625,
-     3  => 3*625,
-     4  => 4*625,
-     5  => 5*625,
-     6  => 6*625,
-     7  => 7*625,
-     8  => 8*625,
-     9  => 9*625,
-     10 => 10*625,
-     11 => 11*625,
-     12 => 12*625,
-     13 => 13*625,
-     14 => 14*625,
-     15 => 15*625);
-  signal smooth_data : unsigned(28 downto 0);
-  signal smooth_convert : std_logic;
-  signal smooth_count : integer range 0 to SMOOTHING := 0;
-  signal dout : std_logic_vector(15 downto 0);
-  signal sample_count : integer range 0 to 32 := 0;
-  signal rden, rden_del : std_logic := '0';
-  signal accumulator : std_logic_vector(17 downto 0) := (others => '0');
-  signal convert_pipe : std_logic_vector(4 downto 0);
-  signal divide : array_t(16 downto 0)(16 downto 0) :=
-    (0    => "10000000000000000", -- 1
-     1    => "01000000000000000", -- 1/2
-     2    => "00101010101010101", -- 1/3
-     3    => "00100000000000000", -- 1/4
-     4    => "00011001100110011", -- 1/5
-     5    => "00010101010101010", -- 1/6
-     6    => "00010010010010010", -- 1/7
-     7    => "00010000000000000", -- 1/8
-     8    => "00001110001110001", -- 1/9
-     9    => "00001100110011001", -- 1/10
-     10   => "00001011101000101", -- 1/11
-     11   => "00001010101010101", -- 1/12
-     12   => "00001001110110001", -- 1/13
-     13   => "00001001001001001", -- 1/14
-     14   => "00001000100010001", -- 1/15
-     15   => "00001000000000000", -- 1/16
-     16   => "00001000000000000"  -- 1/16
-    );
+  attribute MARK_DEBUG of i2c_state : signal is "TRUE";
+
 begin
+
+  assert SMOOTHING <= 16 report "SMOOTHING factor must be <= 16" severity failure;
 
   LED <= SW;
 
   u_seven_segment : entity work.seven_segment
-    generic map(NUM_SEGMENTS => NUM_SEGMENTS, CLK_PER => CLK_PER)
-    port map(clk => clk, reset => '0', encoded => encoded, digit_point => not digit_point,
-             anode => anode, cathode => cathode);
+    generic map(
+      NUM_SEGMENTS => NUM_SEGMENTS,
+      CLK_PER      => CLK_PER,
+      REFR_RATE    => 1000
+    )
+    port map(
+      clk         => clk,
+      reset       => '0',
+      encoded     => encoded,
+      digit_point => not digit_point,
+      anode       => anode,
+      cathode     => cathode
+    );
 
   TMP_SCL <= 'Z' when scl_en else '0';
   TMP_SDA <= 'Z' when sda_en else '0';
 
-  capture_en <= i2c_capt(I2CBITS - bit_count - 1);
+  bit_index  <= 0 when (bit_count = I2CBITS) else I2CBITS - bit_count - 1;
+  capture_en <= i2c_capt(bit_index);
 
-  process (clk) begin
+  fsm : process(clk)
+  begin
     if rising_edge(clk) then
-      scl_en                     <= '1';
-      sda_en                     <= not i2c_en(I2CBITS - bit_count - 1) or
-                                    i2c_data(I2CBITS - bit_count - 1);
+      scl_en        <= '1';
+      sda_en        <= (not i2c_en(bit_index)) or i2c_data(bit_index);
       if counter_reset then
         counter <= 0;
       else
@@ -154,137 +189,166 @@ begin
       counter_reset <= '0';
       convert       <= '0';
 
-      case spi_state is
+      case i2c_state is
         when IDLE =>
-          i2c_data  <= '0' & I2C_ADDR  & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0' & '1';
-          i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1' & '1';
-          i2c_capt  <= '0' & "0000000" & '0' & '0' & "11111111" & '0' & "11111111" & '0' & '0' & '0';
+          i2c_data  <= '0' & I2C_ADDR & '1' & '0' & "00000000" & '0' & "00000000" & '1' & '0';
+          i2c_en    <= '1' & "1111111" & '1' & '0' & "00000000" & '1' & "00000000" & '1' & '1';
+          i2c_capt  <= '0' & "0000000" & '0' & '0' & "11111111" & '0' & "11111111" & '0' & '0';
           bit_count <= 0;
-          sda_en    <= '1'; -- Force to 1 in the beginning.
+          sda_en    <= '1';             -- Force to 1 in the beginning.
 
-          if counter = TIME_1SEC then
-            temp_data     <= (others =>'0');
-            spi_state     <= START;
+          if counter = TIME_1SEC - 1 then
+            temp_data     <= (others => '0');
+            i2c_state     <= START;
             counter_reset <= '1';
-            sda_en        <= '0'; -- Drop the data
+            sda_en        <= '0';       -- Drop the data
           end if;
+
         when START =>
-          sda_en <= '0'; -- Drop the data
+          sda_en <= '0';                -- Drop the data
           -- Hold clock low for thd:sta
           if counter = TIME_THDSTA then
-            counter_reset   <= '1';
-            scl_en          <= '0'; -- Drop the clock
-            spi_state       <= TLOW;
+            counter_reset <= '1';
+            scl_en        <= '0';       -- Drop the clock
+            i2c_state     <= TLOW;
           end if;
+
         when TLOW =>
-          scl_en            <= '0'; -- Drop the clock
+          scl_en <= '0';                -- Drop the clock
           if counter = TIME_TLOW then
             bit_count     <= bit_count + 1;
             counter_reset <= '1';
-            spi_state     <= TSU;
-        end if;
+            i2c_state     <= TSU;
+          end if;
+
         when TSU =>
-          scl_en            <= '0'; -- Drop the clock
+          scl_en <= '0';                -- Drop the clock
           if counter = TIME_TSUSTA then
             counter_reset <= '1';
-            spi_state     <= THIGH;
+            i2c_state     <= THIGH;
           end if;
+
         when THIGH =>
-          scl_en          <= '1'; -- Raise the clock
+          scl_en <= '1';                -- Raise the clock
           if counter = TIME_THIGH then
             if capture_en then
-              temp_data <= temp_data(14 downto 0) & TMP_SDA;
+              temp_data <= temp_data(14 downto 0) & to_01(TMP_SDA);
             end if;
             counter_reset <= '1';
-            spi_state     <= THD;
+            i2c_state     <= THD;
           end if;
+
         when THD =>
-          scl_en            <= '0'; -- Drop the clock
+          if bit_count = I2CBITS - 1 then
+            scl_en <= '1';              -- Keep the clock high
+          else
+            scl_en <= '0';              -- Drop the clock
+          end if;
           if counter = TIME_THDDAT then
             counter_reset <= '1';
-            if bit_count = I2CBITS then
-              spi_state <= TSTO;
+            if bit_count = I2CBITS - 1 then
+              i2c_state <= TSTO;
             else
-              spi_state <= TLOW;
+              i2c_state <= TLOW;
             end if;
           end if;
+
         when TSTO =>
           if counter = TIME_TSUSTO then
             convert       <= '1';
             counter_reset <= '1';
-            spi_state     <= IDLE;
+            i2c_state     <= IDLE;
           end if;
-        when others => spi_state     <= IDLE;
       end case;
     end if;
   end process;
 
-  g_NO_SMOOTH : if SMOOTHING = 0 generate
-      smooth_data <= "0000000000000000000000" & unsigned(temp_data(15 downto 3));
-      smooth_convert <= convert;
-    else generate
-      process (clk)
-        variable data_mult : unsigned(45 downto 0);
-        variable data_shift : unsigned(45 downto 0);
-        variable smooth_data_int : unsigned(34 downto 0);
-      begin
-        if rising_edge(clk) then
-          rden           <= '0';
-          smooth_convert <= '0';
-          convert_pipe   <= convert_pipe(3 downto 0) & '0';
-          if convert then
-            convert_pipe(0) <= '1';
-            smooth_count  <= smooth_count + 1;
-            accumulator   <= std_logic_vector(unsigned(accumulator) + unsigned(temp_data(15 downto 3)));
-          elsif smooth_count = 16 then
-            rden                    <= '1';
-            smooth_count            <= smooth_count - 1;
-          elsif rden then
-            accumulator   <= std_logic_vector(unsigned(accumulator) - unsigned(dout));
-          elsif convert_pipe(2) then
-            if sample_count < 16 then sample_count <= sample_count + 1; end if;
-            smooth_data_int   := unsigned(accumulator) * unsigned(divide(sample_count));
-            smooth_data       <= smooth_data_int(28 downto 0);
-          elsif convert_pipe(3) then
-            smooth_data_int   := shift_right("000000" & smooth_data, 16);
-            smooth_data       <= smooth_data_int(28 downto 0);
-            smooth_convert    <= not SW;
-          elsif convert_pipe(4) then
-            smooth_convert <= SW;
-            data_mult := smooth_data * unsigned(NINE_FIFTHS);
-            data_shift := shift_right(unsigned(data_mult), 16);
-            smooth_data_int := unsigned(data_shift(34 downto 0)) + to_unsigned(32 * 16, 10);
-            smooth_data     <= smooth_data_int(28 downto 0);
-          end if;
-        end if;
-      end process;
+  -- Strip alarm flags from temperature value (bits 2..0)
+  temp_data_s13_q4 <= signed(temp_data(temp_data'high downto 3));
 
-      u_xpm_fifo_sync : xpm_fifo_sync
-        generic map(FIFO_WRITE_DEPTH => SMOOTHING, WRITE_DATA_WIDTH => 16, READ_DATA_WIDTH => 16)
-        port map(sleep => '0',
-                 rst => '0',
-                 wr_clk => clk,
-                 wr_en => convert,
-                 din => "000" & temp_data(15 downto 3),
-                 rd_en => rden,
-                 dout => dout,
-                 injectsbiterr => '0',
-                 injectdbiterr => '0');
+  -- Clip negative temperatures at zero, as we're not supporting negative 
+  -- temperatures yet.
+  temp_data_u13_q4 <= unsigned(temp_data_s13_q4(12 downto 0)) when temp_data_s13_q4 >= 0 else 13d"0";
+
+  g_SMOOTHING : if SMOOTHING = 0 generate
+
+    smooth_data    <= resize(temp_data_u13_q4, smooth_data'length);
+    smooth_convert <= convert;
+
+  else generate
+
+    smooth : process(clk)
+      variable data_mult_u46_q20 : unsigned(45 downto 0);
+      variable data_shift_u30_q4 : unsigned(29 downto 0);
+      variable data_add_u30_q4   : unsigned(29 downto 0);
+    begin
+      if rising_edge(clk) then
+        rden           <= '0';
+        smooth_convert <= '0';
+        convert_pipe   <= convert_pipe(3 downto 0) & '0';
+        if convert then
+          convert_pipe(0) <= '1';
+          smooth_count    <= smooth_count + 1;
+          accumulator     <= accumulator + temp_data_u13_q4;
+        elsif smooth_count = SMOOTHING + 1 then
+          rden         <= '1';
+          smooth_count <= smooth_count - 1;
+          accumulator  <= accumulator - unsigned(dout);
+        elsif convert_pipe(2) then
+          if sample_count < SMOOTHING then
+            sample_count <= sample_count + 1;
+          end if;
+          smooth_data <= resize(accumulator * unsigned(DIVIDE(sample_count)), smooth_data'length);
+        elsif convert_pipe(3) then
+          -- If SW is not set, output the temperature in degrees Celsius
+          smooth_convert <= not SW;
+          smooth_data    <= shift_right(smooth_data, 16)(smooth_data'range);
+        elsif convert_pipe(4) then
+          -- If SW is set, output the temperature in degrees Farenheit
+          -- °F = (°C * 9/5) + 32
+          smooth_convert    <= SW;
+          data_mult_u46_q20 := smooth_data * unsigned(NINE_FIFTHS);
+          data_shift_u30_q4 := resize(shift_right(unsigned(data_mult_u46_q20), 16), data_mult_u46_q20'length - 16);
+          data_add_u30_q4   := data_shift_u30_q4 + 32 * 16;
+          smooth_data       <= resize(data_add_u30_q4, smooth_data'length);
+        end if;
+      end if;
+    end process;
+
+    u_xpm_fifo_sync : xpm_fifo_sync
+      generic map(
+        FIFO_WRITE_DEPTH => 2 ** clog2(SMOOTHING + 1), -- must be a power of two
+        WRITE_DATA_WIDTH => 13,
+        READ_DATA_WIDTH  => 13,
+        READ_MODE        => "FWFT"
+      )
+      port map(
+        sleep         => '0',
+        rst           => '0',
+        wr_clk        => clk,
+        wr_en         => convert,
+        din           => std_logic_vector(temp_data_u13_q4),
+        rd_en         => rden,
+        dout          => dout,
+        injectsbiterr => '0',
+        injectdbiterr => '0'
+      );
   end generate;
 
-  -- convert temperature from
-  process (clk)
-    variable sd_int : integer range 0 to 15;
+  -- Convert temperature from binary to BCD
+  process(clk)
+    variable frac_int : integer range 0 to 15;
   begin
     if rising_edge(clk) then
       if smooth_convert then
-        encoded_int  <= bin_to_bcd("00000000000000000000000" & std_logic_vector(smooth_data(12 downto 4))); -- Decimal portion
-        sd_int       := to_integer(unsigned(smooth_data(3 downto 0)));
-        encoded_frac <= bin_to_bcd(std_logic_vector(to_unsigned(fraction_table(sd_int), 32)));
-        digit_point  <= "00010000";
+        encoded_int  <= bin_to_bcd(std_logic_vector(22d"0" & smooth_data(13 downto 4)), NUM_SEGMENTS); -- integer portion
+        frac_int       := to_integer(smooth_data(3 downto 0));
+        encoded_frac <= bin_to_bcd(16d"0" & FRACTION_TABLE(frac_int), NUM_SEGMENTS); -- fractional portion
       end if;
     end if;
   end process;
 
+  digit_point  <= "00010000";
   encoded <= encoded_int(3 downto 0) & encoded_frac(3 downto 0);
+
 end architecture;

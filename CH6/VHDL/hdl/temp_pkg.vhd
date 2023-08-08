@@ -1,21 +1,25 @@
 -- temp_pkg.vhd
 -- ------------------------------------
--- temperature Sensor simple testbench
+-- Package for I2C temperature sensor interface
 -- ------------------------------------
 -- Author : Frank Bruno, Guy Eschemann
 -- This file supports the temperature sensor project, provides a binary to BCD conversion function
-  
+
 LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
-use WORK.counting_buttons_pkg.all;
+
+use work.counting_buttons_pkg.all;
 
 PACKAGE temp_pkg IS
+
   constant NUM_SEGMENTS : integer := 8;
   function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0)) return array_t;
+
 end package temp_pkg;
 
 package body temp_pkg is
+
   function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0)) return array_t is
     variable shifted : unsigned(NUM_SEGMENTS * 4 - 1 downto 0);
     variable bin2bcd : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);

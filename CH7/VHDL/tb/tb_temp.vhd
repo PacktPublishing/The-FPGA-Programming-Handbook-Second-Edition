@@ -21,7 +21,7 @@ architecture test of tb_temp is
   constant SMOOTHING    : natural                       := 16;
   constant TEMP         : std_logic_vector(15 downto 0) := 9d"20" & 4d"8" & "XXX"; -- 20.5 deg (C)
 
-  signal clk : std_logic := '0';
+  signal clk            : std_logic                     := '0';
 
   -- Temperature Sensor Interface
   signal TMP_SCL : std_logic;
@@ -51,6 +51,8 @@ begin
       TMP_SDA => TMP_SDA,
       TMP_INT => TMP_INT,
       TMP_CT  => TMP_CT,
+      -- Switch Interface
+      SW      => '0',                   -- output the temperature in degrees Celsius
       -- 7 segment display
       anode   => anode,
       cathode => cathode
