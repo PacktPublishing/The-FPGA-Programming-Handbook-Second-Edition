@@ -400,7 +400,7 @@ begin
           temperature       <= result_data;
           temperature_valid <= not SW;
         end if;
-        -- Stage 3: output temperature in degrees F
+        -- Stage 4: output temperature in degrees F
         if SW and fused_valid then
           temperature       <= fused_data;
           temperature_valid <= '1';
