@@ -141,7 +141,7 @@ architecture rtl of flt_temp is
 
 begin
 
-  assert SMOOTHING <= 16 report "SMOOTHING factor must be <= 16" severity failure;
+  assert SMOOTHING > 0 and SMOOTHING <= 16 report "invalid SMOOTHING factor" severity failure;
 
   LED <= SW;
 
@@ -170,8 +170,6 @@ begin
   fused_c_tvalid  <= result_valid;
   fused_c_tdata   <= THIRTY_TWO;
   addsub_op_tdata <= addsub_op;
-
-  -- REVIEW: add smoothing OFF generate?
 
   process(clk)
   begin
