@@ -140,7 +140,7 @@ architecture rtl of flt_temp is
 
 begin
 
-  assert SMOOTHING <= 16 report "SMOOTHING factor must be <= 16" severity failure;
+  assert SMOOTHING > 0 and SMOOTHING <= 16 report "invalid SMOOTHING factor" severity failure;
 
   LED <= SW;
 
