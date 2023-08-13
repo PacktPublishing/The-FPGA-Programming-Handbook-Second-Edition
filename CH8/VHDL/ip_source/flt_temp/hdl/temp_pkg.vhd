@@ -9,19 +9,19 @@ LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
 
-use work.counting_buttons_pkg.all;
+use work.util_pkg.all; -- slv4_array_t
 
-PACKAGE temp_pkg IS
+package temp_pkg IS
 
-  function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0); num_segments : in natural) return array_t;
+  function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0); num_segments : in natural) return slv4_array_t;
 
 end package temp_pkg;
 
 package body temp_pkg is
 
-  function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0); num_segments : in natural) return array_t is
+  function bin_to_bcd(bin_in : in std_logic_vector(31 downto 0); num_segments : in natural) return slv4_array_t is
     variable shifted : unsigned(num_segments * 4 - 1 downto 0);
-    variable bin2bcd : array_t(num_segments - 1 downto 0)(3 downto 0);
+    variable bin2bcd : slv4_array_t(num_segments - 1 downto 0);
   begin
 
     shifted             := (others => '0');

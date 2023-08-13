@@ -12,17 +12,17 @@ use ieee.math_real.all;
 library xpm;
 use xpm.vcomponents.all;
 
-use work.util_pkg.all;                  -- clog2
+use work.util_pkg.all;                  -- clog2, slv4_array_t
 use work.temp_pkg.all;                  -- bin_to_bcd
-use work.counting_buttons_pkg.all;      -- array_t
 
 entity flt_temp is
   generic(
     SMOOTHING    : integer := 16;
-    NUM_SEGMENTS : integer := 8
+    NUM_SEGMENTS : natural := 8
   );
   port(
     clk                  : in  std_logic; -- 100 MHz clock
+    rst                  : in std_logic; -- synchronous, high-active
     -- Switch Interface
     SW                   : in  std_logic;
     -- LED Interface
@@ -71,8 +71,7 @@ architecture rtl of flt_temp is
 
   -- Types
   type array32_t is array (natural range <>) of unsigned(31 downto 0);
-  type slv16_array_t is array (0 to 15) of std_logic_vector(15 downto 0);
-
+  
   -- Constants
   constant NINE_FIFTHS : std_logic_vector(31 downto 0) := x"3fe66666"; -- 9/5 in floating point
   constant THIRTY_TWO  : std_logic_vector(31 downto 0) := x"42000000"; -- floating point
@@ -97,7 +96,7 @@ architecture rtl of flt_temp is
     16 => x"3d800000"                   -- 1/16
   );
 
-  constant FRACTION_TABLE : slv16_array_t := (
+  constant FRACTION_TABLE : slv16_array_t(0 to 15) := (
     0  => std_logic_vector(to_unsigned(0 * 625, 16)),
     1  => std_logic_vector(to_unsigned(1 * 625, 16)),
     2  => std_logic_vector(to_unsigned(2 * 625, 16)),
@@ -117,8 +116,8 @@ architecture rtl of flt_temp is
   );
 
   -- Registered signals with initial values
-  signal encoded_int       : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
-  signal encoded_frac      : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0) := (others => (others => '0'));
+  signal encoded_int       : slv4_array_t(NUM_SEGMENTS - 1 downto 0) := (others => (others => '0'));
+  signal encoded_frac      : slv4_array_t(NUM_SEGMENTS - 1 downto 0) := (others => (others => '0'));
   signal addsub_op         : std_logic_vector(7 downto 0)                   := (others => '0');
   signal digit_point       : std_logic_vector(NUM_SEGMENTS - 1 downto 0)    := (others => '0');
   signal smooth_count      : integer range 0 to SMOOTHING                   := 0;
@@ -132,7 +131,7 @@ architecture rtl of flt_temp is
   signal addsub_in         : array32_t(1 downto 0)                          := (others => (others => '0'));
 
   -- Unregistered signals
-  signal encoded        : array_t(NUM_SEGMENTS - 1 downto 0)(3 downto 0);
+  signal encoded        : slv4_array_t(NUM_SEGMENTS - 1 downto 0);
   signal result_data    : std_logic_vector(31 downto 0);
   signal result_valid   : std_logic;
   signal smooth_data    : std_logic_vector(15 downto 0);
@@ -171,61 +170,72 @@ begin
   fused_c_tdata   <= THIRTY_TWO;
   addsub_op_tdata <= addsub_op;
 
-  -- REVIEW: add smoothing OFF generate?
-
   process(clk)
   begin
     if rising_edge(clk) then
-      rden              <= '0';
-      convert_pipe      <= "000";
-      temperature_valid <= '0';
-      mult_in_valid     <= '0';
-      -- Initial stage: add next temperature sample to accumulator
-      if fix_temp_tvalid = '1' then
-        addsub_op       <= x"00";       -- add
-        convert_pipe(0) <= '1';
-        addsub_in(0)    <= unsigned(accumulator);
-        addsub_in(1)    <= unsigned(fix_temp_tdata);
-      end if;
-      -- Stage 0: update accumulator with add/sub result 
-      if addsub_tvalid = '1' then
-        accumulator <= addsub_tdata;
-        if addsub_op = x"00" then       -- add
-          convert_pipe(1) <= '1';
-        else                            -- sub
-          convert_pipe(2) <= '1';
+      if rst = '1' then
+        rden              <= '0';
+        convert_pipe      <= "000";
+        temperature_valid <= '0';
+        temperature       <= (others => '0');
+        mult_in_valid     <= '0';
+        addsub_op         <= x"00";       -- add
+        addsub_in         <= (others => (others => '0'));
+        accumulator       <= (others => '0');
+        smooth_count      <= 0;
+        mult_in           <= (others => (others => '0'));
+      else      
+        rden              <= '0';
+        convert_pipe      <= "000";
+        temperature_valid <= '0';
+        mult_in_valid     <= '0';
+        -- Initial stage: add next temperature sample to accumulator
+        if fix_temp_tvalid = '1' then
+          addsub_op       <= x"00";       -- add
+          convert_pipe(0) <= '1';
+          addsub_in(0)    <= unsigned(accumulator);
+          addsub_in(1)    <= unsigned(fix_temp_tdata);
         end if;
-      end if;
-      -- Stage 1: subtract input sample N-16 from accumulator
-      if convert_pipe(1) = '1' then
-        addsub_op       <= x"01";       -- sub
-        convert_pipe(0) <= '1';
-        addsub_in(0)    <= unsigned(accumulator);
-        if smooth_count = SMOOTHING then
-          rden         <= '1';
-          addsub_in(1) <= unsigned(dout);
-        else
-          addsub_in(1) <= x"00000000";
+        -- Stage 0: update accumulator with add/sub result 
+        if addsub_tvalid = '1' then
+          accumulator <= addsub_tdata;
+          if addsub_op = x"00" then       -- add
+            convert_pipe(1) <= '1';
+          else                            -- sub
+            convert_pipe(2) <= '1';
+          end if;
         end if;
-      end if;
-      -- Stage 2: divide accumulator by number of accumulated samples 
-      if convert_pipe(2) = '1' then
-        if smooth_count < SMOOTHING then
-          smooth_count <= smooth_count + 1;
+        -- Stage 1: subtract input sample N-16 from accumulator
+        if convert_pipe(1) = '1' then
+          addsub_op       <= x"01";       -- sub
+          convert_pipe(0) <= '1';
+          addsub_in(0)    <= unsigned(accumulator);
+          if smooth_count = SMOOTHING then
+            rden         <= '1';
+            addsub_in(1) <= unsigned(dout);
+          else
+            addsub_in(1) <= x"00000000";
+          end if;
         end if;
-        mult_in(0)    <= unsigned(accumulator);
-        mult_in(1)    <= DIVIDE(smooth_count);
-        mult_in_valid <= '1';
-      end if;
-      -- Stage 3: output temperature in degrees C
-      if result_valid = '1' then
-        temperature       <= result_data;
-        temperature_valid <= not SW;
-      end if;
-      -- Stage 4: output temperature in degrees F
-      if SW = '1' and fused_tvalid = '1' then
-        temperature       <= fused_tdata;
-        temperature_valid <= '1';
+        -- Stage 2: divide accumulator by number of accumulated samples 
+        if convert_pipe(2) = '1' then
+          if smooth_count < SMOOTHING then
+            smooth_count <= smooth_count + 1;
+          end if;
+          mult_in(0)    <= unsigned(accumulator);
+          mult_in(1)    <= DIVIDE(smooth_count);
+          mult_in_valid <= '1';
+        end if;
+        -- Stage 3: output temperature in degrees C
+        if result_valid = '1' then
+          temperature       <= result_data;
+          temperature_valid <= not SW;
+        end if;
+        -- Stage 4: output temperature in degrees F
+        if SW = '1' and fused_tvalid = '1' then
+          temperature       <= fused_tdata;
+          temperature_valid <= '1';
+        end if;
       end if;
     end if;
   end process;
@@ -239,7 +249,7 @@ begin
     )
     port map(
       sleep         => '0',
-      rst           => '0',
+      rst           => rst,
       wr_clk        => clk,
       wr_en         => fix_temp_tvalid,
       din           => fix_temp_tdata,
@@ -254,14 +264,20 @@ begin
     variable frac_int : integer range 0 to 15;
   begin
     if rising_edge(clk) then
-      seven_segment_tvalid <= '0';
-      if smooth_convert then
-        seven_segment_tvalid <= '1';
-        encoded_int          <= bin_to_bcd(22d"0" & smooth_data(13 downto 4), NUM_SEGMENTS); -- integer part
-        frac_int             := to_integer(unsigned(smooth_data(3 downto 0)));
-        encoded_frac         <= bin_to_bcd(16d"0" & FRACTION_TABLE(frac_int), NUM_SEGMENTS); -- fractional part
+      if rst = '1' then
+        seven_segment_tvalid <= '0';
+        encoded_int          <= (others => (others => '0'));
+        encoded_frac         <= (others => (others => '0'));
+      else
+        seven_segment_tvalid <= '0';
+        if smooth_convert = '1' then 
+          seven_segment_tvalid <= '1';
+          encoded_int          <= bin_to_bcd(std_logic_vector'("0000000000000000000000") & smooth_data(13 downto 4), NUM_SEGMENTS); -- integer part
+          frac_int             := to_integer(unsigned(smooth_data(3 downto 0)));
+          encoded_frac         <= bin_to_bcd(std_logic_vector'("0000000000000000") & FRACTION_TABLE(frac_int), NUM_SEGMENTS); -- fractional part
+        end if;
       end if;
-    end if;
+    end if;    
   end process;
 
   digit_point <= "00010000";

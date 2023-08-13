@@ -16,6 +16,7 @@ entity seven_segment is
   );
   port(
     clk                  : in  std_logic;
+    rst                  : in  std_logic;
     seven_segment_tvalid : in  std_logic;
     seven_segment_tdata  : in  std_logic_vector(NUM_SEGMENTS * 4 - 1 downto 0);
     seven_segment_tuser  : in  std_logic_vector(NUM_SEGMENTS - 1 downto 0);
@@ -53,6 +54,7 @@ begin
     ct : entity work.cathode_top
       port map(
         clk         => clk,
+        rst         => rst,
         encoded     => encoded(i * 4 + 3 downto i * 4),
         digit_point => digit_point(i),
         cathode     => segments(i * 8 + 7 downto i * 8)
@@ -62,19 +64,26 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
-      if refresh_count = INTERVAL then
+      if rst = '1' then
         refresh_count <= 0;
-        if anode_count = NUM_SEGMENTS - 1 then
-          anode_count <= 0;
-        else
-          anode_count <= anode_count + 1;
-        end if;
+        anode_count <= 0;
+        anode <= (others => '1');
+        cathode <= (others => '0');
       else
-        refresh_count <= refresh_count + 1;
+        if refresh_count = INTERVAL then
+          refresh_count <= 0;
+          if anode_count = NUM_SEGMENTS - 1 then
+            anode_count <= 0;
+          else
+            anode_count <= anode_count + 1;
+          end if;
+        else
+          refresh_count <= refresh_count + 1;
+        end if;
+        anode              <= (others => '1');
+        anode(anode_count) <= '0';
+        cathode            <= segments(anode_count * 8 + 7 downto anode_count * 8);
       end if;
-      anode              <= (others => '1');
-      anode(anode_count) <= '0';
-      cathode            <= segments(anode_count * 8 + 7 downto anode_count * 8);
     end if;
   end process;
 end architecture rtl;
