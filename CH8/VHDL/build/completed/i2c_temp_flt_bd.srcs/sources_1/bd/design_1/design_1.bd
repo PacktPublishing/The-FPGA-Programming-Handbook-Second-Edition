@@ -87,8 +87,8 @@
     "components": {
       "fixed_to_float": {
         "vlnv": "xilinx.com:ip:floating_point:7.1",
-        "xci_name": "design_1_floating_point_0_0",
-        "xci_path": "ip\\design_1_floating_point_0_0\\design_1_floating_point_0_0.xci",
+        "xci_name": "design_1_fixed_to_float_0",
+        "xci_path": "ip\\design_1_fixed_to_float_0\\design_1_fixed_to_float_0.xci",
         "inst_hier_path": "fixed_to_float",
         "parameters": {
           "A_Precision_Type": {
@@ -143,8 +143,8 @@
       },
       "float_to_fixed": {
         "vlnv": "xilinx.com:ip:floating_point:7.1",
-        "xci_name": "design_1_floating_point_0_1",
-        "xci_path": "ip\\design_1_floating_point_0_1\\design_1_floating_point_0_1.xci",
+        "xci_name": "design_1_float_to_fixed_0",
+        "xci_path": "ip\\design_1_float_to_fixed_0\\design_1_float_to_fixed_0.xci",
         "inst_hier_path": "float_to_fixed",
         "parameters": {
           "C_Latency": {
@@ -181,8 +181,8 @@
       },
       "fp_addsub": {
         "vlnv": "xilinx.com:ip:floating_point:7.1",
-        "xci_name": "design_1_floating_point_0_2",
-        "xci_path": "ip\\design_1_floating_point_0_2\\design_1_floating_point_0_2.xci",
+        "xci_name": "design_1_fp_addsub_0",
+        "xci_path": "ip\\design_1_fp_addsub_0\\design_1_fp_addsub_0.xci",
         "inst_hier_path": "fp_addsub",
         "parameters": {
           "A_Precision_Type": {
@@ -204,8 +204,8 @@
       },
       "fp_fused_mult_add": {
         "vlnv": "xilinx.com:ip:floating_point:7.1",
-        "xci_name": "design_1_floating_point_0_3",
-        "xci_path": "ip\\design_1_floating_point_0_3\\design_1_floating_point_0_3.xci",
+        "xci_name": "design_1_fp_fused_mult_add_0",
+        "xci_path": "ip\\design_1_fp_fused_mult_add_0\\design_1_fp_fused_mult_add_0.xci",
         "inst_hier_path": "fp_fused_mult_add",
         "parameters": {
           "A_Precision_Type": {
@@ -248,8 +248,8 @@
       },
       "fp_mult": {
         "vlnv": "xilinx.com:ip:floating_point:7.1",
-        "xci_name": "design_1_floating_point_0_4",
-        "xci_path": "ip\\design_1_floating_point_0_4\\design_1_floating_point_0_4.xci",
+        "xci_name": "design_1_fp_mult_0",
+        "xci_path": "ip\\design_1_fp_mult_0\\design_1_fp_mult_0.xci",
         "inst_hier_path": "fp_mult",
         "parameters": {
           "A_Precision_Type": {
@@ -329,8 +329,8 @@
       },
       "util_vector_logic_0": {
         "vlnv": "xilinx.com:ip:util_vector_logic:2.0",
-        "xci_name": "design_1_util_vector_logic_0_1",
-        "xci_path": "ip\\design_1_util_vector_logic_0_1\\design_1_util_vector_logic_0_1.xci",
+        "xci_name": "design_1_util_vector_logic_0_0",
+        "xci_path": "ip\\design_1_util_vector_logic_0_0\\design_1_util_vector_logic_0_0.xci",
         "inst_hier_path": "util_vector_logic_0",
         "parameters": {
           "C_OPERATION": {
@@ -343,8 +343,8 @@
       },
       "adt7420_i2c_0": {
         "vlnv": "xilinx.com:user:adt7420_i2c:1.0",
-        "xci_name": "design_1_adt7420_i2c_0_1",
-        "xci_path": "ip\\design_1_adt7420_i2c_0_1\\design_1_adt7420_i2c_0_1.xci",
+        "xci_name": "design_1_adt7420_i2c_0_0",
+        "xci_path": "ip\\design_1_adt7420_i2c_0_0\\design_1_adt7420_i2c_0_0.xci",
         "inst_hier_path": "adt7420_i2c_0",
         "parameters": {
           "INTERVAL": {
