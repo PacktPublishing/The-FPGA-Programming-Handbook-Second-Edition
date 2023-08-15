@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="61" Path="C:/Projects/The-FPGA-Programming-Handbook-Second-Edition/CH8/VHDL/build/i2c_temp_flt_bd.xpr">
+<Project Version="7" Minor="61" Path="C:/Projects/The-FPGA-Programming-Handbook-Second-Edition/CH8/VHDL/build/completed/i2c_temp_flt_bd.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="ca926e1b1a4147d1b97d71d173b73ee7"/>
@@ -47,10 +47,10 @@
     <Option Name="ActiveSimSet" Val="sim_1"/>
     <Option Name="DefaultLib" Val="xil_defaultlib"/>
     <Option Name="ProjectType" Val="Default"/>
-    <Option Name="IPRepoPath" Val="$PPRDIR/../ip_source/flt_temp"/>
-    <Option Name="IPRepoPath" Val="$PPRDIR/../ip_source/adt7420_i2c"/>
-    <Option Name="IPRepoPath" Val="$PPRDIR/../ip_source/seven_segment"/>
-    <Option Name="IPRepoPath" Val="$PPRDIR/../IP"/>
+    <Option Name="IPRepoPath" Val="$PPRDIR/../../ip_source/flt_temp"/>
+    <Option Name="IPRepoPath" Val="$PPRDIR/../../ip_source/adt7420_i2c"/>
+    <Option Name="IPRepoPath" Val="$PPRDIR/../../ip_source/seven_segment"/>
+    <Option Name="IPRepoPath" Val="$PPRDIR/../../IP"/>
     <Option Name="IPOutputRepo" Val="$PCACHEDIR/ip"/>
     <Option Name="IPDefaultOutputPath" Val="$PGENDIR/sources_1"/>
     <Option Name="IPCachePermission" Val="read"/>
@@ -107,21 +107,14 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../ip_source/flt_temp/hdl/util_pkg.vhd">
+      <File Path="$PPRDIR/../../ip_source/flt_temp/hdl/util_pkg.vhd">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../ip_source/flt_temp/hdl/temp_pkg.vhd">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../ip_source/flt_temp/hdl/flt_temp.vhd">
+      <File Path="$PPRDIR/../../ip_source/flt_temp/hdl/temp_pkg.vhd">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -136,26 +129,26 @@
     </FileSet>
     <FileSet Name="constrs_1" Type="Constrs" RelSrcDir="$PSRCDIR/constrs_1" RelGenDir="$PGENDIR/constrs_1">
       <Filter Type="Constrs"/>
-      <File Path="$PPRDIR/../../xdc/i2c_temp.xdc">
+      <File Path="$PPRDIR/../../../xdc/i2c_temp.xdc">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
         </FileInfo>
       </File>
       <Config>
-        <Option Name="TargetConstrsFile" Val="$PPRDIR/../../xdc/i2c_temp.xdc"/>
+        <Option Name="TargetConstrsFile" Val="$PPRDIR/../../../xdc/i2c_temp.xdc"/>
         <Option Name="ConstrsType" Val="XDC"/>
       </Config>
     </FileSet>
     <FileSet Name="sim_1" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/sim_1" RelGenDir="$PGENDIR/sim_1">
       <Filter Type="Srcs"/>
-      <File Path="$PPRDIR/../tb/adt7420_mdl.vhd">
+      <File Path="$PPRDIR/../../tb/adt7420_mdl.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../tb/tb_design_1_wrapper.vhd">
+      <File Path="$PPRDIR/../../tb/tb_design_1_wrapper.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
