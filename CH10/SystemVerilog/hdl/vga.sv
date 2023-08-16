@@ -130,7 +130,7 @@ module vga
   logic [1:0]          s_ddr_bresp;
   logic                s_ddr_bvalid;
   logic                s_ddr_bready = '1;
-  logic [3:0]          s_ddr_arid    = '0;
+  logic [3:0]          s_ddr_arid;
   logic [26:0]         s_ddr_araddr;
   logic [7:0]          s_ddr_arlen;
   logic [2:0]          s_ddr_arsize  = 3'b100; // 16 bytes
