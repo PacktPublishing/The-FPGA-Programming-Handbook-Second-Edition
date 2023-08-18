@@ -205,10 +205,11 @@ module i2c_temp
     end else begin : g_SMOOTH
       localparam logic unsigned [17:0] NINE_FIFTHS = 18'sb01_11001100_11001100;
       logic [SMOOTHING_SHIFT:0]   smooth_count;
+      logic [SMOOTHING_SHIFT:0]   sample_count;
       logic signed [12:0]         dout;
       logic                       rden;
       logic signed [31:0]         accumulator;
-      logic [1:0]                 convert_pipe;
+      logic [4:0]                 convert_pipe;
       logic [16:0]                divide[17];
 
       initial begin
@@ -238,18 +239,22 @@ module i2c_temp
       always @(posedge clk) begin
         rden            <= '0;
         smooth_convert  <= '0;
-        convert_pipe    <= convert_pipe << 1 | rden;
+        convert_pipe    <= convert_pipe << 1;
         if (convert) begin
-          smooth_count              <= smooth_count + 1'b1;
-          accumulator               <= accumulator + signed'(temp_data[15:3]);
+          convert_pipe[0] <= '1;
+          smooth_count    <= smooth_count + 1'b1;
+          accumulator     <= accumulator + signed'(temp_data[15:3]);
         end else if (smooth_count == SMOOTHING + 1) begin
-          rden                    <= '1;
-          smooth_count            <= smooth_count - 1'b1;
-          accumulator             <= accumulator - signed'(dout);
-        end else if (convert_pipe[0]) begin
+          rden            <= '1;
+          smooth_count    <= smooth_count - 1'b1;
+          accumulator     <= accumulator - signed'(dout);
+        end else if (convert_pipe[2]) begin
+          if (sample_count < SMOOTHING) sample_count <= sample_count + 1;
+          smooth_data     <= accumulator * divide[sample_count];
+        end else if (convert_pipe[3]) begin
           smooth_data    <= accumulator >>> SMOOTHING_SHIFT;
           smooth_convert <= ~SW;
-        end else if (convert_pipe[1]) begin
+        end else if (convert_pipe[4]) begin
           smooth_data             <= ((smooth_data * signed'(NINE_FIFTHS)) >>> 16) + signed'((unsigned'(32) << 4));
           smooth_convert          <= SW;
         end

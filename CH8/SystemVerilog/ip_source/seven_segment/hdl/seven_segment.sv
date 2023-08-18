@@ -8,6 +8,7 @@ module seven_segment
    )
   (
    input wire                         clk,
+   input wire                         rst,
    input wire                         seven_segment_tvalid,
    input wire [NUM_SEGMENTS*4-1:0]    seven_segment_tdata,
    input wire [NUM_SEGMENTS-1:0]      seven_segment_tuser,
@@ -53,6 +54,11 @@ module seven_segment
     anode              <= '1;
     anode[anode_count] <= '0;
     cathode            <= segments[anode_count];
+
+    if (rst) begin
+      refresh_count <= '0;
+      anode_count   <= '0;
+    end
   end
 
 endmodule

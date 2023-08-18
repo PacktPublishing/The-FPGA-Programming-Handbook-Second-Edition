@@ -7,6 +7,7 @@ module flt_temp
    )
   (
    input wire                        clk, // 100Mhz clock
+   input wire                        rst, // Reset - active High
 
    // Switch interface
    input wire                        SW,
@@ -199,6 +200,13 @@ module flt_temp
     if (SW && fused_tvalid) begin
       temperature.raw      <= fused_tdata;
       temperature_valid    <= '1;
+    end
+
+    if (rst) begin
+      rden         <= '0;
+      smooth_count <= '0;
+      accumulator  <= '0;
+      sample_count <= '0;
     end
   end
 

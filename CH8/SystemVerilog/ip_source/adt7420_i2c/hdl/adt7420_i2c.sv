@@ -7,6 +7,7 @@ module adt7420_i2c
    )
   (
    input wire          clk, // 100Mhz clock
+   input wire          rst, // Reset - Active High
 
    // Temperature Sensor Interface
    inout wire          TMP_SCL,
@@ -64,7 +65,7 @@ module adt7420_i2c
                 TSTO
                 } spi_t;
 
-  (* mark_debug = "true" *) spi_t spi_state;
+  (* mark_debug = "true" *) spi_t spi_state = IDLE;
 
   assign capture_en = i2c_capt[I2CBITS - bit_count - 1];
 
@@ -147,6 +148,11 @@ module adt7420_i2c
         end
       end
     endcase
+
+    if (rst) begin
+      counter   <= '0;
+      spi_state <= IDLE;
+    end
   end
 
   assign fix_temp_tvalid = convert;
