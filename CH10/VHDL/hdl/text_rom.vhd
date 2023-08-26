@@ -205,14 +205,14 @@ begin
         when x"31" & "110" => bitmap <= x"FC";
         when x"31" & "111" => bitmap <= x"00";
         -- 2
-        when x"32" & "000" => bitmap <= x"78";
-        when x"32" & "001" => bitmap <= x"CC";
-        when x"32" & "010" => bitmap <= x"0C";
-        when x"32" & "011" => bitmap <= x"38";
-        when x"32" & "100" => bitmap <= x"60";
-        when x"32" & "101" => bitmap <= x"C0";
-        when x"32" & "110" => bitmap <= x"FC";
-        when x"32" & "111" => bitmap <= x"00";
+        when x"32" & "000" => bitmap <= x"78"; -- 01111000
+        when x"32" & "001" => bitmap <= x"CC"; -- 11001100
+        when x"32" & "010" => bitmap <= x"0C"; -- 00001100
+        when x"32" & "011" => bitmap <= x"38"; -- 00111000
+        when x"32" & "100" => bitmap <= x"60"; -- 01100000
+        when x"32" & "101" => bitmap <= x"C0"; -- 11000000
+        when x"32" & "110" => bitmap <= x"FC"; -- 11111100
+        when x"32" & "111" => bitmap <= x"00"; -- 00000000
         -- 3
         when x"33" & "000" => bitmap <= x"78";
         when x"33" & "001" => bitmap <= x"CC";

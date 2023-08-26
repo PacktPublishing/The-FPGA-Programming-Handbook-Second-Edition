@@ -47,22 +47,22 @@ architecture rtl of vga is
 
   -- Constants
   constant MMCM_REGISTER_COUNT  : natural := 24;
-  constant VGA_REGISTER_COUNT   : natural := 7;
+  constant VGA_REGISTER_COUNT   : natural := 8;
   constant TOTAL_REGISTER_COUNT : natural := MMCM_REGISTER_COUNT + VGA_REGISTER_COUNT;
-  constant MMCM                 : natural := 0;
-  constant VGA                  : natural := 1;
+  constant MMCM_IDX             : natural := 0;
+  constant VGA_IDX              : natural := 1;
   constant CHAR_ROWS            : natural := 8; -- number of rows in character bitmap
   constant RES_TEXT_LENGTH      : natural := RES_TEXT(0)'length; -- 16
 
   -- Types
   type cfg_state_t is (
     CFG_IDLE0, CFG_IDLE1, CFG_WR0, CFG_WR1, CFG_WR2,
-    CFG_WR3, CFG_WR4, CFG_WR5);         --, WRITE_TEXT); REVIEW: need WRITE_TEXT?
+    CFG_WR3, CFG_WR3a, CFG_WR4, CFG_WR5); --, WRITE_TEXT); REVIEW: need WRITE_TEXT?
 
   type text_sm_t is (
     TEXT_IDLE, TEXT_CLR0, TEXT_CLR1, TEXT_CLR2,
     TEXT_WRITE0, TEXT_WRITE1, TEXT_WRITE2,
-    TEXT_WRITE3, TEXT_WRITE4, TEXT_WRITE5);
+    TEXT_WRITE3, TEXT_WRITE4);          -- TODO: not used, TEXT_WRITE5);
 
   type char_x_t is array (natural range <>) of integer range 0 to RES_TEXT_LENGTH - 1;
 
@@ -80,7 +80,7 @@ architecture rtl of vga is
   signal app_zq_req       : std_logic                                := '0';
   signal s_ddr_awaddr     : unsigned(26 downto 0)                    := (others => '0');
   signal s_ddr_awlen      : std_logic_vector(7 downto 0)             := (others => '0');
-  signal s_ddr_awsize     : std_logic_vector(2 downto 0)             := "100";
+  signal s_ddr_awsize     : std_logic_vector(2 downto 0)             := "100"; -- 16 bytes in transfer
   signal s_ddr_awburst    : std_logic_vector(1 downto 0)             := "01";
   signal s_ddr_awlock     : std_logic_vector(0 downto 0)             := "0";
   signal s_ddr_awcache    : std_logic_vector(3 downto 0)             := (others => '0');
@@ -94,7 +94,7 @@ architecture rtl of vga is
   signal cfg_state        : cfg_state_t                              := CFG_IDLE0;
   signal button_sync      : std_logic_vector(2 downto 0)             := "000";
   signal sw_capt          : integer range 0 to RESOLUTION'length - 1 := 0; -- [clk200 domain] 
-  signal wr_count         : integer range 0 to 31                    := 0; -- AXI4-lite write transaction counter
+  signal wr_count         : integer range 0 to TOTAL_REGISTER_COUNT  := 0; -- AXI4-lite write transaction counter
   signal update_text      : std_logic                                := '0'; -- [clk200 domain]
   signal update_text_sync : std_logic_vector(2 downto 0)             := "000"; -- [ui_clk domain]
   signal text_sm          : text_sm_t                                := TEXT_IDLE;
@@ -111,10 +111,10 @@ architecture rtl of vga is
   signal init_calib_complete : std_logic;
   signal vga_hblank          : std_logic;
   signal vga_vblank          : std_logic;
-  signal mc_clk              : std_logic;
+  signal mc_clk              : std_logic; -- 325 MHz 
   signal clk200              : std_logic;
   signal char_slice          : std_logic_vector(7 downto 0);
-  signal ui_clk              : std_logic;
+  signal ui_clk              : std_logic; -- TODO MHz
   signal ui_clk_sync_rst     : std_logic;
   signal mmcm_locked         : std_logic;
   signal aresetn             : std_logic;
@@ -184,8 +184,8 @@ begin
     port map(
       clk_out1 => clk200,
       clk_out2 => mc_clk,
-      clk_in1  => clk,
-      locked   => sys_pll_locked        -- TODO: add locked output
+      locked   => sys_pll_locked,       -- TODO: add locked output
+      clk_in1  => clk
     );
 
   -- TOOD: add reset synchronizer
@@ -201,14 +201,20 @@ begin
       s_axi_aresetn => '1',
       s_axi_awaddr  => s_axi_awaddr(10 downto 0),
       s_axi_awvalid => s_axi_awvalid(0),
-      s_axi_awready => s_axi_awready(MMCM),
+      s_axi_awready => s_axi_awready(MMCM_IDX),
       s_axi_wdata   => s_axi_wdata,
       s_axi_wstrb   => x"F",
       s_axi_wvalid  => s_axi_wvalid(0),
-      s_axi_wready  => s_axi_wready(MMCM),
+      s_axi_wready  => s_axi_wready(MMCM_IDX),
+      s_axi_bresp   => open,            -- TODO: connect
+      s_axi_bvalid  => open,            -- TODO: connect
       s_axi_bready  => '1',
       s_axi_araddr  => (others => '0'),
       s_axi_arvalid => '0',
+      s_axi_arready => open,
+      s_axi_rdata   => open,
+      s_axi_rresp   => open,
+      s_axi_rvalid  => open,
       s_axi_rready  => '1',
       -- Clock out ports
       clk_out1      => vga_clk,
@@ -326,17 +332,17 @@ begin
     port map(
       -- Register address
       reg_clk     => clk200,
-      reg_reset   => ui_clk_sync_rst,
-      reg_awvalid => s_axi_awvalid(1),
-      reg_awready => s_axi_awready(VGA),
+      reg_reset   => rst200,
+      reg_awvalid => s_axi_awvalid(VGA_IDX),
+      reg_awready => s_axi_awready(VGA_IDX),
       reg_awaddr  => s_axi_awaddr,
-      reg_wvalid  => s_axi_wvalid(1),
-      reg_wready  => s_axi_wready(VGA),
+      reg_wvalid  => s_axi_wvalid(VGA_IDX),
+      reg_wready  => s_axi_wready(VGA_IDX),
       reg_wdata   => s_axi_wdata,
       reg_wstrb   => "1111",
       reg_bready  => '1',
-      reg_bvalid  => reg_bvalid,        -- REVIEW: not waiting for write response?
-      reg_bresp   => reg_bresp,
+      reg_bvalid  => open,              -- FIXME reg_bvalid,        -- REVIEW: not waiting for write response?
+      reg_bresp   => open,              -- FIXME reg_bresp,
       reg_arvalid => '0',
       reg_arready => open,
       reg_araddr  => (others => '0'),
@@ -389,8 +395,8 @@ begin
         update_text   <= '0';
         sw_capt       <= 0;
         s_axi_awvalid <= (others => '0');
-        s_axi_wvalid  <= (others => '0');
         s_axi_awaddr  <= (others => '0');
+        s_axi_wvalid  <= (others => '0');
         s_axi_wdata   <= (others => '0');
 
       else
@@ -398,7 +404,7 @@ begin
         -- Synchronize the center button signal
         button_sync <= button_sync(1 downto 0) & button_c;
 
-        pll_rst <= '1'; -- REVIEW: need this?
+        pll_rst <= '1';                 -- REVIEW: need this?
 
         case cfg_state is
 
@@ -411,26 +417,26 @@ begin
           -- Wait for config trigger (center button press)
           when CFG_IDLE1 =>
             assert wr_count = 0 severity failure;
-            s_axi_awvalid(MMCM) <= '0';
-            s_axi_wvalid(MMCM)  <= '0';
+            s_axi_awvalid(MMCM_IDX) <= '0';
+            s_axi_wvalid(MMCM_IDX)  <= '0';
             if button_sync(2 downto 1) = "10" then -- REVIEW: falling edge?
-              update_text         <= not update_text; -- we can start writing the text as we are updating
-              pll_rst             <= '0';
-              s_axi_awvalid(MMCM) <= '1';
-              s_axi_awaddr        <= ADDR_ARRAY(wr_count);
-              s_axi_wvalid(MMCM)  <= '1';
-              sw_int              := to_integer(unsigned(SW)); -- the switch encodes the VGA resolution
-              sw_int              := minimum(RESOLUTION'length - 1, sw_int); -- saturate at the highest resolution index
-              sw_capt             <= sw_int;
-              s_axi_wdata         <= resolution_lookup(sw_int, wr_count, RESOLUTION);
-              wr_count            <= 1;
-              cfg_state           <= CFG_WR0;
+              update_text             <= not update_text; -- we can start writing the text as we are updating
+              pll_rst                 <= '0';
+              s_axi_awvalid(MMCM_IDX) <= '1';
+              s_axi_awaddr            <= ADDR_ARRAY(wr_count);
+              s_axi_wvalid(MMCM_IDX)  <= '1';
+              sw_int                  := to_integer(unsigned(SW)); -- the switch encodes the VGA resolution
+              sw_int                  := minimum(RESOLUTION'length - 1, sw_int); -- saturate at the highest resolution index
+              sw_capt                 <= sw_int;
+              s_axi_wdata             <= resolution_lookup(sw_int, wr_count);
+              wr_count                <= 1;
+              cfg_state               <= CFG_WR0;
             end if;
 
           -- Load MMCM registers
           when CFG_WR0 =>
             pll_rst <= '0';
-            if s_axi_awready(MMCM) = '1' and s_axi_wready(MMCM) = '1' then
+            if s_axi_awready(MMCM_IDX) = '1' and s_axi_wready(MMCM_IDX) = '1' then
               if wr_count = MMCM_REGISTER_COUNT then
                 s_axi_awvalid <= "00";
                 s_axi_wvalid  <= "00";
@@ -439,13 +445,13 @@ begin
                 s_axi_awvalid <= "01";
                 s_axi_wvalid  <= "01";
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
                 wr_count      <= wr_count + 1;
               end if;
-            elsif s_axi_awready(MMCM) then
+            elsif s_axi_awready(MMCM_IDX) then
               s_axi_awvalid <= "00";
               cfg_state     <= CFG_WR1;
-            elsif s_axi_wready(MMCM) then
+            elsif s_axi_wready(MMCM_IDX) then
               s_axi_wvalid <= "00";
               cfg_state    <= CFG_WR2;
             end if;
@@ -453,7 +459,7 @@ begin
           -- Load MMCM registers, wait for wready
           when CFG_WR1 =>
             pll_rst <= '0';
-            if s_axi_wready(MMCM) then
+            if s_axi_wready(MMCM_IDX) then
               s_axi_wvalid <= "00";
               if wr_count = MMCM_REGISTER_COUNT then
                 cfg_state <= CFG_WR3;
@@ -462,7 +468,7 @@ begin
                 s_axi_wvalid  <= "01";
                 cfg_state     <= CFG_WR0;
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
                 wr_count      <= wr_count + 1;
               end if;
             end if;
@@ -470,7 +476,7 @@ begin
           -- Load MMCM registers, wait for awready
           when CFG_WR2 =>
             pll_rst <= '0';
-            if s_axi_awready(MMCM) then
+            if s_axi_awready(MMCM_IDX) then
               s_axi_awvalid <= "00";
               if wr_count = MMCM_REGISTER_COUNT then
                 cfg_state <= CFG_WR3;
@@ -479,16 +485,24 @@ begin
                 s_axi_wvalid  <= "01";
                 cfg_state     <= CFG_WR0;
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
                 wr_count      <= wr_count + 1;
               end if;
             end if;
 
-          -- Load VGA registers
           when CFG_WR3 =>
+            s_axi_awvalid <= "10";
+            s_axi_wvalid  <= "10";
+            cfg_state     <= CFG_WR3a;
+            s_axi_awaddr  <= ADDR_ARRAY(wr_count);
+            s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
+            wr_count      <= wr_count + 1;
+
+          -- Load VGA registers
+          when CFG_WR3a =>
             pll_rst <= '0';
-            -- last_write(1) & s_axi_awready(VGA) & s_axi_wready(VGA);
-            if s_axi_awready(VGA) = '1' and s_axi_wready(VGA) = '1' then
+            -- last_write(1) & s_axi_awready(VGA_IDX) & s_axi_wready(VGA_IDX);
+            if s_axi_awready(VGA_IDX) = '1' and s_axi_wready(VGA_IDX) = '1' then
               if wr_count = TOTAL_REGISTER_COUNT then
                 s_axi_awvalid <= "00";
                 s_axi_wvalid  <= "00";
@@ -499,12 +513,12 @@ begin
                 s_axi_awvalid <= "10";
                 s_axi_wvalid  <= "10";
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
               end if;
-            elsif s_axi_awready(VGA) then
+            elsif s_axi_awready(VGA_IDX) then
               s_axi_awvalid <= "00";
               cfg_state     <= CFG_WR4;
-            elsif s_axi_wready(VGA) then
+            elsif s_axi_wready(VGA_IDX) then
               s_axi_wvalid <= "00";
               cfg_state    <= CFG_WR5;
             end if;
@@ -512,7 +526,7 @@ begin
           -- Load VGA registers: got awready(1), wait for wready(1)
           when CFG_WR4 =>
             pll_rst <= '0';
-            if s_axi_wready(VGA) then
+            if s_axi_wready(VGA_IDX) then
               s_axi_wvalid <= "00";
               if wr_count = TOTAL_REGISTER_COUNT then
                 wr_count  <= 0;
@@ -520,9 +534,9 @@ begin
               else
                 s_axi_awvalid <= "10";
                 s_axi_wvalid  <= "10";
-                cfg_state     <= CFG_WR3;
+                cfg_state     <= CFG_WR3a;
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
                 wr_count      <= wr_count + 1;
               end if;
             end if;
@@ -530,7 +544,7 @@ begin
           -- Load VGA registers: got wready(1), wait for awready(1)
           when CFG_WR5 =>
             pll_rst <= '0';
-            if s_axi_awready(VGA) then
+            if s_axi_awready(VGA_IDX) then
               s_axi_awvalid <= "00";
               if wr_count = TOTAL_REGISTER_COUNT then
                 wr_count  <= 0;
@@ -538,9 +552,9 @@ begin
               else
                 s_axi_awvalid <= "10";
                 s_axi_wvalid  <= "10";
-                cfg_state     <= CFG_WR3;
+                cfg_state     <= CFG_WR3a;
                 s_axi_awaddr  <= ADDR_ARRAY(wr_count);
-                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count, RESOLUTION);
+                s_axi_wdata   <= resolution_lookup(sw_capt, wr_count);
                 wr_count      <= wr_count + 1;
               end if;
             end if;
@@ -568,19 +582,36 @@ begin
       if ui_clk_sync_rst then
         real_pitch       := (others => '0');
         update_text_sync <= (others => '0');
+        --
         s_ddr_awvalid    <= '0';
+        s_ddr_awlen      <= 8d"0";
+        s_ddr_awsize     <= "100";      -- 16 bytes in transfer
+        s_ddr_awburst    <= "01";       -- INCR burst type
+        s_ddr_awlock     <= "0";        -- normal access
+        s_ddr_awcache    <= "0000";
+        s_ddr_awprot     <= "000";
+        s_ddr_awqos      <= "0000";
+        s_ddr_awaddr     <= (others => '0');
+        s_ddr_wvalid     <= '0';
+        s_ddr_wdata      <= (others => '0');
+        s_ddr_wstrb      <= (others => '0');
+        s_ddr_wlast      <= '0';
+        --
         char_x           <= (others => 0);
         char_y           <= 0;
         text_sm          <= TEXT_IDLE;
         char_index       <= 0;
         total_page       <= (others => '0');
-        s_ddr_awaddr     <= (others => '0');
-        s_ddr_wdata      <= (others => '0');
-        s_ddr_wstrb      <= (others => '0');
-        s_ddr_wlast      <= '0';
-        s_ddr_wvalid     <= '0';
 
       else
+        -- Defaults:
+        s_ddr_awlen   <= 8d"0";
+        s_ddr_awsize  <= "100";         -- 16 bytes in transfer
+        s_ddr_awburst <= "01";          -- INCR burst type
+        s_ddr_awlock  <= "0";           -- normal access
+        s_ddr_awcache <= "0000";
+        s_ddr_awprot  <= "000";
+        s_ddr_awqos   <= "0000";
 
         -- Synchronize update_text toggle into ui_clk domain
         update_text_sync <= update_text_sync(1 downto 0) & update_text;
@@ -607,15 +638,16 @@ begin
               -- Write 0x0 starting at DDR address 0x0
               s_ddr_awaddr  <= (others => '0');
               s_ddr_awvalid <= '1';
-              s_ddr_wdata   <= (others => '0');
-              s_ddr_wstrb   <= (others => '1');
-              s_ddr_wlast   <= '1';
-              s_ddr_wvalid  <= '1';
+
+              s_ddr_wdata  <= (others => '0');
+              s_ddr_wstrb  <= (others => '1');
+              s_ddr_wlast  <= '1';
+              s_ddr_wvalid <= '1';
               --
               -- REVIEW char_index    <= character'pos(get_res_char(sw_capt, 0));
-              char_x        <= (others => 0);
-              char_y        <= 0;
-              text_sm       <= TEXT_CLR0;
+              char_x       <= (others => 0);
+              char_y       <= 0;
+              text_sm      <= TEXT_CLR0;
             end if;
 
           -- Clear screen: wait for s_ddr_awready and/or s_ddr_wready
@@ -623,7 +655,7 @@ begin
             if s_ddr_awready and s_ddr_wready then
               s_ddr_awvalid <= '0';
               s_ddr_wvalid  <= '0';
-              if s_ddr_awaddr >= total_page then
+              if s_ddr_awaddr >= total_page then -- FIXME: this code write to address total_page!!!
                 text_sm <= TEXT_WRITE0;
               else
                 s_ddr_awaddr  <= s_ddr_awaddr + 16;
@@ -684,7 +716,7 @@ begin
               char_x(0) <= char_x(0) + 1;
             end if;
             -- Update write data word with the current character slice
-            wdata_bit_index                                         := to_integer(unsigned(char_x(2))) * 8;
+            wdata_bit_index                                         := char_x(2) * 8;
             s_ddr_wdata(wdata_bit_index + 7 downto wdata_bit_index) <= char_slice;
             -- Write data word is complete: issue AXI4 write transaction
             if char_x(2) = RES_TEXT_LENGTH - 1 then

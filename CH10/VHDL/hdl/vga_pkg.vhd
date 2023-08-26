@@ -2,7 +2,7 @@
 -- ------------------------------------
 -- Pakcage file for the VGA to clean up the architecture.
 -- ------------------------------------
--- Author : Frank Bruno
+-- Author : Frank Bruno, Guy Eschemann
 -- Component instantiations
 -- Resolution constants, display table and addresses.
 -- Function for looking up register values
@@ -14,11 +14,12 @@ USE IEEE.numeric_std.all;
 package vga_pkg is
 
   component sys_pll
-    port(                               -- Clock in ports
-                                        -- Clock out ports
+    port(
       clk_out1 : out std_logic;
       clk_out2 : out std_logic;
-      clk_in1  : in  std_logic);
+      locked   : out std_logic;
+      clk_in1  : in  std_logic
+    );
   end component;
 
   component pix_clk
@@ -211,14 +212,14 @@ package vga_pkg is
       mult_fraction       => 10d"000",
       divide_integer      => 8d"44",
       divide_fraction     => 18d"125",
-      horiz_display_start => 12d"47",   -- BP -1
+      horiz_display_start => 12d"47",   -- BP - 1
       horiz_display_width => 12d"640",
       horiz_sync_width    => 12d"96",
-      horiz_total_width   => 12d"799",  -- -1
-      vert_display_start  => 12d"32",   -- -1
+      horiz_total_width   => 12d"799",  -- 800 - 1
+      vert_display_start  => 12d"32",   -- 33 - 1
       vert_display_width  => 12d"480",
       vert_sync_width     => 12d"2",
-      vert_total_width    => 12d"524",  ---1
+      vert_total_width    => 12d"524",  -- 525 - 1
       hpol                => '0',
       vpol                => '0',
       pitch               => to_unsigned(5 * 16, 13) -- 5 rows at 1bpp
@@ -568,13 +569,15 @@ package vga_pkg is
 
   type addr_array_t is array (natural range <>) of std_logic_vector(11 downto 0);
 
-  constant ADDR_ARRAY : addr_array_t(0 to 31) := ( -- pix_clk MMCM addresses
+  constant ADDR_ARRAY : addr_array_t(0 to 31) := (
+    -- pix_clk MMCM addresses
     x"200", x"204", x"208", x"20C", x"210", x"214", x"218", x"21C",
     x"220", x"224", x"228", x"22C", x"230", x"234", x"238", x"23C",
     x"240", x"244", x"248", x"24C", x"250", x"254", x"258", x"25C",
+    -- vga_core register addresses
     x"000", x"004", x"008", x"00C", x"010", x"100", x"104", x"108");
 
-  function resolution_lookup(sw_capt : in integer range 0 to 17; wr_count : in integer range 0 to 31; resolution : resolution_array(0 to 17)) return std_logic_vector;
+  function resolution_lookup(sw_capt : in integer range 0 to 17; wr_count : in integer range 0 to 31) return std_logic_vector;
 
   function get_res_char(sw_capt : integer range 0 to 17; x : integer range 0 to 15) return character;
 
@@ -584,26 +587,26 @@ package body vga_pkg is
 
   function get_res_char(sw_capt : integer range 0 to 17; x : integer range 0 to 15) return character is
   begin
-    return RES_TEXT(sw_capt)(x + 1); -- x + 1 because VHDL strings start at index 1
+    return RES_TEXT(sw_capt)(x + 1);    -- x + 1 because VHDL strings start at index 1
   end function;
 
-  function resolution_lookup(sw_capt : in integer range 0 to 17; wr_count : in integer range 0 to 31; resolution : resolution_array(0 to 17)) return std_logic_vector is
+  function resolution_lookup(sw_capt : in integer range 0 to 17; wr_count : in integer range 0 to 31) return std_logic_vector is
     variable s_axi_wdata : std_logic_vector(31 downto 0);
   begin
     case wr_count is
-      when 0                                   => s_axi_wdata := std_logic_vector(6d"0" & resolution(sw_capt).mult_fraction & resolution(sw_capt).mult_integer & resolution(sw_capt).divide_count);
+      when 0                                   => s_axi_wdata := std_logic_vector(6d"0" & RESOLUTION(sw_capt).mult_fraction & RESOLUTION(sw_capt).mult_integer & RESOLUTION(sw_capt).divide_count);
       when 1 | 3 | 6  | 9  | 12 | 15 | 18 | 21 => s_axi_wdata := (others => '0');
       when 5 | 8 | 11 | 14 | 17 | 20           => s_axi_wdata := x"0000000A";
       when 4 | 7 | 10 | 13 | 16 | 19 | 22      => s_axi_wdata := x"0000C350";
-      when 2                                   => s_axi_wdata := std_logic_vector("000000" & resolution(sw_capt).divide_fraction & resolution(sw_capt).divide_integer);
+      when 2                                   => s_axi_wdata := std_logic_vector("000000" & RESOLUTION(sw_capt).divide_fraction & RESOLUTION(sw_capt).divide_integer);
       when 23                                  => s_axi_wdata := x"00000003";
-      when 24                                  => s_axi_wdata := std_logic_vector(4d"0" & resolution(sw_capt).horiz_display_width & 4d"0" & resolution(sw_capt).horiz_display_start);
-      when 25                                  => s_axi_wdata := std_logic_vector(4d"0" & resolution(sw_capt).horiz_total_width & 4d"0" & resolution(sw_capt).horiz_sync_width);
-      when 26                                  => s_axi_wdata := std_logic_vector(4d"0" & resolution(sw_capt).vert_display_width & 4d"0" & resolution(sw_capt).vert_display_start);
-      when 27                                  => s_axi_wdata := std_logic_vector(4d"0" & resolution(sw_capt).vert_total_width & 4d"0" & resolution(sw_capt).vert_sync_width);
-      when 28                                  => s_axi_wdata := 30d"0" & resolution(sw_capt).hpol & resolution(sw_capt).vpol;
+      when 24                                  => s_axi_wdata := std_logic_vector(4d"0" & RESOLUTION(sw_capt).horiz_display_width & 4d"0" & RESOLUTION(sw_capt).horiz_display_start);
+      when 25                                  => s_axi_wdata := std_logic_vector(4d"0" & RESOLUTION(sw_capt).horiz_total_width & 4d"0" & RESOLUTION(sw_capt).horiz_sync_width);
+      when 26                                  => s_axi_wdata := std_logic_vector(4d"0" & RESOLUTION(sw_capt).vert_display_width & 4d"0" & RESOLUTION(sw_capt).vert_display_start);
+      when 27                                  => s_axi_wdata := std_logic_vector(4d"0" & RESOLUTION(sw_capt).vert_total_width & 4d"0" & RESOLUTION(sw_capt).vert_sync_width);
+      when 28                                  => s_axi_wdata := 30d"0" & RESOLUTION(sw_capt).hpol & RESOLUTION(sw_capt).vpol;
       when 29                                  => s_axi_wdata := (others => '0');
-      when 30                                  => s_axi_wdata := std_logic_vector(19d"0" & resolution(sw_capt).pitch);
+      when 30                                  => s_axi_wdata := std_logic_vector(19d"0" & RESOLUTION(sw_capt).pitch);
       when 31                                  => s_axi_wdata := x"00000001";
       when others =>
     end case;

@@ -67,14 +67,14 @@ architecture rtl of vga_core is
   -- Constants
 
   -- Register address offsets
-  constant H_DISP_START_WIDTH     : unsigned := x"000";
-  constant H_DISP_FPEND_TOTAL     : unsigned := x"004";
-  constant V_DISP_START_WIDTH     : unsigned := x"008";
-  constant V_DISP_FPEND_TOTAL     : unsigned := x"00C";
-  constant V_DISP_POLARITY_FORMAT : unsigned := x"010";
-  constant DISPLAY_ADDR           : unsigned := x"100";
-  constant DISPLAY_PITCH          : unsigned := x"104";
-  constant VGA_LOAD_MODE          : unsigned := x"108";
+  constant H_DISP_START_WIDTH     : unsigned(11 downto 0) := x"000";
+  constant H_DISP_FPEND_TOTAL     : unsigned(11 downto 0) := x"004";
+  constant V_DISP_START_WIDTH     : unsigned(11 downto 0) := x"008";
+  constant V_DISP_FPEND_TOTAL     : unsigned(11 downto 0) := x"00C";
+  constant V_DISP_POLARITY_FORMAT : unsigned(11 downto 0) := x"010";
+  constant DISPLAY_ADDR           : unsigned(11 downto 0) := x"100";
+  constant DISPLAY_PITCH          : unsigned(11 downto 0) := x"104";
+  constant VGA_LOAD_MODE          : unsigned(11 downto 0) := x"108";
 
   -- Register init. values
   constant HORIZ_DISPLAY_START_REG_INIT : unsigned(11 downto 0)        := to_unsigned(47, 12);
@@ -86,7 +86,7 @@ architecture rtl of vga_core is
   constant VERT_SYNC_WIDTH_REG_INIT     : unsigned(11 downto 0)        := to_unsigned(2, 12);
   constant VERT_TOTAL_WIDTH_REG_INIT    : unsigned(11 downto 0)        := to_unsigned(524, 12);
   constant DISP_ADDR_REG_INIT           : unsigned(31 downto 0)        := to_unsigned(0, 32);
-  constant PIXEL_DEPTH_REG_INIT         : std_logic_vector(7 downto 0) := to_unsigned(0, 8); -- TODO: init?
+  constant PIXEL_DEPTH_REG_INIT         : std_logic_vector(7 downto 0) := 8d"0"; -- TODO: init?
   constant POLARITY_REG_INIT            : unsigned(1 downto 0)         := to_unsigned(0, 2);
   constant PITCH_REG_INIT               : unsigned(12 downto 0)        := to_unsigned(5 * 16, 13);
 
@@ -110,7 +110,7 @@ architecture rtl of vga_core is
   signal vert_sync_width_reg     : unsigned(11 downto 0)         := to_unsigned(2, 12);
   signal vert_total_width_reg    : unsigned(11 downto 0)         := to_unsigned(524, 12);
   signal disp_addr_reg           : unsigned(31 downto 0)         := to_unsigned(0, 32);
-  signal pixel_depth_reg         : std_logic_vector(7 downto 0); -- TODO: init?
+  signal pixel_depth_reg         : std_logic_vector(7 downto 0)  := PIXEL_DEPTH_REG_INIT; -- TODO: init?
   signal polarity_reg            : unsigned(1 downto 0)          := to_unsigned(0, 2);
   signal pitch_reg               : unsigned(12 downto 0)         := to_unsigned(5 * 16, 13);
   signal horiz_display_start     : unsigned(11 downto 0)         := to_unsigned(47, 12);
@@ -130,10 +130,10 @@ architecture rtl of vga_core is
   signal vga_empty               : std_logic;
   signal load_mode               : std_logic                     := '0';
   signal load_mode_sync          : std_logic_vector(2 downto 0)  := "000";
-  signal mc_req_sync             : std_logic_vector(2 downto 0)  := "000";
+  signal mc_req_sync             : std_logic_vector(2 downto 0)  := "000"; -- [mem_clk domain]
   signal horiz_count             : unsigned(11 downto 0)         := (others => '0');
   signal vert_count              : unsigned(11 downto 0)         := (others => '0');
-  signal mc_req                  : std_logic                     := '0';
+  signal mc_req                  : std_logic                     := '0'; -- [vga_clk domain]
   signal mc_words                : unsigned(8 downto 0);
   signal mc_addr                 : unsigned(24 downto 0);
   signal fifo_rst                : std_logic                     := '0';
@@ -143,7 +143,7 @@ architecture rtl of vga_core is
   signal rd_rst_busy             : std_logic;
   signal scan_cs                 : scan_cs_t                     := SCAN_IDLE;
   signal wr_rst_busy             : std_logic;
-  signal mem_wait                : std_logic                     := '0';
+  --REVIEW not used  signal mem_wait                : std_logic                     := '0';
   signal mem_cs                  : mem_cs_t                      := MEM_IDLE;
   signal next_addr               : unsigned(28 downto 0);
   signal len_diff                : unsigned(10 downto 0);
@@ -154,17 +154,12 @@ architecture rtl of vga_core is
   signal mem_arburst_r           : std_logic_vector(1 downto 0)  := "01"; -- incrementing
   signal mem_arlock_r            : std_logic                     := '0';
   signal mem_arvalid_r           : std_logic                     := '0';
-  signal mem_rready_r            : std_logic                     := '1';
-  signal reg_awready_r           : std_logic;
-  signal reg_arready_r           : std_logic;
-  signal reg_rvalid_r            : std_logic;
-  signal reg_rdata_r             : std_logic_vector(31 downto 0);
-  signal reg_rresp_r             : std_logic_vector(1 downto 0);
+  --REVIEW not used  signal reg_arready_r           : std_logic;
+  --REVIEW not used  signal reg_rvalid_r            : std_logic;
+  --REVIEW not used  signal reg_rdata_r             : std_logic_vector(31 downto 0);
+  --REVIEW not used  signal reg_rresp_r             : std_logic_vector(1 downto 0);
   signal vga_hsync_r             : std_logic;
-  signal vga_hblank_r            : std_logic;
   signal vga_vsync_r             : std_logic;
-  signal vga_vblank_r            : std_logic;
-  signal vga_rgb_r               : std_logic_vector(23 downto 0);
 
   -- Unregistered signals
   -- TODO
@@ -182,22 +177,19 @@ begin
   mem_arlock  <= mem_arlock_r;
   mem_arvalid <= mem_arvalid_r;
 
-  mem_rready  <= mem_rready_r;
-  reg_awready <= reg_awready_r;
+  --  mem_rready  <= mem_rready_r;
+  --  reg_awready <= reg_awready_r;
   reg_arready <= '1';
   reg_rvalid  <= '0';
   reg_rdata   <= (others => '0');
   reg_rresp   <= (others => '0');
   vga_hsync   <= vga_hsync_r;
-  vga_hblank  <= vga_hblank_r;
   vga_vsync   <= vga_vsync_r;
-  vga_vblank  <= vga_vblank_r;
-  vga_rgb     <= vga_rgb_r;
 
   -- TODO: check address hit
 
   -- AXI4-lite write FSM
-  process(reg_clk)
+  axi4lite_wr : process(reg_clk)
     variable valid : std_logic_vector(1 downto 0);
   begin
     if rising_edge(reg_clk) then
@@ -286,7 +278,7 @@ begin
   end process;
 
   -- Register write logic
-  process(reg_clk)
+  reg_write : process(reg_clk)
   begin
     if rising_edge(reg_clk) then
       if reg_reset = '1' then
@@ -305,8 +297,8 @@ begin
         load_mode               <= '0';
       else
         if reg_we then
-          case reg_addr is
-            when std_logic_vector(H_DISP_START_WIDTH) =>
+          case unsigned(reg_addr) is
+            when H_DISP_START_WIDTH =>
               if reg_be(0) then
                 horiz_display_start_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
               end if;
@@ -319,7 +311,7 @@ begin
               if reg_be(3) then
                 horiz_display_width_reg(11 downto 8) <= unsigned(reg_din(27 downto 24));
               end if;
-            when std_logic_vector(H_DISP_FPEND_TOTAL) =>
+            when H_DISP_FPEND_TOTAL =>
               if reg_be(0) then
                 horiz_sync_width_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
               end if;
@@ -332,7 +324,7 @@ begin
               if reg_be(3) then
                 horiz_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
               end if;
-            when std_logic_vector(V_DISP_START_WIDTH) =>
+            when V_DISP_START_WIDTH =>
               if reg_be(0) then
                 vert_display_start_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
               end if;
@@ -345,7 +337,7 @@ begin
               if reg_be(3) then
                 vert_display_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
               end if;
-            when std_logic_vector(V_DISP_FPEND_TOTAL) =>
+            when V_DISP_FPEND_TOTAL =>
               if reg_be(0) then
                 vert_sync_width_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
               end if;
@@ -358,14 +350,14 @@ begin
               if reg_be(3) then
                 vert_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
               end if;
-            when std_logic_vector(V_DISP_POLARITY_FORMAT) =>
+            when V_DISP_POLARITY_FORMAT =>
               if reg_be(0) then
                 polarity_reg(1 downto 00) <= unsigned(reg_din(1 downto 0));
               end if;
               if reg_be(1) then
                 pixel_depth_reg(7 downto 00) <= reg_din(15 downto 8);
               end if;
-            when std_logic_vector(DISPLAY_ADDR) =>
+            when DISPLAY_ADDR =>
               if reg_be(0) then
                 disp_addr_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
               end if;
@@ -378,18 +370,19 @@ begin
               if reg_be(3) then
                 disp_addr_reg(31 downto 024) <= unsigned(reg_din(31 downto 24));
               end if;
-            when std_logic_vector(DISPLAY_PITCH) =>
+            when DISPLAY_PITCH =>
               if reg_be(0) then
                 pitch_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
               end if;
               if reg_be(1) then
                 pitch_reg(12 downto 08) <= unsigned(reg_din(12 downto 8));
               end if;
-            when std_logic_vector(VGA_LOAD_MODE) =>
+            when VGA_LOAD_MODE =>
               if reg_be(0) then
                 load_mode <= not load_mode;
               end if;
             when others =>
+              report "unsupported register address" severity failure;
           end case;
         end if;
       end if;
@@ -397,7 +390,7 @@ begin
   end process;
 
   -- TODO: add reset
-  process(vga_clk)
+  vga_timing : process(vga_clk)
     variable gt_start, lt_end, hsync_en, gt_vbstart, lt_vbend, vsync_en : std_logic;
     variable right_side, hsync_val, vb_right, vsync_start               : unsigned(11 downto 0);
   begin
@@ -439,7 +432,7 @@ begin
         lt_vbend := '0';
       end if;
 
-      vsync_start := vert_total_width - vert_sync_width;
+      vsync_start := vert_total_width - vert_sync_width; -- 524 - 2 = 522
 
       if vert_count > vsync_start then
         vsync_en := '1';
@@ -468,27 +461,29 @@ begin
 
       if horiz_count >= horiz_total_width then
         horiz_count <= (others => '0');
+        report "vert_count = " & to_string(to_integer(vert_count));
         if vert_count >= vert_total_width then
           vert_count <= (others => '0');
         else
           vert_count <= vert_count + 1;
         end if;
-        scanline    <= vert_count - vert_display_start + 2;
+        scanline    <= vert_count - vert_display_start + 2; -- REVIEW: why +2?
         mc_addr     <= scanline * pitch;
-        mc_words    <= pitch(12 downto 4) + or(pitch(3 downto 0));
+        mc_words    <= pitch(12 downto 4) + or(pitch(3 downto 0)); -- FIXME: round up to the next multiple of 16 bytes
       else
         horiz_count <= horiz_count + 1;
       end if;
 
-      if vga_hblank_r and not last_hblank and not vga_vblank_r then
+      -- Issue a new memory controller request at the start of every active line
+      if vga_hblank = '1' and last_hblank = '0' and vga_vblank = '0' then
         mc_req <= not mc_req;
       end if;
 
-      last_hblank  <= vga_hblank_r;
-      vga_hblank_r <= not (gt_start and lt_end);
-      vga_hsync_r  <= polarity(1) xor not (hsync_en);
-      vga_vblank_r <= not (gt_vbstart and lt_vbend);
-      vga_vsync_r  <= polarity(0) xor not (vsync_en);
+      last_hblank <= vga_hblank;
+      vga_hblank  <= not (gt_start and lt_end);
+      vga_hsync_r <= polarity(1) xor not (hsync_en);
+      vga_vblank  <= not (gt_vbstart and lt_vbend);
+      vga_vsync_r <= polarity(0) xor not (vsync_en); -- REVIEW: vblank comes but vsync does not
 
     end if;
   end process;
@@ -503,9 +498,9 @@ begin
         when SCAN_IDLE =>
           if horiz_count = horiz_display_start then
             if vga_data(0) and not vga_empty then
-              vga_rgb_r <= (others => '1');
+              vga_rgb <= (others => '1');
             else
-              vga_rgb_r <= (others => '0');
+              vga_rgb <= (others => '0');
             end if;
             scan_cs   <= SCAN_OUT;
             pix_count <= (others => '0');
@@ -518,9 +513,9 @@ begin
             vga_pop <= not vga_empty;
           end if;
           if vga_data(to_integer(unsigned(pix_count))) then
-            vga_rgb_r <= (others => '1');
+            vga_rgb <= (others => '1');
           else
-            vga_rgb_r <= (others => '0');
+            vga_rgb <= (others => '0');
           end if;
           if rd_rst_busy then
             scan_cs <= SCAN_IDLE;
@@ -555,9 +550,11 @@ begin
 
   -- Memory controller state machine
   -- TODO: add reset
-  process(mem_clk)
+  mem_ctrl : process(mem_clk)
   begin
     if rising_edge(mem_clk) then
+
+      -- Synchronize memory controller request flag to mem_clk domain
       mc_req_sync <= mc_req_sync(1 downto 0) & mc_req;
 
       case mem_cs is
@@ -570,6 +567,7 @@ begin
           end if;
 
         when MEM_W4RSTH =>
+          -- TODO: check mc_addr + mc_words clock domain
           next_addr <= "0000" & (mc_addr + (mc_words(7 downto 0) & x"0")); -- Look to see if we need to break req
           len_diff  <= 2047 - mc_addr(10 downto 0);
           if wr_rst_busy then
