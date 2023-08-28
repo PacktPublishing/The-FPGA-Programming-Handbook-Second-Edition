@@ -35,6 +35,8 @@ module vga
    output [15:0]        LED
    );
 
+  localparam           BYTES_PER_PAGE = 16; // Number of bytes returned by the DDR
+  localparam           BITS_PER_PAGE  = 16*8; // Number of bits per each page
   logic                init_calib_complete;
   logic                vga_hblank;
   logic                vga_vblank;
@@ -54,8 +56,8 @@ module vga
   logic [31:0]         s_axi_wdata;
   logic [1:0]          s_axi_wvalid;
   logic [1:0]          s_axi_wready;
+  logic                s_axi_bvalid;
   logic                locked;
-  logic                pll_rst;
 
   pix_clk u_clk
     (
@@ -68,8 +70,8 @@ module vga
      .s_axi_wstrb      (4'hF),
      .s_axi_wvalid     (s_axi_wvalid[0]),
      .s_axi_wready     (s_axi_wready[0]),
-     .s_axi_bresp      (),
-     .s_axi_bvalid     (),
+     .s_axi_bresp      (), // We don't handle anything other than OKAY
+     .s_axi_bvalid     (s_axi_bvalid),
      .s_axi_bready     (1'b1),
      .s_axi_araddr     (11'b0),
      .s_axi_arvalid    (1'b0),
@@ -130,7 +132,7 @@ module vga
   logic [1:0]          s_ddr_bresp;
   logic                s_ddr_bvalid;
   logic                s_ddr_bready = '1;
-  logic [3:0]          s_ddr_arid    = '0;
+  logic [3:0]          s_ddr_arid;
   logic [26:0]         s_ddr_araddr;
   logic [7:0]          s_ddr_arlen;
   logic [2:0]          s_ddr_arsize  = 3'b100; // 16 bytes
@@ -271,7 +273,7 @@ module vga
      .mem_arready  (s_ddr_arready),
 
      .mem_rready   (s_ddr_rready),
-     .mem_rid      (s_ddr_arid),
+     .mem_rid      (s_ddr_rid),
      .mem_rdata    (s_ddr_rdata),
      .mem_rresp    (s_ddr_rresp),
      .mem_rlast    (s_ddr_rlast),
@@ -310,6 +312,7 @@ module vga
 
   logic [17:0][15:0][7:0] res_text;
   logic [15:0][7:0]       res_text_capt;
+  logic [12:0]            pitch_whole, pitch_fraction;
 
   initial begin
     res_text                           = '{default:" "};
@@ -319,7 +322,7 @@ module vga
     resolution[0].mult_integer         = 8'd50;
     resolution[0].mult_fraction        = 10'd000;
     resolution[0].divide_integer       = 8'd44;
-    resolution[0].divide_fraction      = 10'd125;
+    resolution[0].divide_fraction      = 18'd125;
     resolution[0].horiz_display_start  = 12'd47; // BP -1
     resolution[0].horiz_display_width  = 12'd640;
     resolution[0].horiz_sync_width     = 12'd96;
@@ -331,15 +334,13 @@ module vga
     resolution[0].vert_total_width     = 12'd524; //-1
     resolution[0].hpol                 = '0;
     resolution[0].vpol                 = '0;
-    resolution[0].pitch                = 13'd5*16; // 5 rows at 1bpp
-    //resolution[0].pitch                = 13'd2046; // 5 rows at 1bpp
     res_text[0]                        = "  zH06 @ 084x046";
     // 31.5Mhz 640x480 @ 72 Hz
     resolution[1].divide_count         = 8'd8;
     resolution[1].mult_integer         = 8'd39;
     resolution[1].mult_fraction        = 10'd375;
     resolution[1].divide_integer       = 8'd31;
-    resolution[1].divide_fraction      = 10'd250;
+    resolution[1].divide_fraction      = 18'd250;
     resolution[1].horiz_display_start  = 12'd127;
     resolution[1].horiz_display_width  = 12'd640;
     resolution[1].horiz_sync_width     = 12'd40;
@@ -350,14 +351,13 @@ module vga
     resolution[1].vert_total_width     = 12'd519;
     resolution[1].hpol                 = '0;
     resolution[1].vpol                 = '0;
-    resolution[1].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[1]                        = "  zH27 @ 084x046";
     // 31.5Mhz 640x480 @ 75 Hz
     resolution[2].divide_count         = 8'd8;
     resolution[2].mult_integer         = 8'd39;
     resolution[2].mult_fraction        = 10'd375;
     resolution[2].divide_integer       = 8'd31;
-    resolution[2].divide_fraction      = 10'd250;
+    resolution[2].divide_fraction      = 18'd250;
     resolution[2].horiz_display_start  = 12'd47;
     resolution[2].horiz_display_width  = 12'd640;
     resolution[2].horiz_sync_width     = 12'd96;
@@ -368,14 +368,13 @@ module vga
     resolution[2].vert_total_width     = 12'd520;
     resolution[2].hpol                 = '0;
     resolution[2].vpol                 = '0;
-    resolution[2].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[2]                        = "  zH57 @ 084x046";
     // 36 Mhz 640x480 @ 85 Hz
     resolution[3].divide_count         = 8'd5;
     resolution[3].mult_integer         = 8'd24;
     resolution[3].mult_fraction        = 10'd750;
     resolution[3].divide_integer       = 8'd27;
-    resolution[3].divide_fraction      = 10'd500;
+    resolution[3].divide_fraction      = 18'd500;
     resolution[3].horiz_display_start  = 12'd111;
     resolution[3].horiz_display_width  = 12'd640;
     resolution[3].horiz_sync_width     = 12'd48;
@@ -386,14 +385,13 @@ module vga
     resolution[3].vert_total_width     = 12'd508;
     resolution[3].hpol                 = '0;
     resolution[3].vpol                 = '0;
-    resolution[3].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[3]                        = "  zH58 @ 084x046";
     // 40 Mhz 800x600 @ 60 Hz
     resolution[4].divide_count         = 8'd1;
     resolution[4].mult_integer         = 8'd5;
     resolution[4].mult_fraction        = 10'd000;
     resolution[4].divide_integer       = 8'd20;
-    resolution[4].divide_fraction      = 10'd000;
+    resolution[4].divide_fraction      = 18'd000;
     resolution[4].horiz_display_start  = 12'd87;
     resolution[4].horiz_display_width  = 12'd800;
     resolution[4].horiz_sync_width     = 12'd128;
@@ -404,14 +402,13 @@ module vga
     resolution[4].vert_total_width     = 12'd627;
     resolution[4].hpol                 = '1;
     resolution[4].vpol                 = '1;
-    resolution[4].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[4]                        = "  zH06 @ 006x008";
     // 49.5 Mhz 800x600 @ 75 Hz
     resolution[5].divide_count         = 8'd5;
     resolution[5].mult_integer         = 8'd24;
     resolution[5].mult_fraction        = 10'd750;
     resolution[5].divide_integer       = 8'd20;
-    resolution[5].divide_fraction      = 10'd000;
+    resolution[5].divide_fraction      = 18'd000;
     resolution[5].horiz_display_start  = 12'd159;
     resolution[5].horiz_display_width  = 12'd800;
     resolution[5].horiz_sync_width     = 12'd80;
@@ -422,14 +419,13 @@ module vga
     resolution[5].vert_total_width     = 12'd624;
     resolution[5].hpol                 = '1;
     resolution[5].vpol                 = '1;
-    resolution[5].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[5]                        = "  zH57 @ 006x008";
     // 50 Mhz 800x600 @ 72 Hz
     resolution[6].divide_count         = 8'd1;
     resolution[6].mult_integer         = 8'd5;
     resolution[6].mult_fraction        = 10'd000;
     resolution[6].divide_integer       = 8'd20;
-    resolution[6].divide_fraction      = 10'd000;
+    resolution[6].divide_fraction      = 18'd000;
     resolution[6].horiz_display_start  = 12'd63;
     resolution[6].horiz_display_width  = 12'd800;
     resolution[6].horiz_sync_width     = 12'd120;
@@ -440,14 +436,13 @@ module vga
     resolution[6].vert_total_width     = 12'd665;
     resolution[6].hpol                 = '1;
     resolution[6].vpol                 = '1;
-    resolution[6].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[6]                        = "  zH27 @ 006x008";
     // 56.25 Mhz 800x600 @ 85 Hz
     resolution[7].divide_count         = 8'd2;
     resolution[7].mult_integer         = 8'd10;
     resolution[7].mult_fraction        = 10'd125;
     resolution[7].divide_integer       = 8'd18;
-    resolution[7].divide_fraction      = 10'd000;
+    resolution[7].divide_fraction      = 18'd000;
     resolution[7].horiz_display_start  = 12'd151;
     resolution[7].horiz_display_width  = 12'd800;
     resolution[7].horiz_sync_width     = 12'd64;
@@ -458,14 +453,13 @@ module vga
     resolution[7].vert_total_width     = 12'd630;
     resolution[7].hpol                 = '1;
     resolution[7].vpol                 = '1;
-    resolution[7].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[7]                        = "  zH58 @ 006x008";
     // 65 Mhz 1024x768 @ 60 Hz
     resolution[8].divide_count         = 8'd10;
     resolution[8].mult_integer         = 8'd50;
     resolution[8].mult_fraction        = 10'd375;
     resolution[8].divide_integer       = 8'd15;
-    resolution[8].divide_fraction      = 10'd500;
+    resolution[8].divide_fraction      = 18'd500;
     resolution[8].horiz_display_start  = 12'd159;
     resolution[8].horiz_display_width  = 12'd1024;
     resolution[8].horiz_sync_width     = 12'd136;
@@ -476,14 +470,13 @@ module vga
     resolution[8].vert_total_width     = 12'd805;
     resolution[8].hpol                 = '0;
     resolution[8].vpol                 = '0;
-    resolution[8].pitch                = 13'd8*16;
     res_text[8]                        = " zH06 @ 867x4201";
     // 75 Mhz 1024x768 @ 70 Hz
     resolution[9].divide_count         = 8'd8;
     resolution[9].mult_integer         = 8'd40;
     resolution[9].mult_fraction        = 10'd125;
     resolution[9].divide_integer       = 8'd13;
-    resolution[9].divide_fraction      = 10'd375;
+    resolution[9].divide_fraction      = 18'd375;
     resolution[9].horiz_display_start  = 12'd143;
     resolution[9].horiz_display_width  = 12'd1024;
     resolution[9].horiz_sync_width     = 12'd136;
@@ -494,14 +487,13 @@ module vga
     resolution[9].vert_total_width     = 12'd805;
     resolution[9].hpol                 = '0;
     resolution[9].vpol                 = '0;
-    resolution[9].pitch                = 13'd8*16;
     res_text[9]                        = " zH07 @ 867x4201";
     // 78.75 Mhz 1024x768 @ 75 Hz
     resolution[10].divide_count        = 8'd8;
     resolution[10].mult_integer        = 8'd39;
     resolution[10].mult_fraction       = 10'd375;
     resolution[10].divide_integer      = 8'd12;
-    resolution[10].divide_fraction     = 10'd500;
+    resolution[10].divide_fraction     = 18'd500;
     resolution[10].horiz_display_start = 12'd175;
     resolution[10].horiz_display_width = 12'd1024;
     resolution[10].horiz_sync_width    = 12'd96;
@@ -512,14 +504,13 @@ module vga
     resolution[10].vert_total_width    = 12'd799;
     resolution[10].hpol                = '1;
     resolution[10].vpol                = '1;
-    resolution[10].pitch               = 13'd8*16;
     res_text[10]                       = " zH57 @ 867x4201";
     // 94.5 Mhz 1024x768 @ 85 Hz
     resolution[11].divide_count        = 8'd5;
     resolution[11].mult_integer        = 8'd23;
     resolution[11].mult_fraction       = 10'd625;
     resolution[11].divide_integer      = 8'd10;
-    resolution[11].divide_fraction     = 10'd000;
+    resolution[11].divide_fraction     = 18'd000;
     resolution[11].horiz_display_start = 12'd207;
     resolution[11].horiz_display_width = 12'd1024;
     resolution[11].horiz_sync_width    = 12'd96;
@@ -530,14 +521,13 @@ module vga
     resolution[11].vert_total_width    = 12'd807;
     resolution[11].hpol                = '1;
     resolution[11].vpol                = '1;
-    resolution[11].pitch               = 13'd8*16;
     res_text[11]                       = " zH58 @ 867x4201";
     // 108 Mhz 1280x1024 @ 60 Hz
     resolution[12].divide_count        = 8'd2;
     resolution[12].mult_integer        = 8'd10;
     resolution[12].mult_fraction       = 10'd125;
     resolution[12].divide_integer      = 8'd9;
-    resolution[12].divide_fraction     = 10'd375;
+    resolution[12].divide_fraction     = 18'd375;
     resolution[12].horiz_display_start = 12'd247;
     resolution[12].horiz_display_width = 12'd1280;
     resolution[12].horiz_sync_width    = 12'd112;
@@ -548,14 +538,13 @@ module vga
     resolution[12].vert_total_width    = 12'd1066;
     resolution[12].hpol                = '1;
     resolution[12].vpol                = '1;
-    resolution[12].pitch               = 13'd10*16;
     res_text[12]                       = "zH06 @ 4201x0821";
     // 135 Mhz 1280x1024 @ 75 Hz
     resolution[13].divide_count        = 8'd2;
     resolution[13].mult_integer        = 8'd10;
     resolution[13].mult_fraction       = 10'd125;
     resolution[13].divide_integer      = 8'd7;
-    resolution[13].divide_fraction     = 10'd500;
+    resolution[13].divide_fraction     = 18'd500;
     resolution[13].horiz_display_start = 12'd247;
     resolution[13].horiz_display_width = 12'd1280;
     resolution[13].horiz_sync_width    = 12'd144;
@@ -566,14 +555,13 @@ module vga
     resolution[13].vert_total_width    = 12'd1066;
     resolution[13].hpol                = '1;
     resolution[13].vpol                = '1;
-    resolution[13].pitch               = 13'd10*16;
     res_text[13]                       = "zH57 @ 4201x0821";
     // 157.5 Mhz 1280x1024 @ 85 Hz
     resolution[14].divide_count        = 8'd8;
     resolution[14].mult_integer        = 8'd39;
     resolution[14].mult_fraction       = 10'd375;
     resolution[14].divide_integer      = 8'd6;
-    resolution[14].divide_fraction     = 10'd250;
+    resolution[14].divide_fraction     = 18'd250;
     resolution[14].horiz_display_start = 12'd223;
     resolution[14].horiz_display_width = 12'd1280;
     resolution[14].horiz_sync_width    = 12'd160;
@@ -584,14 +572,13 @@ module vga
     resolution[14].vert_total_width    = 12'd1072;
     resolution[14].hpol                = '1;
     resolution[14].vpol                = '1;
-    resolution[14].pitch               = 13'd10*16;
     res_text[14]                       = "zH58 @ 4201x0821";
     // 162 Mhz 1600x1200 @ 60 Hz
     resolution[15].divide_count        = 8'd2;
     resolution[15].mult_integer        = 8'd10;
     resolution[15].mult_fraction       = 10'd125;
     resolution[15].divide_integer      = 8'd6;
-    resolution[15].divide_fraction     = 10'd250;
+    resolution[15].divide_fraction     = 18'd250;
     resolution[15].horiz_display_start = 12'd303;
     resolution[15].horiz_display_width = 12'd1600;
     resolution[15].horiz_sync_width    = 12'd192;
@@ -602,14 +589,13 @@ module vga
     resolution[15].vert_total_width    = 12'd1250;
     resolution[15].hpol                = '1;
     resolution[15].vpol                = '1;
-    resolution[15].pitch               = 13'd13*16; // 12.5
     res_text[15]                       = "zH06 @ 0021x0061";
     // 195 Mhz 1920x1200 @ 60 Hz
     resolution[16].divide_count        = 8'd1;
     resolution[16].mult_integer        = 8'd4;
     resolution[16].mult_fraction       = 10'd875;
     resolution[16].divide_integer      = 8'd5;
-    resolution[16].divide_fraction     = 10'd000;
+    resolution[16].divide_fraction     = 18'd000;
     resolution[16].horiz_display_start = 12'd399;
     resolution[16].horiz_display_width = 12'd1920;
     resolution[16].horiz_sync_width    = 12'd200;
@@ -620,14 +606,13 @@ module vga
     resolution[16].vert_total_width    = 12'd1242;
     resolution[16].hpol                = '1;
     resolution[16].vpol                = '1;
-    resolution[16].pitch               = 13'd15*16;
     res_text[16]                       = "zH06 @ 0021x0291";
     // 195 Mhz 1920x1200 @ 60 Hz
     resolution[17].divide_count        = 8'd8;
     resolution[17].mult_integer        = 8'd37;
     resolution[17].mult_fraction       = 10'd125;
     resolution[17].divide_integer      = 8'd6;
-    resolution[17].divide_fraction     = 10'd250;
+    resolution[17].divide_fraction     = 18'd250;
     resolution[17].horiz_display_start = 12'd147;
     resolution[17].horiz_display_width = 12'd1920;
     resolution[17].horiz_sync_width    = 12'd44;
@@ -638,8 +623,15 @@ module vga
     resolution[17].vert_total_width    = 12'd1124;
     resolution[17].hpol                = '1;
     resolution[17].vpol                = '1;
-    resolution[17].pitch               = 13'd15*16;
     res_text[17]                       = "zH06 @ 0801x0291";
+
+    for (int i = 0; i < 18; i++) begin
+      pitch_whole         = resolution[i].horiz_display_width/BITS_PER_PAGE;
+      pitch_fraction      = resolution[i].horiz_display_width%BITS_PER_PAGE;
+
+      resolution[i].pitch = (pitch_whole + |pitch_fraction) * 16;
+      $display("%d: Pitch = %d, whole: %d, fraction: %d", i, resolution[i].pitch, pitch_whole, |pitch_fraction);
+    end
   end
 
   logic [11:0] addr_array[32];
@@ -682,8 +674,7 @@ module vga
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[6],
-                WRITE_TEXT
+                CFG_WR[8]
                 } cfg_state_t;
 
   cfg_state_t cfg_state;
@@ -701,7 +692,7 @@ module vga
 
   logic [1:0] last_write;
   logic       update_text;
-  (* async_reg = "TRUE" *) logic [2:0] update_text_sync;
+  logic [2:0] update_text_sync;
 
   initial begin
     update_text      = '0;
@@ -713,7 +704,6 @@ module vga
     button_sync <= button_sync << 1 | button_c;
     last_write[0]  <= wr_count == 24;
     last_write[1]  <= wr_count == 31;
-    pll_rst        <= '1;
     case (cfg_state)
       CFG_IDLE0: begin
         update_text   <= ~update_text;
@@ -726,12 +716,11 @@ module vga
         if (button_sync[2:1] == 2'b10) begin
           // We can start writing the text as we are updating
           update_text   <= ~update_text;
-          pll_rst       <= '0;
           wr_count      <= 3'b1;
           s_axi_awvalid <= 2'b1;
           s_axi_awaddr  <= addr_array[0];
           s_axi_wvalid  <= 2'b1;
-          s_axi_wdata   <= {7'b0, resolution[SW].mult_fraction,
+          s_axi_wdata   <= {6'b0, resolution[SW].mult_fraction,
                             resolution[SW].mult_integer,
                             resolution[SW].divide_count};
           sw_capt       <= SW;
@@ -739,17 +728,11 @@ module vga
         end
       end
       CFG_WR0: begin
-        pll_rst       <= '0;
-        casez ({last_write[0], s_axi_awready[0], s_axi_wready[0]})
-          3'b111: begin
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_WR3;
-          end
-          3'b011: begin
+        casez ({s_axi_awready[0], s_axi_wready[0]})
+          2'b11: begin
             wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b1;
-            s_axi_wvalid  <= 2'b1;
+            s_axi_awvalid <= 2'b0;
+            s_axi_wvalid  <= 2'b0;
             s_axi_awaddr  <= addr_array[wr_count];
             case (wr_count)
               1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
@@ -784,127 +767,122 @@ module vga
               30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
+            cfg_state     <= CFG_WR3;
           end // case: 3'b011
-          3'bz10: begin
-            s_axi_awvalid <= 2'b1;
+          2'b10: begin
+            s_axi_awvalid <= 2'b0;
+            s_axi_wvalid  <= 2'b1;
             cfg_state     <= CFG_WR1;
           end
-          3'bz01: begin
-            s_axi_wvalid <= 2'b1;
+          2'b01: begin
+            s_axi_awvalid <= 2'b1;
+            s_axi_wvalid  <= 2'b0;
             cfg_state     <= CFG_WR2;
           end
         endcase // casez ({last_write, s_axi_awready, s_axi_wready})
       end // case: CFG_WR0
       CFG_WR1: begin
-        pll_rst       <= '0;
-        casez ({last_write[0], s_axi_wready[0]})
-          2'b11: begin
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_WR3;
-          end
-          2'b01: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b1;
-            s_axi_wvalid  <= 2'b1;
-            cfg_state     <= CFG_WR0;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23:  s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
-          end // case: 3'b011
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
+        if (s_axi_wready[0]) begin
+          wr_count      <= wr_count + 1'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state     <= CFG_WR3;
+          s_axi_awaddr  <= addr_array[wr_count];
+          case (wr_count)
+            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
+            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
+            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
+            2: begin
+              s_axi_wdata <= {15'b0,
+                              resolution[sw_capt].divide_fraction,
+                              resolution[sw_capt].divide_integer};
+            end
+            23:  s_axi_wdata <= 32'b11;
+            24: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_display_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_display_start};
+            25: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_total_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_sync_width};
+            26: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_display_width,
+                                4'b0,
+                                resolution[sw_capt].vert_display_start};
+            27: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_total_width,
+                                4'b0,
+                                resolution[sw_capt].vert_sync_width};
+            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
+                                resolution[sw_capt].hpol,
+                                resolution[sw_capt].vpol};
+            29: s_axi_wdata <= '0;
+            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            31: s_axi_wdata <= 32'b1;
+          endcase // case (wr_count)
+        end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR2: begin
-        pll_rst       <= '0;
-        casez ({last_write[0], s_axi_awready[0]})
-          2'b11: begin
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_WR3;
-          end
-          2'b01: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b1;
-            s_axi_wvalid  <= 2'b1;
-            cfg_state     <= CFG_WR0;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23: s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
-          end // case: 3'b011
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
+        if (s_axi_awready[0]) begin
+          wr_count      <= wr_count + 1'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state     <= CFG_WR3;
+          s_axi_awaddr  <= addr_array[wr_count];
+          case (wr_count)
+            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
+            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
+            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
+            2: begin
+              s_axi_wdata <= {15'b0,
+                              resolution[sw_capt].divide_fraction,
+                              resolution[sw_capt].divide_integer};
+            end
+            23: s_axi_wdata <= 32'b11;
+            24: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_display_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_display_start};
+            25: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_total_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_sync_width};
+            26: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_display_width,
+                                4'b0,
+                                resolution[sw_capt].vert_display_start};
+            27: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_total_width,
+                                4'b0,
+                                resolution[sw_capt].vert_sync_width};
+            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
+                                resolution[sw_capt].hpol,
+                                resolution[sw_capt].vpol};
+            29: s_axi_wdata <= '0;
+            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            31: s_axi_wdata <= 32'b1;
+          endcase // case (wr_count)
+        end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR3: begin
-        pll_rst       <= '0;
-        casez ({last_write[1], s_axi_awready[1], s_axi_wready[1]})
-          3'b111: begin
-            wr_count      <= '0;
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_IDLE1;
+        // Note that we are not handling bresp error conditions
+        case ({last_write[0], s_axi_bvalid})
+          2'b11: begin
+            s_axi_awvalid <= 2'b10;
+            s_axi_wvalid  <= 2'b10;
+            cfg_state <= CFG_WR4;
           end
-          3'b011: begin
+          2'b01: begin
+            s_axi_awvalid <= 2'b01;
+            s_axi_wvalid  <= 2'b01;
+            cfg_state <= CFG_WR0;
+          end
+        endcase // case ({last_write[0], s_axi_bvalid})
+      end
+      CFG_WR4: begin
+        casez ({s_axi_awready[1], s_axi_wready[1]})
+          2'b11: begin
             wr_count      <= wr_count + 1'b1;
             s_axi_awvalid <= 2'b10;
             s_axi_wvalid  <= 2'b10;
@@ -942,119 +920,116 @@ module vga
               30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
+            cfg_state     <= CFG_WR7;
           end // case: 3'b011
-          3'bz10: begin
-            s_axi_awvalid <= 2'b10;
-            cfg_state     <= CFG_WR1;
+          2'b10: begin
+            s_axi_awvalid <= 2'b00;
+            s_axi_wvalid  <= 2'b10;
+            cfg_state     <= CFG_WR5;
           end
-          3'bz01: begin
-            s_axi_wvalid <= 2'b10;
-            cfg_state     <= CFG_WR2;
+          2'b01: begin
+            s_axi_awvalid <= 2'b10;
+            s_axi_wvalid  <= 2'b00;
+            cfg_state     <= CFG_WR6;
           end
         endcase // casez ({last_write, s_axi_awready, s_axi_wready})
       end // case: CFG_WR0
-      CFG_WR4: begin
-        pll_rst       <= '0;
-        casez ({last_write[1], s_axi_wready[1]})
-          2'b11: begin
-            wr_count      <= '0;
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_IDLE1;
-          end
-          2'b01: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state     <= CFG_WR0;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23:  s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
-          end // case: 3'b011
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
-      end // case: CFG_WR1
       CFG_WR5: begin
-        pll_rst       <= '0;
-        casez ({last_write[1], s_axi_awready[1]})
-          2'b11: begin
-            wr_count      <= '0;
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_IDLE1;
-          end
-          2'b01: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state     <= CFG_WR0;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23: s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
-          end // case: 3'b011
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
+        if (s_axi_wready[1]) begin
+          wr_count      <= wr_count + 1'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state     <= CFG_WR7;
+          s_axi_awaddr  <= addr_array[wr_count];
+          case (wr_count)
+            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
+            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
+            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
+            2: begin
+              s_axi_wdata <= {15'b0,
+                              resolution[sw_capt].divide_fraction,
+                              resolution[sw_capt].divide_integer};
+            end
+            23:  s_axi_wdata <= 32'b11;
+            24: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_display_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_display_start};
+            25: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_total_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_sync_width};
+            26: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_display_width,
+                                4'b0,
+                                resolution[sw_capt].vert_display_start};
+            27: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_total_width,
+                                4'b0,
+                                resolution[sw_capt].vert_sync_width};
+            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
+                                resolution[sw_capt].hpol,
+                                resolution[sw_capt].vpol};
+            29: s_axi_wdata <= '0;
+            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            31: s_axi_wdata <= 32'b1;
+          endcase // case (wr_count)
+        end // case: 3'b011
       end // case: CFG_WR1
+      CFG_WR6: begin
+        if (s_axi_awready[1]) begin
+          wr_count      <= wr_count + 1'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state     <= CFG_WR7;
+          s_axi_awaddr  <= addr_array[wr_count];
+          case (wr_count)
+            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
+            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
+            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
+            2: begin
+              s_axi_wdata <= {15'b0,
+                              resolution[sw_capt].divide_fraction,
+                              resolution[sw_capt].divide_integer};
+            end
+            23: s_axi_wdata <= 32'b11;
+            24: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_display_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_display_start};
+            25: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].horiz_total_width,
+                                4'b0,
+                                resolution[sw_capt].horiz_sync_width};
+            26: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_display_width,
+                                4'b0,
+                                resolution[sw_capt].vert_display_start};
+            27: s_axi_wdata <= {4'b0,
+                                resolution[sw_capt].vert_total_width,
+                                4'b0,
+                                resolution[sw_capt].vert_sync_width};
+            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
+                                resolution[sw_capt].hpol,
+                                resolution[sw_capt].vpol};
+            29: s_axi_wdata <= '0;
+            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            31: s_axi_wdata <= 32'b1;
+          endcase // case (wr_count)
+        end // case: 3'b011
+      end // case: CFG_WR1
+      CFG_WR7: begin
+        // Note VGA core doesn't generate bvalid
+        if (last_write[1]) begin
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state <= CFG_IDLE1;
+        end else begin
+          s_axi_awvalid <= 2'b10;
+          s_axi_wvalid  <= 2'b10;
+          cfg_state     <= CFG_WR4;
+        end
+      end
     endcase // case (cfg_state)
   end // always @ (posedge mc_clk)
 
@@ -1096,8 +1071,9 @@ module vga
     done             <= s_ddr_awaddr >= total_page;
     char_x[1]        <= char_x[0];
     char_x[2]        <= char_x[1];
-    real_pitch       <= {resolution[sw_capt].pitch[12:4], 4'b0} +
-                        |resolution[sw_capt].pitch[3:0];
+    real_pitch       <= |resolution[sw_capt].pitch[3:0] ?
+                        {resolution[sw_capt].pitch[12:4], 4'b0} + 16 :
+                        {resolution[sw_capt].pitch[12:4], 4'b0};
     case (text_sm)
       TEXT_IDLE: begin
         if (^update_text_sync[2:1]) begin

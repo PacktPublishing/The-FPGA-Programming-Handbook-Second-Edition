@@ -92,7 +92,6 @@ module vga_core
   logic [11:0] vert_sync_width_reg;
   logic [11:0] vert_total_width_reg;
   logic [31:0] disp_addr_reg;
-  logic [7:0]  pixel_depth_reg;
   logic [1:0]  polarity_reg;
   logic [12:0] pitch_reg;
   logic [11:0] horiz_display_start;
@@ -104,12 +103,13 @@ module vga_core
   logic [11:0] vert_sync_width;
   logic [11:0] vert_total_width;
   logic [31:0] disp_addr;
-  logic [7:0]  pixel_depth;
   logic [1:0]  polarity;
   logic [12:0] pitch;
   logic        vga_pop;
   logic [127:0] vga_data;
   logic         vga_empty;
+
+  assign reg_bresp   = '0; // Okay
 
   initial begin
     reg_cs = REG_IDLE;
@@ -123,18 +123,18 @@ module vga_core
       REG_IDLE: begin
         reg_awready <= '1;
         reg_wready  <= '1;
-        case ({reg_awvalid, reg_awvalid})
+        case ({reg_awvalid, reg_wvalid})
           2'b11: begin
             // Addr and data are available
             reg_addr    <= reg_awaddr;
             reg_we      <= '1;
             reg_din     <= reg_wdata;
             reg_be      <= reg_wstrb;
+            reg_bvalid  <= '1;
             if (reg_bready) begin
               reg_awready <= '1;
               reg_wready  <= '1;
-              reg_bvalid  <= '1;
-              reg_bresp   <= '0; // Okay
+              reg_cs      <= REG_IDLE;
             end else begin
               reg_awready <= '0;
               reg_wready  <= '0;
@@ -159,13 +159,12 @@ module vga_core
         reg_we      <= '1;
         reg_din     <= reg_wdata;
         reg_be      <= reg_wstrb;
-        if (reg_bready) begin
+        reg_bvalid  <= '1;
+        if (reg_bready && reg_wvalid) begin
           reg_awready <= '1;
           reg_wready  <= '1;
-          reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
-        end else begin
+        end else if (reg_wvalid) begin
           reg_awready <= '0;
           reg_wready  <= '0;
           reg_cs      <= REG_BRESP;
@@ -174,24 +173,21 @@ module vga_core
       REG_W4ADDR: begin
         reg_addr    <= reg_awaddr;
         reg_we      <= '1;
-        if (reg_bready) begin
+        reg_bvalid  <= '1;
+        if (reg_bready && reg_awvalid) begin
           reg_awready <= '1;
           reg_wready  <= '1;
-          reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
-        end else begin
+        end else if (reg_bready) begin
           reg_awready <= '0;
           reg_wready  <= '0;
-          reg_cs      <= REG_BRESP;
         end
       end
       REG_BRESP: begin
+        reg_bvalid  <= '1;
         if (reg_bready) begin
           reg_awready <= '1;
           reg_wready  <= '1;
-          reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
         end else begin
           reg_awready <= '0;
@@ -264,7 +260,6 @@ module vga_core
         end
         V_DISP_POLARITY_FORMAT: begin
           if (reg_be[0]) polarity_reg[1:0]     <= reg_din[1:0];
-          if (reg_be[1]) pixel_depth_reg[7:0]  <= reg_din[15:8];
         end
         DISPLAY_ADDR: begin
           if (reg_be[0]) disp_addr_reg[7:0]    <= reg_din[7:0];
@@ -311,7 +306,6 @@ module vga_core
       vert_total_width    <= vert_total_width_reg;
       disp_addr           <= disp_addr_reg;
       polarity            <= polarity_reg;
-      pixel_depth         <= pixel_depth_reg;
       pitch               <= pitch_reg;
     end
     if (horiz_count >= horiz_total_width) begin
@@ -455,7 +449,7 @@ module vga_core
       end
       MEM_W4RSTH: begin
         next_addr <= mc_addr + {mc_words, 4'b0}; // Look to see if we need to break req
-        len_diff  <= 2047 - mc_addr[10:0];
+        len_diff  <= 4095 - mc_addr[11:0];
         if (wr_rst_busy) begin
           fifo_rst <= '0;
           mem_cs   <= MEM_W4RSTL;
@@ -471,7 +465,7 @@ module vga_core
           mem_arvalid <= '1;
           next_addr   <= mc_addr  + len_diff + 1'b1;
           len_diff    <= mc_words - len_diff;
-          if (next_addr[31:11] != mc_addr[31:11]) begin
+          if (next_addr[31:12] != mc_addr[31:12]) begin
             // look if we are going to cross 2K boundary
             mem_arlen <= len_diff;
             if (mem_arready)

@@ -70,7 +70,7 @@ module i2c_temp
   (* mark_debug = "true" *) logic [$clog2(TIME_1SEC)-1:0]    counter;
   logic                            counter_reset;
   (* mark_debug = "true" *) logic [$clog2(I2CBITS)-1:0]      bit_count;
-  (* mark_debug = "true" *) logic [15:0]                     temp_data;
+  (* mark_debug = "true" *) logic signed [15:0]              temp_data;
   (* mark_debug = "true" *) logic                            capture_en;
   (* mark_debug = "true" *) logic                            convert;
 
@@ -194,21 +194,22 @@ module i2c_temp
     endcase
   end
 
-  logic [28:0] smooth_data;
-  logic        smooth_convert;
-  logic [4:0]  sample_count;
+  logic signed [28:0] smooth_data;
+  logic               smooth_convert;
+  logic [4:0]         sample_count;
 
   generate
     if (SMOOTHING == 0) begin : g_NO_SMOOTH
-      assign smooth_data = temp_data >> 3;
+      assign smooth_data = temp_data >>> 3;
       assign smooth_convert = convert;
     end else begin : g_SMOOTH
-      localparam                  NINE_FIFTHS = 17'b1_11001100_11001100;
+      localparam logic unsigned [17:0] NINE_FIFTHS = 18'sb01_11001100_11001100;
       logic [SMOOTHING_SHIFT:0]   smooth_count;
-      logic [12:0]                dout;
+      logic [SMOOTHING_SHIFT:0]   sample_count;
+      logic signed [12:0]         dout;
       logic                       rden;
-      logic [17:0]                accumulator;
-      logic [1:0]                 convert_pipe;
+      logic signed [31:0]         accumulator;
+      logic [4:0]                 convert_pipe;
       logic [16:0]                divide[17];
 
       initial begin
@@ -238,19 +239,23 @@ module i2c_temp
       always @(posedge clk) begin
         rden            <= '0;
         smooth_convert  <= '0;
-        convert_pipe    <= convert_pipe << 1 | rden;
+        convert_pipe    <= convert_pipe << 1;
         if (convert) begin
-          smooth_count              <= smooth_count + 1'b1;
-          accumulator               <= accumulator + unsigned'(temp_data[15:3]);
+          convert_pipe[0] <= '1;
+          smooth_count    <= smooth_count + 1'b1;
+          accumulator     <= accumulator + signed'(temp_data[15:3]);
         end else if (smooth_count == SMOOTHING + 1) begin
-          rden                    <= '1;
-          smooth_count            <= smooth_count - 1'b1;
-          accumulator             <= accumulator - unsigned'(dout);
-        end else if (convert_pipe[0]) begin
-          smooth_data    <= accumulator >> SMOOTHING_SHIFT;
+          rden            <= '1;
+          smooth_count    <= smooth_count - 1'b1;
+          accumulator     <= accumulator - signed'(dout);
+        end else if (convert_pipe[2]) begin
+          if (sample_count < SMOOTHING) sample_count <= sample_count + 1;
+          smooth_data     <= accumulator * divide[sample_count];
+        end else if (convert_pipe[3]) begin
+          smooth_data    <= accumulator >>> SMOOTHING_SHIFT;
           smooth_convert <= ~SW;
-        end else if (convert_pipe[1]) begin
-          smooth_data             <= ((smooth_data * NINE_FIFTHS) >> 16) + (32 << 4);
+        end else if (convert_pipe[4]) begin
+          smooth_data             <= ((smooth_data * signed'(NINE_FIFTHS)) >>> 16) + signed'((unsigned'(32) << 4));
           smooth_convert          <= SW;
         end
       end
@@ -306,10 +311,15 @@ module i2c_temp
 
   // convert temperature from
   always @(posedge clk) begin
+    digit_point  <= 8'b00010000;
     if (smooth_convert) begin
-      encoded_int  <= bin_to_bcd(smooth_data[12:4]); // Decimal portion
-      fraction     <= bin_to_bcd(fraction_table[smooth_data[3:0]]);
-      digit_point  <= 8'b00010000;
+      if (smooth_data < 0) begin
+        encoded_int  <= '0;
+        fraction     <= '0;
+      end else begin
+        encoded_int <= bin_to_bcd(smooth_data[12:4]); // Decimal portion
+        fraction    <= bin_to_bcd(fraction_table[smooth_data[3:0]]);
+      end
     end
   end // always @ (posedge clk)
 
