@@ -233,7 +233,7 @@ begin
             RST_ACTIVE_HIGH => 1        -- DECIMAL; 0=active low reset, 1=active high reset
         )
         port map(
-            src_arst  => not pix_clk_locked,-- 1-bit input: Source asynchronous reset signal.
+            src_arst  => not pix_clk_locked, -- 1-bit input: Source asynchronous reset signal.
             dest_clk  => vga_clk,       -- 1-bit input: Destination clock.
             dest_arst => vga_rst        -- 1-bit output: src_arst asynchronous reset signal synchronized to destination clock domain
         );
@@ -587,8 +587,8 @@ begin
     ------------------------------------------------------------------------------
 
     text_fsm : process(ui_clk)
-        -- Registered variables
-        variable real_pitch : unsigned(12 downto 0) := (others => '0');
+        -- Registered state variables
+        variable pitch : unsigned(12 downto 0);
 
         -- Helper variables
         variable sw_int          : integer range 0 to 31;
@@ -596,7 +596,6 @@ begin
     begin
         if rising_edge(ui_clk) then
             if ui_clk_sync_rst then
-                real_pitch       := (others => '0');
                 update_text_sync <= (others => '0');
                 --
                 s_ddr_awvalid    <= '0';
@@ -643,14 +642,9 @@ begin
                         if xor(update_text_sync(2 downto 1)) then
                             sw_int        := to_integer(unsigned(SW)); -- the switch encodes the VGA resolution
                             sw_int        := minimum(RESOLUTION'length - 1, sw_int); -- saturate at the highest resolution index
-                            -- Round up the line pitch to the next multiple of 16 bytes
-                            if RESOLUTION(sw_capt).pitch mod 16 /= 0 then
-                                real_pitch := (RESOLUTION(sw_capt).pitch + 15) and 13x"1FF0";
-                            else
-                                real_pitch := RESOLUTION(sw_capt).pitch;
-                            end if;
+                            pitch         := get_pitch(RESOLUTION(sw_capt).horiz_display_width);
                             -- Compute total image size
-                            total_page    <= RESOLUTION(sw_int).vert_display_width * real_pitch;
+                            total_page    <= RESOLUTION(sw_int).vert_display_width * pitch;
                             -- Write 0x0 starting at DDR address 0x0
                             s_ddr_awaddr  <= (others => '0');
                             s_ddr_awvalid <= '1';
@@ -737,7 +731,7 @@ begin
                         -- Write data word is complete: issue AXI4 write transaction
                         if char_x(2) = RES_TEXT_LENGTH - 1 then
                             s_ddr_awvalid <= '1';
-                            s_ddr_awaddr  <= resize(to_unsigned(char_y, 3) * real_pitch, s_ddr_awaddr'length);
+                            s_ddr_awaddr  <= resize(to_unsigned(char_y, 3) * pitch, s_ddr_awaddr'length);
                             s_ddr_wvalid  <= '1';
                             s_ddr_wstrb   <= (others => '1');
                             s_ddr_wlast   <= '1';
