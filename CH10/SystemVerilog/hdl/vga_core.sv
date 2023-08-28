@@ -449,7 +449,7 @@ module vga_core
       end
       MEM_W4RSTH: begin
         next_addr <= mc_addr + {mc_words, 4'b0}; // Look to see if we need to break req
-        len_diff  <= 2047 - mc_addr[10:0];
+        len_diff  <= 4095 - mc_addr[11:0];
         if (wr_rst_busy) begin
           fifo_rst <= '0;
           mem_cs   <= MEM_W4RSTL;
@@ -465,7 +465,7 @@ module vga_core
           mem_arvalid <= '1;
           next_addr   <= mc_addr  + len_diff + 1'b1;
           len_diff    <= mc_words - len_diff;
-          if (next_addr[31:11] != mc_addr[31:11]) begin
+          if (next_addr[31:12] != mc_addr[31:12]) begin
             // look if we are going to cross 2K boundary
             mem_arlen <= len_diff;
             if (mem_arready)

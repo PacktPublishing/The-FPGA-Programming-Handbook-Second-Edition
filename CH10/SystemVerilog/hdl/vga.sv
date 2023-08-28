@@ -35,6 +35,8 @@ module vga
    output [15:0]        LED
    );
 
+  localparam           BYTES_PER_PAGE = 16; // Number of bytes returned by the DDR
+  localparam           BITS_PER_PAGE  = 16*8; // Number of bits per each page
   logic                init_calib_complete;
   logic                vga_hblank;
   logic                vga_vblank;
@@ -310,6 +312,7 @@ module vga
 
   logic [17:0][15:0][7:0] res_text;
   logic [15:0][7:0]       res_text_capt;
+  logic [12:0]            pitch_whole, pitch_fraction;
 
   initial begin
     res_text                           = '{default:" "};
@@ -331,8 +334,6 @@ module vga
     resolution[0].vert_total_width     = 12'd524; //-1
     resolution[0].hpol                 = '0;
     resolution[0].vpol                 = '0;
-    resolution[0].pitch                = 13'd5*16; // 5 rows at 1bpp
-    //resolution[0].pitch                = 13'd2046; // 5 rows at 1bpp
     res_text[0]                        = "  zH06 @ 084x046";
     // 31.5Mhz 640x480 @ 72 Hz
     resolution[1].divide_count         = 8'd8;
@@ -350,7 +351,6 @@ module vga
     resolution[1].vert_total_width     = 12'd519;
     resolution[1].hpol                 = '0;
     resolution[1].vpol                 = '0;
-    resolution[1].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[1]                        = "  zH27 @ 084x046";
     // 31.5Mhz 640x480 @ 75 Hz
     resolution[2].divide_count         = 8'd8;
@@ -368,7 +368,6 @@ module vga
     resolution[2].vert_total_width     = 12'd520;
     resolution[2].hpol                 = '0;
     resolution[2].vpol                 = '0;
-    resolution[2].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[2]                        = "  zH57 @ 084x046";
     // 36 Mhz 640x480 @ 85 Hz
     resolution[3].divide_count         = 8'd5;
@@ -386,7 +385,6 @@ module vga
     resolution[3].vert_total_width     = 12'd508;
     resolution[3].hpol                 = '0;
     resolution[3].vpol                 = '0;
-    resolution[3].pitch                = 13'd5*16; // 5 rows at 1bpp
     res_text[3]                        = "  zH58 @ 084x046";
     // 40 Mhz 800x600 @ 60 Hz
     resolution[4].divide_count         = 8'd1;
@@ -404,7 +402,6 @@ module vga
     resolution[4].vert_total_width     = 12'd627;
     resolution[4].hpol                 = '1;
     resolution[4].vpol                 = '1;
-    resolution[4].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[4]                        = "  zH06 @ 006x008";
     // 49.5 Mhz 800x600 @ 75 Hz
     resolution[5].divide_count         = 8'd5;
@@ -422,7 +419,6 @@ module vga
     resolution[5].vert_total_width     = 12'd624;
     resolution[5].hpol                 = '1;
     resolution[5].vpol                 = '1;
-    resolution[5].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[5]                        = "  zH57 @ 006x008";
     // 50 Mhz 800x600 @ 72 Hz
     resolution[6].divide_count         = 8'd1;
@@ -440,7 +436,6 @@ module vga
     resolution[6].vert_total_width     = 12'd665;
     resolution[6].hpol                 = '1;
     resolution[6].vpol                 = '1;
-    resolution[6].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[6]                        = "  zH27 @ 006x008";
     // 56.25 Mhz 800x600 @ 85 Hz
     resolution[7].divide_count         = 8'd2;
@@ -458,7 +453,6 @@ module vga
     resolution[7].vert_total_width     = 12'd630;
     resolution[7].hpol                 = '1;
     resolution[7].vpol                 = '1;
-    resolution[7].pitch                = 13'd7*16; // 6.25 rows at 1bpp
     res_text[7]                        = "  zH58 @ 006x008";
     // 65 Mhz 1024x768 @ 60 Hz
     resolution[8].divide_count         = 8'd10;
@@ -476,7 +470,6 @@ module vga
     resolution[8].vert_total_width     = 12'd805;
     resolution[8].hpol                 = '0;
     resolution[8].vpol                 = '0;
-    resolution[8].pitch                = 13'd8*16;
     res_text[8]                        = " zH06 @ 867x4201";
     // 75 Mhz 1024x768 @ 70 Hz
     resolution[9].divide_count         = 8'd8;
@@ -494,7 +487,6 @@ module vga
     resolution[9].vert_total_width     = 12'd805;
     resolution[9].hpol                 = '0;
     resolution[9].vpol                 = '0;
-    resolution[9].pitch                = 13'd8*16;
     res_text[9]                        = " zH07 @ 867x4201";
     // 78.75 Mhz 1024x768 @ 75 Hz
     resolution[10].divide_count        = 8'd8;
@@ -512,7 +504,6 @@ module vga
     resolution[10].vert_total_width    = 12'd799;
     resolution[10].hpol                = '1;
     resolution[10].vpol                = '1;
-    resolution[10].pitch               = 13'd8*16;
     res_text[10]                       = " zH57 @ 867x4201";
     // 94.5 Mhz 1024x768 @ 85 Hz
     resolution[11].divide_count        = 8'd5;
@@ -530,7 +521,6 @@ module vga
     resolution[11].vert_total_width    = 12'd807;
     resolution[11].hpol                = '1;
     resolution[11].vpol                = '1;
-    resolution[11].pitch               = 13'd8*16;
     res_text[11]                       = " zH58 @ 867x4201";
     // 108 Mhz 1280x1024 @ 60 Hz
     resolution[12].divide_count        = 8'd2;
@@ -548,7 +538,6 @@ module vga
     resolution[12].vert_total_width    = 12'd1066;
     resolution[12].hpol                = '1;
     resolution[12].vpol                = '1;
-    resolution[12].pitch               = 13'd10*16;
     res_text[12]                       = "zH06 @ 4201x0821";
     // 135 Mhz 1280x1024 @ 75 Hz
     resolution[13].divide_count        = 8'd2;
@@ -566,7 +555,6 @@ module vga
     resolution[13].vert_total_width    = 12'd1066;
     resolution[13].hpol                = '1;
     resolution[13].vpol                = '1;
-    resolution[13].pitch               = 13'd10*16;
     res_text[13]                       = "zH57 @ 4201x0821";
     // 157.5 Mhz 1280x1024 @ 85 Hz
     resolution[14].divide_count        = 8'd8;
@@ -584,7 +572,6 @@ module vga
     resolution[14].vert_total_width    = 12'd1072;
     resolution[14].hpol                = '1;
     resolution[14].vpol                = '1;
-    resolution[14].pitch               = 13'd10*16;
     res_text[14]                       = "zH58 @ 4201x0821";
     // 162 Mhz 1600x1200 @ 60 Hz
     resolution[15].divide_count        = 8'd2;
@@ -602,7 +589,6 @@ module vga
     resolution[15].vert_total_width    = 12'd1250;
     resolution[15].hpol                = '1;
     resolution[15].vpol                = '1;
-    resolution[15].pitch               = 13'd13*16; // 12.5
     res_text[15]                       = "zH06 @ 0021x0061";
     // 195 Mhz 1920x1200 @ 60 Hz
     resolution[16].divide_count        = 8'd1;
@@ -620,7 +606,6 @@ module vga
     resolution[16].vert_total_width    = 12'd1242;
     resolution[16].hpol                = '1;
     resolution[16].vpol                = '1;
-    resolution[16].pitch               = 13'd15*16;
     res_text[16]                       = "zH06 @ 0021x0291";
     // 195 Mhz 1920x1200 @ 60 Hz
     resolution[17].divide_count        = 8'd8;
@@ -638,8 +623,15 @@ module vga
     resolution[17].vert_total_width    = 12'd1124;
     resolution[17].hpol                = '1;
     resolution[17].vpol                = '1;
-    resolution[17].pitch               = 13'd15*16;
     res_text[17]                       = "zH06 @ 0801x0291";
+
+    for (int i = 0; i < 18; i++) begin
+      pitch_whole         = resolution[i].horiz_display_width/BITS_PER_PAGE;
+      pitch_fraction      = resolution[i].horiz_display_width%BITS_PER_PAGE;
+
+      resolution[i].pitch = (pitch_whole + |pitch_fraction) * 16;
+      $display("%d: Pitch = %d, whole: %d, fraction: %d", i, resolution[i].pitch, pitch_whole, |pitch_fraction);
+    end
   end
 
   logic [11:0] addr_array[32];
@@ -700,7 +692,7 @@ module vga
 
   logic [1:0] last_write;
   logic       update_text;
-  (* async_reg = "TRUE" *) logic [2:0] update_text_sync;
+  logic [2:0] update_text_sync;
 
   initial begin
     update_text      = '0;
@@ -738,14 +730,9 @@ module vga
       CFG_WR0: begin
         casez ({s_axi_awready[0], s_axi_wready[0]})
           2'b11: begin
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_WR3;
-          end
-          2'b11: begin
             wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b1;
-            s_axi_wvalid  <= 2'b1;
+            s_axi_awvalid <= 2'b0;
+            s_axi_wvalid  <= 2'b0;
             s_axi_awaddr  <= addr_array[wr_count];
             case (wr_count)
               1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
@@ -780,13 +767,16 @@ module vga
               30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
+            cfg_state     <= CFG_WR3;
           end // case: 3'b011
           2'b10: begin
-            s_axi_awvalid <= 2'b1;
+            s_axi_awvalid <= 2'b0;
+            s_axi_wvalid  <= 2'b1;
             cfg_state     <= CFG_WR1;
           end
           2'b01: begin
-            s_axi_wvalid <= 2'b1;
+            s_axi_awvalid <= 2'b1;
+            s_axi_wvalid  <= 2'b0;
             cfg_state     <= CFG_WR2;
           end
         endcase // casez ({last_write, s_axi_awready, s_axi_wready})
@@ -794,8 +784,8 @@ module vga
       CFG_WR1: begin
         if (s_axi_wready[0]) begin
           wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b1;
-          s_axi_wvalid  <= 2'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR3;
           s_axi_awaddr  <= addr_array[wr_count];
           case (wr_count)
@@ -836,8 +826,8 @@ module vga
       CFG_WR2: begin
         if (s_axi_awready[0]) begin
           wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b1;
-          s_axi_wvalid  <= 2'b1;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR3;
           s_axi_awaddr  <= addr_array[wr_count];
           case (wr_count)
@@ -878,18 +868,20 @@ module vga
       CFG_WR3: begin
         // Note that we are not handling bresp error conditions
         case ({last_write[0], s_axi_bvalid})
-          2'b11: cfg_state <= CFG_WR4;
-          2'b01: cfg_state <= CFG_WR0;
+          2'b11: begin
+            s_axi_awvalid <= 2'b10;
+            s_axi_wvalid  <= 2'b10;
+            cfg_state <= CFG_WR4;
+          end
+          2'b01: begin
+            s_axi_awvalid <= 2'b01;
+            s_axi_wvalid  <= 2'b01;
+            cfg_state <= CFG_WR0;
+          end
         endcase // case ({last_write[0], s_axi_bvalid})
       end
       CFG_WR4: begin
         casez ({s_axi_awready[1], s_axi_wready[1]})
-          2'b11: begin
-            wr_count      <= '0;
-            s_axi_awvalid <= '0;
-            s_axi_wvalid  <= '0;
-            cfg_state     <= CFG_IDLE1;
-          end
           2'b11: begin
             wr_count      <= wr_count + 1'b1;
             s_axi_awvalid <= 2'b10;
@@ -928,13 +920,16 @@ module vga
               30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
+            cfg_state     <= CFG_WR7;
           end // case: 3'b011
           2'b10: begin
-            s_axi_awvalid <= 2'b10;
+            s_axi_awvalid <= 2'b00;
+            s_axi_wvalid  <= 2'b10;
             cfg_state     <= CFG_WR5;
           end
           2'b01: begin
-            s_axi_wvalid <= 2'b10;
+            s_axi_awvalid <= 2'b10;
+            s_axi_wvalid  <= 2'b00;
             cfg_state     <= CFG_WR6;
           end
         endcase // casez ({last_write, s_axi_awready, s_axi_wready})
@@ -942,8 +937,8 @@ module vga
       CFG_WR5: begin
         if (s_axi_wready[1]) begin
           wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b10;
-          s_axi_wvalid  <= 2'b10;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR7;
           s_axi_awaddr  <= addr_array[wr_count];
           case (wr_count)
@@ -984,8 +979,8 @@ module vga
       CFG_WR6: begin
         if (s_axi_awready[1]) begin
           wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b10;
-          s_axi_wvalid  <= 2'b10;
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR7;
           s_axi_awaddr  <= addr_array[wr_count];
           case (wr_count)
@@ -1024,8 +1019,16 @@ module vga
         end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR7: begin
-        // Note that we are not handling bresp error conditions
-        if (last_write[1] && s_axi_bvalid) cfg_state <= CFG_IDLE1;
+        // Note VGA core doesn't generate bvalid
+        if (last_write[1]) begin
+          s_axi_awvalid <= 2'b0;
+          s_axi_wvalid  <= 2'b0;
+          cfg_state <= CFG_IDLE1;
+        end else begin
+          s_axi_awvalid <= 2'b10;
+          s_axi_wvalid  <= 2'b10;
+          cfg_state     <= CFG_WR4;
+        end
       end
     endcase // case (cfg_state)
   end // always @ (posedge mc_clk)
