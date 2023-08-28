@@ -101,79 +101,66 @@ architecture rtl of vga_core is
   type mem_cs_t is (MEM_IDLE, MEM_W4RSTH, MEM_W4RSTL, MEM_W4RDY0, MEM_W4RDY1, MEM_REQ, MEM_W4RDY2);
 
   -- Registered signals with initial values
-  signal reg_cs                  : reg_cs_t                     := SM_IDLE;
-  signal reg_addr                : std_logic_vector(11 downto 0);
-  signal reg_we                  : std_logic;
-  signal reg_din                 : std_logic_vector(31 downto 0);
-  signal reg_be                  : std_logic_vector(3 downto 0);
-  signal horiz_display_start_reg : unsigned(11 downto 0)        := to_unsigned(47, 12);
-  signal horiz_display_width_reg : unsigned(11 downto 0)        := to_unsigned(640, 12);
-  signal horiz_sync_width_reg    : unsigned(11 downto 0)        := to_unsigned(96, 12);
-  signal horiz_total_width_reg   : unsigned(11 downto 0)        := to_unsigned(799, 12);
-  signal vert_display_start_reg  : unsigned(11 downto 0)        := to_unsigned(31, 12);
-  signal vert_display_width_reg  : unsigned(11 downto 0)        := to_unsigned(480, 12);
-  signal vert_sync_width_reg     : unsigned(11 downto 0)        := to_unsigned(2, 12);
-  signal vert_total_width_reg    : unsigned(11 downto 0)        := to_unsigned(524, 12);
-  signal disp_addr_reg           : unsigned(31 downto 0)        := to_unsigned(0, 32);
-  signal pixel_depth_reg         : std_logic_vector(7 downto 0) := PIXEL_DEPTH_REG_INIT; -- TODO: init?
-  signal polarity_reg            : unsigned(1 downto 0)         := to_unsigned(0, 2);
-  signal pitch_reg               : unsigned(12 downto 0)        := to_unsigned(5 * 16, 13);
-  signal horiz_display_start     : unsigned(11 downto 0)        := to_unsigned(47, 12);
-  signal horiz_display_width     : unsigned(11 downto 0)        := to_unsigned(640, 12);
-  signal horiz_sync_width        : unsigned(11 downto 0)        := to_unsigned(96, 12);
-  signal horiz_total_width       : unsigned(11 downto 0)        := to_unsigned(799, 12);
-  signal vert_display_start      : unsigned(11 downto 0)        := to_unsigned(31, 12);
-  signal vert_display_width      : unsigned(11 downto 0)        := to_unsigned(480, 12);
-  signal vert_sync_width         : unsigned(11 downto 0)        := to_unsigned(2, 12);
-  signal vert_total_width        : unsigned(11 downto 0)        := to_unsigned(524, 12);
-  signal disp_addr               : unsigned(31 downto 0)        := to_unsigned(0, 32);
-  signal polarity                : unsigned(1 downto 0)         := to_unsigned(0, 2);
-  signal pixel_depth             : std_logic_vector(7 downto 0) := (others => '0');
-  signal pitch                   : unsigned(12 downto 0)        := to_unsigned(5 * 16, 13);
-  signal vga_pop                 : std_logic;
-  signal vga_data                : std_logic_vector(127 downto 0);
-  signal vga_empty               : std_logic;
-  signal load_mode               : std_logic                    := '0';
-  signal load_mode_sync          : std_logic_vector(2 downto 0) := "000";
-  signal mc_req_sync             : std_logic_vector(2 downto 0) := "000"; -- [mem_clk domain]
-  signal horiz_count             : unsigned(11 downto 0)        := (others => '0');
-  signal vert_count              : unsigned(11 downto 0)        := (others => '0');
-  signal mc_req                  : std_logic                    := '0'; -- [vga_clk domain]
-  signal mc_words                : unsigned(8 downto 0)         := (others => '0');
-  signal mc_addr                 : unsigned(mem_araddr'range)   := (others => '0');
-  signal fifo_rst                : std_logic                    := '0';
-  --    signal scanline                : unsigned(11 downto 0);
-  signal pix_count               : unsigned(6 downto 0);
-  signal rd_rst_busy             : std_logic;
-  signal scan_cs                 : scan_cs_t                    := SCAN_IDLE;
-  signal wr_rst_busy             : std_logic;
-  --REVIEW not used  signal mem_wait                : std_logic                     := '0';
-  signal mem_cs                  : mem_cs_t                     := MEM_IDLE;
-
-  --REVIEW not used  signal reg_arready_r           : std_logic;
-  --REVIEW not used  signal reg_rvalid_r            : std_logic;
-  --REVIEW not used  signal reg_rdata_r             : std_logic_vector(31 downto 0);
-  --REVIEW not used  signal reg_rresp_r             : std_logic_vector(1 downto 0);
+  signal reg_cs                  : reg_cs_t                      := SM_IDLE;
+  signal reg_addr                : std_logic_vector(11 downto 0) := (others => '0');
+  signal reg_we                  : std_logic                     := '0';
+  signal reg_din                 : std_logic_vector(31 downto 0) := (others => '0');
+  signal reg_be                  : std_logic_vector(3 downto 0)  := (others => '0');
+  signal horiz_display_start_reg : unsigned(11 downto 0)         := to_unsigned(47, 12);
+  signal horiz_display_width_reg : unsigned(11 downto 0)         := to_unsigned(640, 12);
+  signal horiz_sync_width_reg    : unsigned(11 downto 0)         := to_unsigned(96, 12);
+  signal horiz_total_width_reg   : unsigned(11 downto 0)         := to_unsigned(799, 12);
+  signal vert_display_start_reg  : unsigned(11 downto 0)         := to_unsigned(31, 12);
+  signal vert_display_width_reg  : unsigned(11 downto 0)         := to_unsigned(480, 12);
+  signal vert_sync_width_reg     : unsigned(11 downto 0)         := to_unsigned(2, 12);
+  signal vert_total_width_reg    : unsigned(11 downto 0)         := to_unsigned(524, 12);
+  signal disp_addr_reg           : unsigned(31 downto 0)         := to_unsigned(0, 32);
+  signal pixel_depth_reg         : std_logic_vector(7 downto 0)  := PIXEL_DEPTH_REG_INIT; -- TODO: init?
+  signal polarity_reg            : unsigned(1 downto 0)          := to_unsigned(0, 2);
+  signal pitch_reg               : unsigned(12 downto 0)         := to_unsigned(5 * 16, 13);
+  signal horiz_display_start     : unsigned(11 downto 0)         := to_unsigned(47, 12);
+  signal horiz_display_width     : unsigned(11 downto 0)         := to_unsigned(640, 12);
+  signal horiz_sync_width        : unsigned(11 downto 0)         := to_unsigned(96, 12);
+  signal horiz_total_width       : unsigned(11 downto 0)         := to_unsigned(799, 12);
+  signal vert_display_start      : unsigned(11 downto 0)         := to_unsigned(31, 12);
+  signal vert_display_width      : unsigned(11 downto 0)         := to_unsigned(480, 12);
+  signal vert_sync_width         : unsigned(11 downto 0)         := to_unsigned(2, 12);
+  signal vert_total_width        : unsigned(11 downto 0)         := to_unsigned(524, 12);
+  signal disp_addr               : unsigned(31 downto 0)         := to_unsigned(0, 32);
+  signal polarity                : unsigned(1 downto 0)          := to_unsigned(0, 2);
+  signal pixel_depth             : std_logic_vector(7 downto 0)  := (others => '0');
+  signal vga_pop                 : std_logic                     := '0'; -- [vga_clk domain]
+  signal load_mode               : std_logic                     := '0';
+  signal load_mode_sync          : std_logic_vector(2 downto 0)  := "000";
+  signal mc_req_sync             : std_logic_vector(2 downto 0)  := "000"; -- [mem_clk domain]
+  signal horiz_count             : unsigned(11 downto 0)         := (others => '0');
+  signal mc_req                  : std_logic                     := '0'; -- [vga_clk domain]
+  signal mc_words                : unsigned(8 downto 0)          := (others => '0'); -- [vga_clk domain]
+  signal mc_addr                 : unsigned(mem_araddr'range)    := (others => '0'); -- [vga_clk domain]
+  signal fifo_rst                : std_logic                     := '0';
+  signal pix_count               : unsigned(6 downto 0)          := (others => '0'); -- [vga_clk domain]
+  signal scan_cs                 : scan_cs_t                     := SCAN_IDLE;
+  signal mem_cs                  : mem_cs_t                      := MEM_IDLE;
 
   -- Unregistered signals
-  -- TODO
+  signal vga_data    : std_logic_vector(127 downto 0); -- [vga_clk domain]
+  signal vga_empty   : std_logic;       -- [vga_clk domain]
+  signal rd_rst_busy : std_logic;
+  signal wr_rst_busy : std_logic;
 
   attribute ASYNC_REG : string;
   attribute ASYNC_REG of load_mode_sync : signal is "TRUE";
   attribute ASYNC_REG of mc_req_sync : signal is "TRUE";
 begin
 
-  --  mem_rready  <= mem_rready_r;
-  --  reg_awready <= reg_awready_r;
   reg_arready <= '1';
   reg_rvalid  <= '0';
   reg_rdata   <= (others => '0');
   reg_rresp   <= (others => '0');
 
-  -- TODO: check address hit
-
   ------------------------------------------------------------------------------------------------
   -- AXI4-lite write FSM
+  -- TODO: check address hit
   ------------------------------------------------------------------------------------------------
 
   axi4lite_wr : process(reg_clk)
@@ -402,7 +389,6 @@ begin
         scanline            := (others => '0');
         real_pitch          := to_unsigned(5 * 16, 13);
         horiz_count         <= (others => '0');
-        vert_count          <= (others => '0');
         vga_hblank          <= '0';
         vga_hsync           <= '0';
         vga_vblank          <= '0';
@@ -418,7 +404,6 @@ begin
         disp_addr           <= to_unsigned(0, 32);
         polarity            <= to_unsigned(0, 2);
         pixel_depth         <= (others => '0');
-        pitch               <= to_unsigned(5 * 16, 13);
         mc_req              <= '0';
         mc_addr             <= (others => '0');
         mc_words            <= (others => '0');
@@ -526,8 +511,8 @@ begin
 
           when MEM_IDLE =>
             if xor(mc_req_sync(2 downto 1)) then
-              mc_addr_reg  := mc_addr;  -- assuming mc_addr is stable an can be safely registered into mem_clk domain
-              mc_words_reg := mc_words; -- assuming mc_words is stable an can be safely registered into mem_clk domain
+              mc_addr_reg  := mc_addr;  -- assuming mc_addr is stable an can be safely registered into mem_clk domain here
+              mc_words_reg := mc_words; -- assuming mc_words is stable an can be safely registered into mem_clk domain here
               fifo_rst     <= '1';
               mem_cs       <= MEM_W4RSTH;
             end if;
@@ -653,15 +638,18 @@ begin
     port map(
       sleep         => '0',
       rst           => fifo_rst,
+      --
       wr_clk        => mem_clk,
       wr_en         => mem_rvalid,
       din           => mem_rdata,
       wr_rst_busy   => wr_rst_busy,
+      --
       rd_clk        => vga_clk,
       rd_en         => vga_pop,
       dout          => vga_data,
       empty         => vga_empty,
       rd_rst_busy   => rd_rst_busy,
+      --
       injectsbiterr => '0',
       injectdbiterr => '0'
     );
