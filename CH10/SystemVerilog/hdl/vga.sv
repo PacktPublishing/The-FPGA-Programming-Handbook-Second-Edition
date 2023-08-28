@@ -135,7 +135,7 @@ module vga
   logic [3:0]          s_ddr_arid;
   logic [26:0]         s_ddr_araddr;
   logic [7:0]          s_ddr_arlen;
-  logic [2:0]          s_ddr_arsize  = 3'b100; // 16 bytes
+  logic [2:0]          s_ddr_arsize; // 16 bytes
   logic [1:0]          s_ddr_arburst = 2'b01;  // incrementing
   logic [0:0]          s_ddr_arlock;
   logic [3:0]          s_ddr_arcache = '0;;
@@ -305,14 +305,12 @@ module vga
     logic [11:0]  vert_total_width;
     logic         hpol;
     logic         vpol;
-    logic [12:0]  pitch;
   } resolution_t;
 
   resolution_t resolution[18];
 
   logic [17:0][15:0][7:0] res_text;
   logic [15:0][7:0]       res_text_capt;
-  logic [12:0]            pitch_whole, pitch_fraction;
 
   initial begin
     res_text                           = '{default:" "};
@@ -625,13 +623,6 @@ module vga
     resolution[17].vpol                = '1;
     res_text[17]                       = "zH06 @ 0801x0291";
 
-    for (int i = 0; i < 18; i++) begin
-      pitch_whole         = resolution[i].horiz_display_width/BITS_PER_PAGE;
-      pitch_fraction      = resolution[i].horiz_display_width%BITS_PER_PAGE;
-
-      resolution[i].pitch = (pitch_whole + |pitch_fraction) * 16;
-      $display("%d: Pitch = %d, whole: %d, fraction: %d", i, resolution[i].pitch, pitch_whole, |pitch_fraction);
-    end
   end
 
   logic [11:0] addr_array[32];
@@ -682,7 +673,7 @@ module vga
   logic [31:0]         disp_addr;
 
   (* async_reg = "TRUE" *) logic [2:0]          button_sync;
-  logic [4:0]          sw_capt;
+  logic [4:0]          sw_capt = '0;
   logic [4:0]          wr_count;
 
   initial begin
@@ -706,6 +697,7 @@ module vga
     last_write[1]  <= wr_count == 31;
     case (cfg_state)
       CFG_IDLE0: begin
+        button_sync   <= 2'b10; // force programming on startup
         update_text   <= ~update_text;
         cfg_state     <= CFG_IDLE1;
       end
@@ -764,7 +756,7 @@ module vga
                                     resolution[sw_capt].hpol,
                                     resolution[sw_capt].vpol};
               29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+              30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
             cfg_state     <= CFG_WR3;
@@ -818,7 +810,7 @@ module vga
                                 resolution[sw_capt].hpol,
                                 resolution[sw_capt].vpol};
             29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
             31: s_axi_wdata <= 32'b1;
           endcase // case (wr_count)
         end // case: 3'b011
@@ -860,7 +852,7 @@ module vga
                                 resolution[sw_capt].hpol,
                                 resolution[sw_capt].vpol};
             29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
             31: s_axi_wdata <= 32'b1;
           endcase // case (wr_count)
         end // case: 3'b011
@@ -917,7 +909,7 @@ module vga
                                     resolution[sw_capt].hpol,
                                     resolution[sw_capt].vpol};
               29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+              30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
               31: s_axi_wdata <= 32'b1;
             endcase // case (wr_count)
             cfg_state     <= CFG_WR7;
@@ -971,7 +963,7 @@ module vga
                                 resolution[sw_capt].hpol,
                                 resolution[sw_capt].vpol};
             29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
             31: s_axi_wdata <= 32'b1;
           endcase // case (wr_count)
         end // case: 3'b011
@@ -1013,7 +1005,7 @@ module vga
                                 resolution[sw_capt].hpol,
                                 resolution[sw_capt].vpol};
             29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, resolution[sw_capt].pitch};
+            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
             31: s_axi_wdata <= 32'b1;
           endcase // case (wr_count)
         end // case: 3'b011
@@ -1065,15 +1057,18 @@ module vga
   logic [25:0]      total_page;
   logic [2:0][3:0]  char_x;
   logic [12:0]      real_pitch;
+  logic [12:0]      pitch_value;
+  assign pitch_value = get_pitch(resolution[sw_capt].horiz_total_width);
+
   always @(posedge ui_clk) begin
     update_text_sync <= update_text_sync << 1 | update_text;
     s_ddr_awvalid    <= '0;
     done             <= s_ddr_awaddr >= total_page;
     char_x[1]        <= char_x[0];
     char_x[2]        <= char_x[1];
-    real_pitch       <= |resolution[sw_capt].pitch[3:0] ?
-                        {resolution[sw_capt].pitch[12:4], 4'b0} + 16 :
-                        {resolution[sw_capt].pitch[12:4], 4'b0};
+    real_pitch       <= |pitch_value[3:0] ?
+                        {pitch_value[12:4], 4'b0} + 16 :
+                        {pitch_value[12:4], 4'b0};
     case (text_sm)
       TEXT_IDLE: begin
         if (^update_text_sync[2:1]) begin
@@ -1228,6 +1223,13 @@ module vga
     endcase // case (text_sm)
   end // always @ (posedge ui_clk)
 
-  // Game of life code -
+  function [12:0] get_pitch(logic [11:0] horiz_display_width);
+    logic [11:0] pitch_whole;
+    logic [11:0] pitch_fraction;
+    pitch_whole         = horiz_display_width/BITS_PER_PAGE;
+    pitch_fraction      = horiz_display_width%BITS_PER_PAGE;
+
+    return (pitch_whole + |pitch_fraction) * 16;
+  endfunction // get_pitch
 
 endmodule // vga

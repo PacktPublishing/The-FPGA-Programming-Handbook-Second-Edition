@@ -449,7 +449,7 @@ module vga_core
       end
       MEM_W4RSTH: begin
         next_addr <= mc_addr + {mc_words, 4'b0}; // Look to see if we need to break req
-        len_diff  <= 4095 - mc_addr[11:0];
+        len_diff  <= (4096 - mc_addr[11:0]) >> 4;
         if (wr_rst_busy) begin
           fifo_rst <= '0;
           mem_cs   <= MEM_W4RSTL;
@@ -463,21 +463,15 @@ module vga_core
           mem_arburst <= 2'b01; // incrementing
           mem_arlock  <= '0;
           mem_arvalid <= '1;
-          next_addr   <= mc_addr  + len_diff + 1'b1;
-          len_diff    <= mc_words - len_diff;
+          next_addr   <= mc_addr  + {len_diff, 4'h0};
+          len_diff    <= mc_words - ((len_diff >> 4) + |len_diff[3:0]);
           if (next_addr[31:12] != mc_addr[31:12]) begin
             // look if we are going to cross 2K boundary
-            mem_arlen <= len_diff;
-            if (mem_arready)
-              mem_cs <= MEM_REQ;
-            else
-              mem_cs <= MEM_W4RDY1;
+            mem_arlen <= (len_diff >> 4) + |len_diff[3:0] - 1;
+            mem_cs <= MEM_W4RDY1;
           end else begin
             mem_arlen   <= mc_words - 1;
-            if (mem_arready)
-              mem_cs <= MEM_IDLE;
-            else
-              mem_cs <= MEM_W4RDY0;
+            mem_cs <= MEM_W4RDY0;
           end // else: !if(next_addr[12])
         end
       end // case: MEM_W4RSTH
@@ -511,5 +505,6 @@ module vga_core
         end
       end // case: MEM_W4RSTH
     endcase
-  end
+  end // always @ (posedge mem_clk)
+
 endmodule // vga
