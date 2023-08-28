@@ -128,61 +128,6 @@ package vga_pkg is
     );
   end component ddr2_vga;
 
-  component text_rom is
-    port(
-      clock      : in  std_logic;
-      index      : in  std_logic_vector(7 downto 0);
-      sub_index  : in  std_logic_vector(2 downto 0);
-      bitmap_out : out std_logic_vector(7 downto 0)
-    );
-  end component text_rom;
-
-  component vga_core is
-    port(                               -- Register address
-      reg_clk     : in  std_logic;
-      reg_reset   : in  std_logic;
-      reg_awvalid : in  std_logic;
-      reg_awready : out std_logic;
-      reg_awaddr  : in  std_logic_vector(11 downto 0);
-      reg_wvalid  : in  std_logic;
-      reg_wready  : out std_logic;
-      reg_wdata   : in  std_logic_vector(31 downto 0);
-      reg_wstrb   : in  std_logic_vector(3 downto 0);
-      reg_bready  : in  std_logic;
-      reg_bvalid  : out std_logic;
-      reg_bresp   : out std_logic_vector(1 downto 0);
-      reg_arvalid : in  std_logic;
-      reg_arready : out std_logic;
-      reg_araddr  : in  std_logic_vector(11 downto 0);
-      reg_rready  : in  std_logic;
-      reg_rvalid  : out std_logic;
-      reg_rdata   : out std_logic_vector(31 downto 0);
-      reg_rresp   : out std_logic_vector(1 downto 0);
-      -- Master memory
-      mem_clk     : in  std_logic;
-      mem_reset   : in  std_logic;
-      mem_arid    : out std_logic_vector(3 downto 0);
-      mem_araddr  : out std_logic_vector(26 downto 0);
-      mem_arlen   : out std_logic_vector(7 downto 0);
-      mem_arsize  : out std_logic_vector(2 downto 0);
-      mem_arburst : out std_logic_vector(1 downto 0);
-      mem_arlock  : out std_logic;
-      mem_arvalid : out std_logic;
-      mem_arready : in  std_logic;
-      mem_rready  : out std_logic;
-      mem_rid     : in  std_logic_vector(3 downto 0);
-      mem_rdata   : in  std_logic_vector(127 downto 0);
-      mem_rresp   : in  std_logic_vector(1 downto 0);
-      mem_rlast   : in  std_logic;
-      mem_rvalid  : in  std_logic;
-      vga_clk     : in  std_logic;
-      vga_hsync   : out std_logic;
-      vga_hblank  : out std_logic;
-      vga_vsync   : out std_logic;
-      vga_vblank  : out std_logic;
-      vga_rgb     : out std_logic_vector(23 downto 0));
-  end component vga_core;
-
   type resolution_t is record
     divide_count        : unsigned(7 downto 0);
     mult_integer        : unsigned(15 downto 8);
