@@ -665,7 +665,8 @@ module vga
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[8]
+                CFG_WR[8],
+                W4PLL[2]
                 } cfg_state_t;
 
   cfg_state_t cfg_state;
@@ -861,9 +862,7 @@ module vga
         // Note that we are not handling bresp error conditions
         case ({last_write[0], s_axi_bvalid})
           2'b11: begin
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state <= CFG_WR4;
+            cfg_state <= W4PLL0;
           end
           2'b01: begin
             s_axi_awvalid <= 2'b01;
@@ -871,6 +870,17 @@ module vga
             cfg_state <= CFG_WR0;
           end
         endcase // case ({last_write[0], s_axi_bvalid})
+      end
+      W4PLL0: begin
+        // Wait for the PLL config to take effect
+        if (~locked) cfg_state <= W4PLL1;
+      end
+      W4PLL1: begin
+        if (locked) begin
+          s_axi_awvalid <= 2'b10;
+          s_axi_wvalid  <= 2'b10;
+          cfg_state     <= CFG_WR4;
+        end
       end
       CFG_WR4: begin
         casez ({s_axi_awready[1], s_axi_wready[1]})
