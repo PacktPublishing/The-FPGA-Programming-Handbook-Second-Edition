@@ -279,8 +279,8 @@ module vga_core
   logic [11:0] horiz_count;
   logic [11:0] vert_count;
   logic        mc_req;
-  logic [7:0]  mc_words;
-  logic [31:0] mc_addr;
+  logic [7:0]  mc_words, mc_words_mem;
+  logic [31:0] mc_addr, mc_addr_mem;
   logic        fifo_rst;
   logic [31:0] scanline;
 
@@ -435,21 +435,28 @@ module vga_core
     mem_cs      = MEM_IDLE;
   end
 
+  //assign mc_addr_mem  = mc_addr;
+  //assign mc_words_mem = mc_words;
+
   // memory controller state machine
   (* async_reg = "TRUE" *) logic [2:0]  mc_req_sync;
   always @(posedge mem_clk) begin
     mc_req_sync <= mc_req_sync << 1 | mc_req;
     case (mem_cs)
       MEM_IDLE: begin
-        mem_arvalid <= '0;
+        mem_arvalid  <= '0;
         if (^mc_req_sync[2:1]) begin
-          fifo_rst <= '1;
-          mem_cs   <= MEM_W4RSTH;
+          // Register on the destination clock domain so we are clear it's safe
+          // to use on the memory clock
+          mc_addr_mem  <= mc_addr;
+          mc_words_mem <= mc_words;
+          fifo_rst     <= '1;
+          mem_cs       <= MEM_W4RSTH;
         end
       end
       MEM_W4RSTH: begin
-        next_addr <= mc_addr + {mc_words, 4'b0}; // Look to see if we need to break req
-        len_diff  <= (4096 - mc_addr[11:0]) >> 4;
+        next_addr <= mc_addr_mem + {mc_words_mem, 4'b0}; // Look to see if we need to break req
+        len_diff  <= (4096 - mc_addr_mem[11:0]) >> 4;
         if (wr_rst_busy) begin
           fifo_rst <= '0;
           mem_cs   <= MEM_W4RSTL;
@@ -458,19 +465,19 @@ module vga_core
       MEM_W4RSTL: begin
         if (~wr_rst_busy) begin
           mem_arid    <= '0;
-          mem_araddr  <= mc_addr;
+          mem_araddr  <= mc_addr_mem;
           mem_arsize  <= 3'b100; // 16 bytes
           mem_arburst <= 2'b01; // incrementing
           mem_arlock  <= '0;
           mem_arvalid <= '1;
-          next_addr   <= mc_addr  + {len_diff, 4'h0};
-          len_diff    <= mc_words - ((len_diff >> 4) + |len_diff[3:0]);
-          if (next_addr[31:12] != mc_addr[31:12]) begin
+          next_addr   <= mc_addr_mem  + {len_diff, 4'h0};
+          len_diff    <= mc_words_mem - ((len_diff >> 4) + |len_diff[3:0]);
+          if (next_addr[31:12] != mc_addr_mem[31:12]) begin
             // look if we are going to cross 2K boundary
             mem_arlen <= (len_diff >> 4) + |len_diff[3:0] - 1;
             mem_cs <= MEM_W4RDY1;
           end else begin
-            mem_arlen   <= mc_words - 1;
+            mem_arlen   <= mc_words_mem - 1;
             mem_cs <= MEM_W4RDY0;
           end // else: !if(next_addr[12])
         end
@@ -490,20 +497,15 @@ module vga_core
           mem_cs <= MEM_W4RDY1;
       end
       MEM_REQ: begin
-        if (~wr_rst_busy) begin
-          mem_arid    <= '0;
-          mem_araddr  <= next_addr;
-          mem_arsize  <= 3'b100; // 16 bytes
-          mem_arburst <= 2'b01; // incrementing
-          mem_arlock  <= '0;
-          mem_arvalid <= '1;
-          mem_arlen   <= len_diff;
-          if (mem_arready)
-            mem_cs <= MEM_IDLE;
-          else
-            mem_cs <= MEM_W4RDY0;
-        end
-      end // case: MEM_W4RSTH
+        mem_arid    <= '0;
+        mem_araddr  <= next_addr;
+        mem_arsize  <= 3'b100; // 16 bytes
+        mem_arburst <= 2'b01; // incrementing
+        mem_arlock  <= '0;
+        mem_arvalid <= '1;
+        mem_arlen   <= len_diff;
+        mem_cs      <= MEM_W4RDY0;
+      end
     endcase
   end // always @ (posedge mem_clk)
 
