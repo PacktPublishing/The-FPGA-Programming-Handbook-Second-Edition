@@ -132,7 +132,7 @@
         "CLKFB_OUT_N_PORT": [ { "value": "clkfb_out_n", "resolve_type": "user", "usage": "all" } ],
         "PLATFORM": [ { "value": "UNKNOWN", "resolve_type": "user", "usage": "all" } ],
         "SUMMARY_STRINGS": [ { "value": "empty", "resolve_type": "user", "usage": "all" } ],
-        "USE_LOCKED": [ { "value": "false", "value_src": "user", "resolve_type": "user", "format": "bool", "usage": "all" } ],
+        "USE_LOCKED": [ { "value": "true", "value_src": "user", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "CALC_DONE": [ { "value": "empty", "resolve_type": "user", "usage": "all" } ],
         "USE_RESET": [ { "value": "false", "value_src": "user", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "USE_POWER_DOWN": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
@@ -319,7 +319,7 @@
         "C_CLKFB_IN_SIGNALING": [ { "value": "SINGLE", "resolve_type": "generated", "usage": "all" } ],
         "C_USE_RESET": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_RESET_LOW": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "C_USE_LOCKED": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "C_USE_LOCKED": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_USE_INCLK_STOPPED": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_USE_CLKFB_STOPPED": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_USE_POWER_DOWN": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
@@ -584,11 +584,11 @@
       },
       "project_parameters": {
         "ARCHITECTURE": [ { "value": "artix7" } ],
-        "BASE_BOARD_PART": [ { "value": "digilentinc.com:nexys-a7-100t:part0:1.2" } ],
+        "BASE_BOARD_PART": [ { "value": "digilentinc.com:nexys-a7-100t:part0:1.3" } ],
         "BOARD_CONNECTIONS": [ { "value": "" } ],
         "DEVICE": [ { "value": "xc7a100t" } ],
         "PACKAGE": [ { "value": "csg324" } ],
-        "PREFHDL": [ { "value": "VERILOG" } ],
+        "PREFHDL": [ { "value": "VHDL" } ],
         "SILICON_REVISION": [ { "value": "" } ],
         "SIMULATOR_LANGUAGE": [ { "value": "MIXED" } ],
         "SPEEDGRADE": [ { "value": "-1" } ],
@@ -612,7 +612,8 @@
       "ports": {
         "clk_in1": [ { "direction": "in" } ],
         "clk_out1": [ { "direction": "out" } ],
-        "clk_out2": [ { "direction": "out" } ]
+        "clk_out2": [ { "direction": "out" } ],
+        "locked": [ { "direction": "out" } ]
       },
       "interfaces": {
         "clock_CLK_IN1": {
