@@ -13,121 +13,7 @@ USE IEEE.numeric_std.all;
 
 package vga_pkg is
 
-  component sys_pll
-    port(
-      clk_out1 : out std_logic;
-      clk_out2 : out std_logic;
-      locked   : out std_logic;
-      clk_in1  : in  std_logic
-    );
-  end component;
-
-  component pix_clk
-    port(
-      -- System interface
-      s_axi_aclk    : in  std_logic;
-      s_axi_aresetn : in  std_logic;
-      -- AXI Write address channel signals
-      s_axi_awaddr  : in  std_logic_vector(10 downto 0);
-      s_axi_awvalid : in  std_logic;
-      s_axi_awready : out std_logic;
-      -- AXI Write data channel signals
-      s_axi_wdata   : in  std_logic_vector(31 downto 0);
-      s_axi_wstrb   : in  std_logic_vector(3 downto 0);
-      s_axi_wvalid  : in  std_logic;
-      s_axi_wready  : out std_logic;
-      -- AXI Write response channel signals
-      s_axi_bresp   : out std_logic_vector(1 downto 0);
-      s_axi_bvalid  : out std_logic;
-      s_axi_bready  : in  std_logic;
-      -- AXI Read address channel signals
-      s_axi_araddr  : in  std_logic_vector(10 downto 0);
-      s_axi_arvalid : in  std_logic;
-      s_axi_arready : out std_logic;
-      -- AXI Read address channel signals
-      s_axi_rdata   : out std_logic_vector(31 downto 0);
-      s_axi_rresp   : out std_logic_vector(1 downto 0);
-      s_axi_rvalid  : out std_logic;
-      s_axi_rready  : in  std_logic;
-      -- Clock out ports
-      clk_out1      : out std_logic;
-      -- Status and control signals
-      locked        : out std_logic;
-      -- Clock in ports
-      clk_in1       : in  std_logic
-    );
-  end component;
-
-  component ddr2_vga is
-    Port(
-      ddr2_dq             : inout STD_LOGIC_VECTOR(15 downto 0);
-      ddr2_dqs_n          : inout STD_LOGIC_VECTOR(1 downto 0);
-      ddr2_dqs_p          : inout STD_LOGIC_VECTOR(1 downto 0);
-      ddr2_addr           : out   STD_LOGIC_VECTOR(12 downto 0);
-      ddr2_ba             : out   STD_LOGIC_VECTOR(2 downto 0);
-      ddr2_ras_n          : out   STD_LOGIC;
-      ddr2_cas_n          : out   STD_LOGIC;
-      ddr2_we_n           : out   STD_LOGIC;
-      ddr2_ck_p           : out   STD_LOGIC_VECTOR(0 to 0);
-      ddr2_ck_n           : out   STD_LOGIC_VECTOR(0 to 0);
-      ddr2_cke            : out   STD_LOGIC_VECTOR(0 to 0);
-      ddr2_cs_n           : out   STD_LOGIC_VECTOR(0 to 0);
-      ddr2_dm             : out   STD_LOGIC_VECTOR(1 downto 0);
-      ddr2_odt            : out   STD_LOGIC_VECTOR(0 to 0);
-      sys_clk_i           : in    STD_LOGIC;
-      clk_ref_i           : in    STD_LOGIC;
-      ui_clk              : out   STD_LOGIC;
-      ui_clk_sync_rst     : out   STD_LOGIC;
-      mmcm_locked         : out   STD_LOGIC;
-      aresetn             : in    STD_LOGIC;
-      app_sr_req          : in    STD_LOGIC;
-      app_ref_req         : in    STD_LOGIC;
-      app_zq_req          : in    STD_LOGIC;
-      app_sr_active       : out   STD_LOGIC;
-      app_ref_ack         : out   STD_LOGIC;
-      app_zq_ack          : out   STD_LOGIC;
-      s_axi_awid          : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_awaddr        : in    STD_LOGIC_VECTOR(26 downto 0);
-      s_axi_awlen         : in    STD_LOGIC_VECTOR(7 downto 0);
-      s_axi_awsize        : in    STD_LOGIC_VECTOR(2 downto 0);
-      s_axi_awburst       : in    STD_LOGIC_VECTOR(1 downto 0);
-      s_axi_awlock        : in    STD_LOGIC_VECTOR(0 to 0);
-      s_axi_awcache       : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_awprot        : in    STD_LOGIC_VECTOR(2 downto 0);
-      s_axi_awqos         : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_awvalid       : in    STD_LOGIC;
-      s_axi_awready       : out   STD_LOGIC;
-      s_axi_wdata         : in    STD_LOGIC_VECTOR(127 downto 0);
-      s_axi_wstrb         : in    STD_LOGIC_VECTOR(15 downto 0);
-      s_axi_wlast         : in    STD_LOGIC;
-      s_axi_wvalid        : in    STD_LOGIC;
-      s_axi_wready        : out   STD_LOGIC;
-      s_axi_bready        : in    STD_LOGIC;
-      s_axi_bid           : out   STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_bresp         : out   STD_LOGIC_VECTOR(1 downto 0);
-      s_axi_bvalid        : out   STD_LOGIC;
-      s_axi_arid          : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_araddr        : in    STD_LOGIC_VECTOR(26 downto 0);
-      s_axi_arlen         : in    STD_LOGIC_VECTOR(7 downto 0);
-      s_axi_arsize        : in    STD_LOGIC_VECTOR(2 downto 0);
-      s_axi_arburst       : in    STD_LOGIC_VECTOR(1 downto 0);
-      s_axi_arlock        : in    STD_LOGIC_VECTOR(0 to 0);
-      s_axi_arcache       : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_arprot        : in    STD_LOGIC_VECTOR(2 downto 0);
-      s_axi_arqos         : in    STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_arvalid       : in    STD_LOGIC;
-      s_axi_arready       : out   STD_LOGIC;
-      s_axi_rready        : in    STD_LOGIC;
-      s_axi_rid           : out   STD_LOGIC_VECTOR(3 downto 0);
-      s_axi_rdata         : out   STD_LOGIC_VECTOR(127 downto 0);
-      s_axi_rresp         : out   STD_LOGIC_VECTOR(1 downto 0);
-      s_axi_rlast         : out   STD_LOGIC;
-      s_axi_rvalid        : out   STD_LOGIC;
-      init_calib_complete : out   STD_LOGIC;
-      sys_rst             : in    STD_LOGIC
-    );
-  end component ddr2_vga;
-
+  -- Types
   type resolution_t is record
     divide_count        : unsigned(7 downto 0);
     mult_integer        : unsigned(15 downto 8);
@@ -147,7 +33,10 @@ package vga_pkg is
   end record;
 
   type resolution_array is array (natural range <>) of resolution_t;
+  type res_text_t is array (natural range <>) of string(16 downto 1);
+  type addr_array_t is array (natural range <>) of std_logic_vector(11 downto 0);
 
+  -- Constants
   constant RESOLUTION : resolution_array(0 to 17) := (
     (
       -- 25.18 Mhz 640x480 @ 60Hz
@@ -461,11 +350,6 @@ package vga_pkg is
     )
   );
 
-  --REVIEW type res_text_capt_t is array (natural range <>) of character;
-  --REVIEW  type res_text_t is array (natural range <>) of res_text_capt_t;
-  type res_text_t is array (natural range <>) of string(16 downto 1);
-
-  --  constant RES_TEXT : res_text_t(0 to 17)(15 downto 0) := (
   constant RES_TEXT : res_text_t(0 to 17) := (
     "  zH06 @ 084x046",
     "  zH27 @ 084x046",
@@ -487,8 +371,6 @@ package vga_pkg is
     "zH06 @ 0801x0291"
   );
 
-  type addr_array_t is array (natural range <>) of std_logic_vector(11 downto 0);
-
   constant ADDR_ARRAY : addr_array_t(0 to 31) := (
     -- pix_clk MMCM addresses
     x"200", x"204", x"208", x"20C", x"210", x"214", x"218", x"21C",
@@ -507,6 +389,122 @@ package vga_pkg is
   function resolution_lookup(sw_capt : in integer range 0 to 17; wr_count : in integer range 0 to 31) return std_logic_vector;
 
   function get_res_char(sw_capt : integer range 0 to 17; x : integer range 0 to 15) return character;
+
+  -- Components
+  component sys_pll
+    port(
+      clk_out1 : out std_logic;
+      clk_out2 : out std_logic;
+      locked   : out std_logic;
+      clk_in1  : in  std_logic
+    );
+  end component;
+
+  component pix_clk
+    port(
+      -- System interface
+      s_axi_aclk    : in  std_logic;
+      s_axi_aresetn : in  std_logic;
+      -- AXI Write address channel signals
+      s_axi_awaddr  : in  std_logic_vector(10 downto 0);
+      s_axi_awvalid : in  std_logic;
+      s_axi_awready : out std_logic;
+      -- AXI Write data channel signals
+      s_axi_wdata   : in  std_logic_vector(31 downto 0);
+      s_axi_wstrb   : in  std_logic_vector(3 downto 0);
+      s_axi_wvalid  : in  std_logic;
+      s_axi_wready  : out std_logic;
+      -- AXI Write response channel signals
+      s_axi_bresp   : out std_logic_vector(1 downto 0);
+      s_axi_bvalid  : out std_logic;
+      s_axi_bready  : in  std_logic;
+      -- AXI Read address channel signals
+      s_axi_araddr  : in  std_logic_vector(10 downto 0);
+      s_axi_arvalid : in  std_logic;
+      s_axi_arready : out std_logic;
+      -- AXI Read address channel signals
+      s_axi_rdata   : out std_logic_vector(31 downto 0);
+      s_axi_rresp   : out std_logic_vector(1 downto 0);
+      s_axi_rvalid  : out std_logic;
+      s_axi_rready  : in  std_logic;
+      -- Clock out ports
+      clk_out1      : out std_logic;
+      -- Status and control signals
+      locked        : out std_logic;
+      -- Clock in ports
+      clk_in1       : in  std_logic
+    );
+  end component;
+
+  component ddr2_vga is
+    Port(
+      ddr2_dq             : inout STD_LOGIC_VECTOR(15 downto 0);
+      ddr2_dqs_n          : inout STD_LOGIC_VECTOR(1 downto 0);
+      ddr2_dqs_p          : inout STD_LOGIC_VECTOR(1 downto 0);
+      ddr2_addr           : out   STD_LOGIC_VECTOR(12 downto 0);
+      ddr2_ba             : out   STD_LOGIC_VECTOR(2 downto 0);
+      ddr2_ras_n          : out   STD_LOGIC;
+      ddr2_cas_n          : out   STD_LOGIC;
+      ddr2_we_n           : out   STD_LOGIC;
+      ddr2_ck_p           : out   STD_LOGIC_VECTOR(0 to 0);
+      ddr2_ck_n           : out   STD_LOGIC_VECTOR(0 to 0);
+      ddr2_cke            : out   STD_LOGIC_VECTOR(0 to 0);
+      ddr2_cs_n           : out   STD_LOGIC_VECTOR(0 to 0);
+      ddr2_dm             : out   STD_LOGIC_VECTOR(1 downto 0);
+      ddr2_odt            : out   STD_LOGIC_VECTOR(0 to 0);
+      sys_clk_i           : in    STD_LOGIC;
+      clk_ref_i           : in    STD_LOGIC;
+      ui_clk              : out   STD_LOGIC;
+      ui_clk_sync_rst     : out   STD_LOGIC;
+      mmcm_locked         : out   STD_LOGIC;
+      aresetn             : in    STD_LOGIC;
+      app_sr_req          : in    STD_LOGIC;
+      app_ref_req         : in    STD_LOGIC;
+      app_zq_req          : in    STD_LOGIC;
+      app_sr_active       : out   STD_LOGIC;
+      app_ref_ack         : out   STD_LOGIC;
+      app_zq_ack          : out   STD_LOGIC;
+      s_axi_awid          : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_awaddr        : in    STD_LOGIC_VECTOR(26 downto 0);
+      s_axi_awlen         : in    STD_LOGIC_VECTOR(7 downto 0);
+      s_axi_awsize        : in    STD_LOGIC_VECTOR(2 downto 0);
+      s_axi_awburst       : in    STD_LOGIC_VECTOR(1 downto 0);
+      s_axi_awlock        : in    STD_LOGIC_VECTOR(0 to 0);
+      s_axi_awcache       : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_awprot        : in    STD_LOGIC_VECTOR(2 downto 0);
+      s_axi_awqos         : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_awvalid       : in    STD_LOGIC;
+      s_axi_awready       : out   STD_LOGIC;
+      s_axi_wdata         : in    STD_LOGIC_VECTOR(127 downto 0);
+      s_axi_wstrb         : in    STD_LOGIC_VECTOR(15 downto 0);
+      s_axi_wlast         : in    STD_LOGIC;
+      s_axi_wvalid        : in    STD_LOGIC;
+      s_axi_wready        : out   STD_LOGIC;
+      s_axi_bready        : in    STD_LOGIC;
+      s_axi_bid           : out   STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_bresp         : out   STD_LOGIC_VECTOR(1 downto 0);
+      s_axi_bvalid        : out   STD_LOGIC;
+      s_axi_arid          : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_araddr        : in    STD_LOGIC_VECTOR(26 downto 0);
+      s_axi_arlen         : in    STD_LOGIC_VECTOR(7 downto 0);
+      s_axi_arsize        : in    STD_LOGIC_VECTOR(2 downto 0);
+      s_axi_arburst       : in    STD_LOGIC_VECTOR(1 downto 0);
+      s_axi_arlock        : in    STD_LOGIC_VECTOR(0 to 0);
+      s_axi_arcache       : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_arprot        : in    STD_LOGIC_VECTOR(2 downto 0);
+      s_axi_arqos         : in    STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_arvalid       : in    STD_LOGIC;
+      s_axi_arready       : out   STD_LOGIC;
+      s_axi_rready        : in    STD_LOGIC;
+      s_axi_rid           : out   STD_LOGIC_VECTOR(3 downto 0);
+      s_axi_rdata         : out   STD_LOGIC_VECTOR(127 downto 0);
+      s_axi_rresp         : out   STD_LOGIC_VECTOR(1 downto 0);
+      s_axi_rlast         : out   STD_LOGIC;
+      s_axi_rvalid        : out   STD_LOGIC;
+      init_calib_complete : out   STD_LOGIC;
+      sys_rst             : in    STD_LOGIC
+    );
+  end component ddr2_vga;
 
 end package vga_pkg;
 

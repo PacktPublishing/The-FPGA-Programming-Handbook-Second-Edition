@@ -60,44 +60,44 @@ architecture rtl of vga is
     CFG_WR3, CFG_WR31, CFG_WR4, CFG_WR5, CFG_VGA_WAIT_BRESP);
 
   type text_sm_t is (
-    TEXT_IDLE, TEXT_CLR0, TEXT_CLR1, TEXT_CLR2,
+    TEXT_IDLE, TEXT_CLR0, TEXT_CLR1, TEXT_CLR2, TEXT_CLR_WAIT_BRESP,
     TEXT_WRITE0, TEXT_WRITE1, TEXT_WRITE2,
-    TEXT_WRITE3, TEXT_WRITE4);
+    TEXT_WRITE3, TEXT_WRITE4, TEXT_WRITE_WAIT_BRESP);
 
   type char_x_t is array (natural range <>) of integer range 0 to RES_TEXT_LENGTH - 1;
 
   type slv2_array_t is array (natural range <>) of std_logic_vector(1 downto 0);
 
   -- Registered signals with initial values
-  -- TODO: add clock domains
-  signal s_axi_awaddr     : std_logic_vector(11 downto 0)            := (others => '0');
-  signal s_axi_awvalid    : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core
-  signal s_axi_wdata      : std_logic_vector(31 downto 0);
-  signal s_axi_wvalid     : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core
-  signal char_index       : natural range 0 to 255                   := 0; -- character index (ASCII code) in text_rom
-  signal char_y           : natural range 0 to CHAR_ROWS - 1         := 0; -- character row index
-  signal s_ddr_awaddr     : unsigned(26 downto 0)                    := (others => '0');
-  signal s_ddr_awlen      : std_logic_vector(7 downto 0)             := (others => '0');
-  signal s_ddr_awsize     : std_logic_vector(2 downto 0)             := "100"; -- 16 bytes in transfer
-  signal s_ddr_awburst    : std_logic_vector(1 downto 0)             := "01";
-  signal s_ddr_awlock     : std_logic_vector(0 downto 0)             := "0";
-  signal s_ddr_awcache    : std_logic_vector(3 downto 0)             := (others => '0');
-  signal s_ddr_awprot     : std_logic_vector(2 downto 0)             := (others => '0');
-  signal s_ddr_awqos      : std_logic_vector(3 downto 0)             := (others => '0');
-  signal s_ddr_awvalid    : std_logic                                := '0';
-  signal s_ddr_wdata      : std_logic_vector(127 downto 0)           := (others => '0');
-  signal s_ddr_wstrb      : std_logic_vector(15 downto 0)            := (others => '0');
-  signal s_ddr_wlast      : std_logic                                := '0';
-  signal s_ddr_wvalid     : std_logic                                := '0';
-  signal cfg_state        : cfg_state_t                              := CFG_IDLE0;
-  signal button_sync      : std_logic_vector(2 downto 0)             := "000";
+  signal s_axi_awaddr     : std_logic_vector(11 downto 0)            := (others => '0'); -- [clk200 domain]
+  signal s_axi_awvalid    : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
+  signal s_axi_wdata      : std_logic_vector(31 downto 0)            := (others => '0'); -- [clk200 domain]
+  signal s_axi_wvalid     : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
+  signal char_index       : natural range 0 to 255                   := 0; -- character index (ASCII code) in text_rom [ui_clk domain]
+  signal char_y           : natural range 0 to CHAR_ROWS - 1         := 0; -- character row index [ui_clk domain]
+  signal s_ddr_awaddr     : unsigned(26 downto 0)                    := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awlen      : std_logic_vector(7 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awsize     : std_logic_vector(2 downto 0)             := "100"; -- 16 bytes in transfer [ui_clk domain]
+  signal s_ddr_awburst    : std_logic_vector(1 downto 0)             := "01"; -- [ui_clk domain]
+  signal s_ddr_awlock     : std_logic_vector(0 downto 0)             := "0"; -- [ui_clk domain]
+  signal s_ddr_awcache    : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awprot     : std_logic_vector(2 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awqos      : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awvalid    : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_wdata      : std_logic_vector(127 downto 0)           := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_wstrb      : std_logic_vector(15 downto 0)            := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_wlast      : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_wvalid     : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_bready     : std_logic                                := '0'; -- [ui_clk domain]  
+  signal cfg_state        : cfg_state_t                              := CFG_IDLE0; -- [clk200 domain]
+  signal button_sync      : std_logic_vector(2 downto 0)             := "000"; -- [clk200 domain]
   signal sw_capt          : integer range 0 to RESOLUTION'length - 1 := 0; -- [clk200 domain] 
-  signal wr_count         : integer range 0 to TOTAL_REGISTER_COUNT  := 0; -- AXI4-lite write transaction counter
+  signal wr_count         : integer range 0 to TOTAL_REGISTER_COUNT  := 0; -- AXI4-lite write transaction counter [clk200 domain]
   signal update_text      : std_logic                                := '0'; -- [clk200 domain]
   signal update_text_sync : std_logic_vector(2 downto 0)             := "000"; -- [ui_clk domain]
-  signal text_sm          : text_sm_t                                := TEXT_IDLE;
-  signal total_page       : unsigned(24 downto 0)                    := (others => '0');
-  signal char_x           : char_x_t(2 downto 0)                     := (others => 0); -- NOTE: could be a variable
+  signal text_sm          : text_sm_t                                := TEXT_IDLE; -- [ui_clk domain]
+  signal total_page       : unsigned(24 downto 0)                    := (others => '0'); -- [ui_clk domain]
+  signal char_x           : char_x_t(2 downto 0)                     := (others => 0); -- NOTE: could be a variable [ui_clk domain]
 
   -- Unregistered signals without initial values
   signal sys_pll_locked        : std_logic;
@@ -112,18 +112,14 @@ architecture rtl of vga is
   signal mc_clk                : std_logic; -- 325 MHz 
   signal clk200                : std_logic;
   signal char_slice            : std_logic_vector(7 downto 0);
-  signal ui_clk                : std_logic; -- TODO MHz
+  signal ui_clk                : std_logic; -- 325/4 = 81.25 MHz
   signal ui_clk_sync_rst       : std_logic;
-  signal app_sr_active         : std_logic;
-  signal app_ref_ack           : std_logic;
-  signal app_zq_ack            : std_logic;
   signal s_ddr_awid            : std_logic_vector(3 downto 0);
   signal s_ddr_awready         : std_logic;
   signal s_ddr_wready          : std_logic;
   signal s_ddr_bid             : std_logic_vector(3 downto 0);
   signal s_ddr_bresp           : std_logic_vector(1 downto 0);
   signal s_ddr_bvalid          : std_logic;
-  signal s_ddr_bready          : std_logic;
   signal s_ddr_arid            : std_logic_vector(3 downto 0);
   signal s_ddr_araddr          : std_logic_vector(26 downto 0);
   signal s_ddr_arlen           : std_logic_vector(7 downto 0);
@@ -253,10 +249,10 @@ begin
       SRC_INPUT_REG  => 0               -- DECIMAL; 0=do not register input, 1=register input
     )
     port map(
-      dest_out => pix_clk_locked_clk200, -- 1-bit output: src_in synchronized to the destination clock domain. This output is registered.
-      dest_clk => clk200,               -- 1-bit input: Clock signal for the destination clock domain.
       src_clk  => '0',                  -- 1-bit input: optional; required when SRC_INPUT_REG = 1
-      src_in   => pix_clk_locked        -- 1-bit input: Input signal to be synchronized to dest_clk domain.
+      src_in   => pix_clk_locked,       -- 1-bit input: Input signal to be synchronized to dest_clk domain.
+      dest_clk => clk200,               -- 1-bit input: Clock signal for the destination clock domain.
+      dest_out => pix_clk_locked_clk200 -- 1-bit output: src_in synchronized to the destination clock domain. This output is registered.
     );
 
   ------------------------------------------------------------------------------
@@ -276,7 +272,6 @@ begin
   ------------------------------------------------------------------------------
 
   s_ddr_awid    <= (others => '0');
-  s_ddr_bready  <= '1';
   s_ddr_arcache <= (others => '0');
   s_ddr_arprot  <= (others => '0');
   s_ddr_arqos   <= (others => '0');
@@ -303,13 +298,13 @@ begin
       ui_clk              => ui_clk,
       ui_clk_sync_rst     => ui_clk_sync_rst,
       mmcm_locked         => open,
-      aresetn             => '1',       -- REVIEW: purpose and clock domain?
+      aresetn             => not ui_clk_sync_rst, -- Input reset to the AXI Shim and it should be in synchronous with FPGA logic clock.
       app_sr_req          => '0',
       app_ref_req         => '0',
       app_zq_req          => '0',
-      app_sr_active       => app_sr_active,
-      app_ref_ack         => app_ref_ack,
-      app_zq_ack          => app_zq_ack,
+      app_sr_active       => open,
+      app_ref_ack         => open,
+      app_zq_ack          => open,
       -- Slave Interface Write Address Ports
       s_axi_awid          => s_ddr_awid,
       s_axi_awaddr        => std_logic_vector(s_ddr_awaddr),
@@ -356,7 +351,7 @@ begin
       sys_clk_i           => mc_clk,
       -- Reference Clock Ports
       clk_ref_i           => clk200,
-      sys_rst             => '0');      -- REVIEW: clock domain and purpose?
+      sys_rst             => '0');      -- asynchronous system reset input
 
   ------------------------------------------------------------------------------
   -- VGA Controller
@@ -450,7 +445,7 @@ begin
             assert wr_count = 0 severity failure;
             s_axi_awvalid(MMCM_IDX) <= '0';
             s_axi_wvalid(MMCM_IDX)  <= '0';
-            if button_sync(2 downto 1) = "10" then -- REVIEW: falling edge?
+            if button_sync(2 downto 1) = "10" then
               update_text             <= not update_text; -- we can start writing the text as we are updating
               s_axi_awvalid(MMCM_IDX) <= '1';
               s_axi_awaddr            <= ADDR_ARRAY(wr_count);
@@ -607,6 +602,7 @@ begin
         s_ddr_wdata      <= (others => '0');
         s_ddr_wstrb      <= (others => '0');
         s_ddr_wlast      <= '0';
+        s_ddr_bready     <= '0';
         --
         char_x           <= (others => 0);
         char_y           <= 0;
@@ -644,16 +640,13 @@ begin
               -- Write 0x0 starting at DDR address 0x0
               s_ddr_awaddr  <= (others => '0');
               s_ddr_awvalid <= '1';
-
-              s_ddr_wdata  <= (others => '0');
-              s_ddr_wstrb  <= (others => '1');
-              s_ddr_wlast  <= '1';
-              s_ddr_wvalid <= '1';
-              --
-              -- REVIEW char_index    <= character'pos(get_res_char(sw_capt, 0));
-              char_x       <= (others => 0);
-              char_y       <= 0;
-              text_sm      <= TEXT_CLR0;
+              s_ddr_wdata   <= (others => '0');
+              s_ddr_wstrb   <= (others => '1');
+              s_ddr_wlast   <= '1';
+              s_ddr_wvalid  <= '1';
+              char_x        <= (others => 0);
+              char_y        <= 0;
+              text_sm       <= TEXT_CLR0;
             end if;
 
           -- Clear screen: wait for s_ddr_awready and/or s_ddr_wready
@@ -661,14 +654,8 @@ begin
             if s_ddr_awready and s_ddr_wready then
               s_ddr_awvalid <= '0';
               s_ddr_wvalid  <= '0';
-              if s_ddr_awaddr >= total_page then -- FIXME: this code write to address total_page!!!
-                text_sm <= TEXT_WRITE0;
-              else
-                s_ddr_awaddr  <= s_ddr_awaddr + 16;
-                s_ddr_awvalid <= '1';
-                s_ddr_wvalid  <= '1';
-                text_sm       <= TEXT_CLR0;
-              end if;
+              s_ddr_bready  <= '1';
+              text_sm       <= TEXT_CLR_WAIT_BRESP;
             elsif s_ddr_awready then
               s_ddr_awvalid <= '0';
               text_sm       <= TEXT_CLR1;
@@ -681,24 +668,30 @@ begin
           when TEXT_CLR1 =>
             if s_ddr_wready then
               s_ddr_wvalid <= '0';
-              if s_ddr_awaddr >= total_page then
-                text_sm <= TEXT_WRITE0;
-              else
-                s_ddr_awaddr  <= s_ddr_awaddr + 16;
-                s_ddr_awvalid <= '1';
-                s_ddr_wvalid  <= '1';   -- REVIEW: where does the wdata come from?
-                text_sm       <= TEXT_CLR0;
-              end if;
+              s_ddr_bready <= '1';
+              text_sm      <= TEXT_CLR_WAIT_BRESP;
             end if;
 
           -- Clear screen: got s_ddr_wready, wait for s_ddr_awready
           when TEXT_CLR2 =>
             if s_ddr_awready then
               s_ddr_awvalid <= '0';
-              if s_ddr_awaddr >= total_page then
+              s_ddr_bready  <= '1';
+              text_sm       <= TEXT_CLR_WAIT_BRESP;
+            end if;
+
+          -- Clear screen: wait for write response
+          when TEXT_CLR_WAIT_BRESP =>
+            assert s_ddr_bready severity failure;
+            if s_ddr_bvalid then
+              s_ddr_bready <= '0';
+              assert s_ddr_bresp = AXI4_OKAY severity failure;
+              assert total_page mod BYTES_PER_PAGE = 0 severity failure;
+              if s_ddr_awaddr = total_page - BYTES_PER_PAGE then
                 text_sm <= TEXT_WRITE0;
               else
-                s_ddr_awaddr  <= s_ddr_awaddr + 16;
+                s_ddr_bready  <= '0';
+                s_ddr_awaddr  <= s_ddr_awaddr + BYTES_PER_PAGE;
                 s_ddr_awvalid <= '1';
                 s_ddr_wvalid  <= '1';
                 text_sm       <= TEXT_CLR0;
@@ -735,18 +728,12 @@ begin
             end if;
 
           -- Write resolution text: wait for s_ddr_awready and/or s_ddr_wready
-          -- TODO: evaluate write response?
           when TEXT_WRITE2 =>
             if s_ddr_awready and s_ddr_wready then
               s_ddr_awvalid <= '0';
               s_ddr_wvalid  <= '0';
-              if char_y = CHAR_ROWS - 1 then
-                text_sm <= TEXT_IDLE;
-              else
-                char_x  <= (others => 0);
-                char_y  <= char_y + 1;  -- proceed with next character row
-                text_sm <= TEXT_WRITE0;
-              end if;
+              s_ddr_bready  <= '1';
+              text_sm       <= TEXT_WRITE_WAIT_BRESP;
             elsif s_ddr_awready then
               s_ddr_awvalid <= '0';
               text_sm       <= TEXT_WRITE3;
@@ -759,19 +746,24 @@ begin
           when TEXT_WRITE3 =>
             if s_ddr_wready then
               s_ddr_wvalid <= '0';
-              if char_y = CHAR_ROWS - 1 then
-                text_sm <= TEXT_IDLE;
-              else
-                char_x  <= (others => 0);
-                char_y  <= char_y + 1;  -- proceed with next character row
-                text_sm <= TEXT_WRITE0;
-              end if;
+              s_ddr_bready <= '1';
+              text_sm      <= TEXT_WRITE_WAIT_BRESP;
             end if;
 
           -- Write resolution text: got s_ddr_wready, wait for s_ddr_awready
           when TEXT_WRITE4 =>
             if s_ddr_awready then
               s_ddr_awvalid <= '0';
+              s_ddr_bready  <= '1';
+              text_sm       <= TEXT_WRITE_WAIT_BRESP;
+            end if;
+
+          -- Clear screen: wait for write response
+          when TEXT_WRITE_WAIT_BRESP =>
+            assert s_ddr_bready severity failure;
+            if s_ddr_bvalid then
+              assert s_ddr_bresp = AXI4_OKAY severity failure;
+              s_ddr_bready <= '0';
               if char_y = CHAR_ROWS - 1 then
                 text_sm <= TEXT_IDLE;
               else

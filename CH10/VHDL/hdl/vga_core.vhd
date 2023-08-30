@@ -70,6 +70,7 @@ architecture rtl of vga_core is
   -- Constants
   constant AXI4_PAGE_SIZE : natural                      := 4096; -- bytes
   constant AXI4_OKAY      : std_logic_vector(1 downto 0) := "00";
+  constant AXI4_SLVERR    : std_logic_vector(1 downto 0) := "10";
 
   -- Register address offsets
   constant H_DISP_START_WIDTH     : unsigned(11 downto 0) := x"000";
@@ -82,14 +83,13 @@ architecture rtl of vga_core is
   constant VGA_LOAD_MODE          : unsigned(11 downto 0) := x"108";
 
   -- Types
-  type reg_cs_t is (SM_IDLE, SM_W4ADDR, SM_W4DATA, SM_BRESP);
+  type reg_cs_t is (SM_IDLE, SM_W4ADDR, SM_W4DATA, SM_WRITE, SM_BRESP);
   type scan_cs_t is (SCAN_IDLE, SCAN_OUT);
   type mem_cs_t is (MEM_IDLE, MEM_W4RSTH, MEM_W4RSTL, MEM_W4RDY0, MEM_W4RDY1, MEM_REQ, MEM_W4RDY2);
 
   -- Registered signals with initial values
   signal reg_cs                  : reg_cs_t                      := SM_IDLE; -- [reg_clk domain]
   signal reg_addr                : std_logic_vector(11 downto 0) := (others => '0'); -- [reg_clk domain]
-  signal reg_we                  : std_logic                     := '0'; -- [reg_clk domain]
   signal reg_din                 : std_logic_vector(31 downto 0) := (others => '0'); -- [reg_clk domain]
   signal reg_be                  : std_logic_vector(3 downto 0)  := (others => '0'); -- [reg_clk domain]
   signal horiz_display_start_reg : unsigned(11 downto 0)         := (others => '0'); -- [reg_clk domain]
@@ -147,22 +147,32 @@ begin
   ------------------------------------------------------------------------------------------------
 
   axi4lite_wr : process(reg_clk)
+    variable addr_hit : boolean;
   begin
     if rising_edge(reg_clk) then
       if reg_reset = '1' then
-        reg_we      <= '0';
-        reg_addr    <= (others => '0');
-        reg_din     <= (others => '0');
-        reg_be      <= (others => '0');
-        reg_awready <= '0';
-        reg_wready  <= '0';
-        reg_bvalid  <= '0';
-        reg_bresp   <= (others => '0');
-        reg_cs      <= SM_IDLE;
+        horiz_display_start_reg <= (others => '0');
+        horiz_display_width_reg <= (others => '0');
+        horiz_sync_width_reg    <= (others => '0');
+        horiz_total_width_reg   <= (others => '0');
+        vert_display_start_reg  <= (others => '0');
+        vert_display_width_reg  <= (others => '0');
+        vert_sync_width_reg     <= (others => '0');
+        vert_total_width_reg    <= (others => '0');
+        polarity_reg            <= (others => '0');
+        pitch_reg               <= (others => '0');
+        load_mode               <= '0';
+        reg_addr                <= (others => '0');
+        reg_din                 <= (others => '0');
+        reg_be                  <= (others => '0');
+        reg_awready             <= '0';
+        reg_wready              <= '0';
+        reg_bvalid              <= '0';
+        reg_bresp               <= (others => '0');
+        reg_cs                  <= SM_IDLE;
 
       else
         -- Defaults:
-        reg_we      <= '0';
         reg_awready <= '0';
         reg_wready  <= '0';
 
@@ -170,15 +180,14 @@ begin
           when SM_IDLE =>
             if reg_awvalid and reg_wvalid then
               -- Address and data are available
-              reg_we      <= '1';
-              reg_addr    <= reg_awaddr; -- TODO: check address hit, otherwise return SLVERR
+              reg_addr    <= reg_awaddr;
               reg_awready <= '1';
               reg_din     <= reg_wdata;
               reg_be      <= reg_wstrb;
               reg_wready  <= '1';
               reg_bvalid  <= '1';
               reg_bresp   <= AXI4_OKAY;
-              reg_cs      <= SM_BRESP;
+              reg_cs      <= SM_WRITE;
             elsif reg_awvalid then
               -- Address first
               reg_awready <= '1';
@@ -195,131 +204,112 @@ begin
           -- Address received, wait for data
           when SM_W4DATA =>
             if reg_wvalid then
-              reg_we     <= '1';
               reg_din    <= reg_wdata;
               reg_be     <= reg_wstrb;
               reg_wready <= '1';
               reg_bvalid <= '1';
               reg_bresp  <= AXI4_OKAY;
-              reg_cs     <= SM_BRESP;
+              reg_cs     <= SM_WRITE;
             end if;
 
           -- Data received, wait for address
           when SM_W4ADDR =>
             if reg_awvalid then
-              reg_we     <= '1';
               reg_addr   <= reg_awaddr;
               reg_bvalid <= '1';
               reg_bresp  <= AXI4_OKAY;
-              reg_cs     <= SM_BRESP;
+              reg_cs     <= SM_WRITE;
             end if;
 
-          -- Send write response
+          -- Register write, issue write response
+          when SM_WRITE =>
+            addr_hit := true;
+            case unsigned(reg_addr) is
+              when H_DISP_START_WIDTH =>
+                if reg_be(0) then
+                  horiz_display_start_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
+                end if;
+                if reg_be(1) then
+                  horiz_display_start_reg(11 downto 8) <= unsigned(reg_din(11 downto 8));
+                end if;
+                if reg_be(2) then
+                  horiz_display_width_reg(7 downto 0) <= unsigned(reg_din(23 downto 16));
+                end if;
+                if reg_be(3) then
+                  horiz_display_width_reg(11 downto 8) <= unsigned(reg_din(27 downto 24));
+                end if;
+              when H_DISP_FPEND_TOTAL =>
+                if reg_be(0) then
+                  horiz_sync_width_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
+                end if;
+                if reg_be(1) then
+                  horiz_sync_width_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
+                end if;
+                if reg_be(2) then
+                  horiz_total_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
+                end if;
+                if reg_be(3) then
+                  horiz_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
+                end if;
+              when V_DISP_START_WIDTH =>
+                if reg_be(0) then
+                  vert_display_start_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
+                end if;
+                if reg_be(1) then
+                  vert_display_start_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
+                end if;
+                if reg_be(2) then
+                  vert_display_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
+                end if;
+                if reg_be(3) then
+                  vert_display_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
+                end if;
+              when V_DISP_FPEND_TOTAL =>
+                if reg_be(0) then
+                  vert_sync_width_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
+                end if;
+                if reg_be(1) then
+                  vert_sync_width_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
+                end if;
+                if reg_be(2) then
+                  vert_total_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
+                end if;
+                if reg_be(3) then
+                  vert_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
+                end if;
+              when V_DISP_POLARITY_FORMAT =>
+                if reg_be(0) then
+                  polarity_reg(1 downto 00) <= unsigned(reg_din(1 downto 0));
+                end if;
+              when DISPLAY_ADDR =>
+                null;                   -- not used
+              when DISPLAY_PITCH =>
+                if reg_be(0) then
+                  pitch_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
+                end if;
+                if reg_be(1) then
+                  pitch_reg(12 downto 08) <= unsigned(reg_din(12 downto 8));
+                end if;
+              when VGA_LOAD_MODE =>
+                if reg_be(0) then
+                  load_mode <= not load_mode;
+                end if;
+              when others =>
+                addr_hit := false;
+                report "unsupported register address: " & to_hstring(unsigned(reg_addr)) severity error;
+            end case;
+            --
+            reg_bvalid <= '1';
+            reg_bresp  <= AXI4_OKAY when addr_hit else AXI4_SLVERR;
+            reg_cs     <= SM_BRESP;
+
+          -- Wait for write response transaction to complete
           when SM_BRESP =>
             if reg_bready then
               reg_bvalid <= '0';
               reg_cs     <= SM_IDLE;
             end if;
         end case;
-      end if;
-    end if;
-  end process;
-
-  ------------------------------------------------------------------------------------------------
-  -- Register write logic
-  ------------------------------------------------------------------------------------------------
-
-  reg_write : process(reg_clk)
-  begin
-    if rising_edge(reg_clk) then
-      if reg_reset = '1' then
-        horiz_display_start_reg <= (others => '0');
-        horiz_display_width_reg <= (others => '0');
-        horiz_sync_width_reg    <= (others => '0');
-        horiz_total_width_reg   <= (others => '0');
-        vert_display_start_reg  <= (others => '0');
-        vert_display_width_reg  <= (others => '0');
-        vert_sync_width_reg     <= (others => '0');
-        vert_total_width_reg    <= (others => '0');
-        polarity_reg            <= (others => '0');
-        pitch_reg               <= (others => '0');
-        load_mode               <= '0';
-      else
-        if reg_we then
-          case unsigned(reg_addr) is
-            when H_DISP_START_WIDTH =>
-              if reg_be(0) then
-                horiz_display_start_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
-              end if;
-              if reg_be(1) then
-                horiz_display_start_reg(11 downto 8) <= unsigned(reg_din(11 downto 8));
-              end if;
-              if reg_be(2) then
-                horiz_display_width_reg(7 downto 0) <= unsigned(reg_din(23 downto 16));
-              end if;
-              if reg_be(3) then
-                horiz_display_width_reg(11 downto 8) <= unsigned(reg_din(27 downto 24));
-              end if;
-            when H_DISP_FPEND_TOTAL =>
-              if reg_be(0) then
-                horiz_sync_width_reg(7 downto 0) <= unsigned(reg_din(7 downto 0));
-              end if;
-              if reg_be(1) then
-                horiz_sync_width_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
-              end if;
-              if reg_be(2) then
-                horiz_total_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
-              end if;
-              if reg_be(3) then
-                horiz_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
-              end if;
-            when V_DISP_START_WIDTH =>
-              if reg_be(0) then
-                vert_display_start_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
-              end if;
-              if reg_be(1) then
-                vert_display_start_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
-              end if;
-              if reg_be(2) then
-                vert_display_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
-              end if;
-              if reg_be(3) then
-                vert_display_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
-              end if;
-            when V_DISP_FPEND_TOTAL =>
-              if reg_be(0) then
-                vert_sync_width_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
-              end if;
-              if reg_be(1) then
-                vert_sync_width_reg(11 downto 08) <= unsigned(reg_din(11 downto 8));
-              end if;
-              if reg_be(2) then
-                vert_total_width_reg(7 downto 00) <= unsigned(reg_din(23 downto 16));
-              end if;
-              if reg_be(3) then
-                vert_total_width_reg(11 downto 08) <= unsigned(reg_din(27 downto 24));
-              end if;
-            when V_DISP_POLARITY_FORMAT =>
-              if reg_be(0) then
-                polarity_reg(1 downto 00) <= unsigned(reg_din(1 downto 0));
-              end if;
-            when DISPLAY_ADDR =>
-              null;                     -- not used
-            when DISPLAY_PITCH =>
-              if reg_be(0) then
-                pitch_reg(7 downto 00) <= unsigned(reg_din(7 downto 0));
-              end if;
-              if reg_be(1) then
-                pitch_reg(12 downto 08) <= unsigned(reg_din(12 downto 8));
-              end if;
-            when VGA_LOAD_MODE =>
-              if reg_be(0) then
-                load_mode <= not load_mode;
-              end if;
-            when others =>
-              report "unsupported register address: " & to_hstring(unsigned(reg_addr)) severity failure;
-          end case;
-        end if;
       end if;
     end if;
   end process;
@@ -407,7 +397,7 @@ begin
           vga_hblank   <= vga_hblank_v;
           vga_hsync    <= polarity(1) xor not (hsync_en);
           vga_vblank   <= vga_vblank_v;
-          vga_vsync    <= polarity(0) xor not (vsync_en); -- REVIEW: vblank comes but vsync does not
+          vga_vsync    <= polarity(0) xor not (vsync_en);
 
           -- Issue a new memory controller request at the start of every active line
           scanline := vert_count_v - vert_display_start;
