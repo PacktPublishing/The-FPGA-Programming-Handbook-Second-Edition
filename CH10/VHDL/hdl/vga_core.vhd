@@ -185,8 +185,6 @@ begin
               reg_din     <= reg_wdata;
               reg_be      <= reg_wstrb;
               reg_wready  <= '1';
-              reg_bvalid  <= '1';
-              reg_bresp   <= AXI4_OKAY;
               reg_cs      <= SM_WRITE;
             elsif reg_awvalid then
               -- Address first
@@ -207,8 +205,6 @@ begin
               reg_din    <= reg_wdata;
               reg_be     <= reg_wstrb;
               reg_wready <= '1';
-              reg_bvalid <= '1';
-              reg_bresp  <= AXI4_OKAY;
               reg_cs     <= SM_WRITE;
             end if;
 
@@ -216,8 +212,6 @@ begin
           when SM_W4ADDR =>
             if reg_awvalid then
               reg_addr   <= reg_awaddr;
-              reg_bvalid <= '1';
-              reg_bresp  <= AXI4_OKAY;
               reg_cs     <= SM_WRITE;
             end if;
 
