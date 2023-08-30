@@ -68,19 +68,21 @@ module vga_core
   localparam DISPLAY_ADDR           = 12'h100;
   localparam DISPLAY_PITCH          = 12'h104;
   localparam VGA_LOAD_MODE          = 12'h108;
+  localparam AXI4_OKAY              = 2'b00;
+  localparam AXI4_SLVERR            = 2'b10;
 
-  typedef enum bit [1:0]
+  typedef enum bit [2:0]
                {
                 REG_IDLE,
                 REG_W4ADDR,
                 REG_W4DATA,
+                REG_WRITE,
                 REG_BRESP
                 } reg_cs_t;
 
   reg_cs_t reg_cs;
 
   logic [11:0] reg_addr;
-  logic        reg_we;
   logic [31:0] reg_din;
   logic [3:0]  reg_be;
   logic [11:0] horiz_display_start_reg;
@@ -109,46 +111,36 @@ module vga_core
   logic [127:0] vga_data;
   logic         vga_empty;
 
-  assign reg_bresp   = '0; // Okay
-
   initial begin
     reg_cs = REG_IDLE;
   end
 
   always @(posedge reg_clk) begin
-    reg_we     <= '0;
     reg_bvalid <= '0;
+    reg_bresp  <= AXI4_OKAY; // Okay
+    reg_awready <= '0;
+    reg_wready  <= '0;
 
     case (reg_cs)
       REG_IDLE: begin
-        reg_awready <= '1;
-        reg_wready  <= '1;
         case ({reg_awvalid, reg_wvalid})
           2'b11: begin
             // Addr and data are available
+            reg_awready <= '1;
+            reg_wready  <= '1;
             reg_addr    <= reg_awaddr;
-            reg_we      <= '1;
             reg_din     <= reg_wdata;
             reg_be      <= reg_wstrb;
-            reg_bvalid  <= '1;
-            if (reg_bready) begin
-              reg_awready <= '1;
-              reg_wready  <= '1;
-              reg_cs      <= REG_IDLE;
-            end else begin
-              reg_awready <= '0;
-              reg_wready  <= '0;
-              reg_cs      <= REG_BRESP;
-            end
+            reg_cs      <= REG_WRITE;
           end
           2'b10: begin
             // Address only
-            reg_awready <= '0;
+            reg_awready <= '1;
             reg_addr    <= reg_awaddr;
             reg_cs      <= REG_W4DATA;
           end
           2'b01: begin
-            reg_wready <= '0;
+            reg_wready <= '1;
             reg_din    <= reg_wdata;
             reg_be     <= reg_wstrb;
             reg_cs     <= REG_W4ADDR;
@@ -156,43 +148,69 @@ module vga_core
         endcase // case ({reg_awvalid, reg_awvalid})
       end // case: REG_IDLE
       REG_W4DATA: begin
-        reg_we      <= '1;
         reg_din     <= reg_wdata;
         reg_be      <= reg_wstrb;
-        reg_bvalid  <= '1;
-        if (reg_bready && reg_wvalid) begin
-          reg_awready <= '1;
-          reg_wready  <= '1;
-          reg_cs      <= REG_IDLE;
-        end else if (reg_wvalid) begin
-          reg_awready <= '0;
-          reg_wready  <= '0;
-          reg_cs      <= REG_BRESP;
+        if (reg_wvalid) begin
+            reg_wready  <= '1;
+          reg_cs      <= REG_WRITE;
         end
       end
       REG_W4ADDR: begin
         reg_addr    <= reg_awaddr;
-        reg_we      <= '1;
-        reg_bvalid  <= '1;
-        if (reg_bready && reg_awvalid) begin
+        if (reg_awvalid) begin
           reg_awready <= '1;
-          reg_wready  <= '1;
-          reg_cs      <= REG_IDLE;
-        end else if (reg_bready) begin
-          reg_awready <= '0;
-          reg_wready  <= '0;
+          reg_cs      <= REG_WRITE;
         end
+      end // case: REG_W4ADDR
+      REG_WRITE: begin
+        reg_bvalid  <= '1;
+        case (reg_addr)
+          H_DISP_START_WIDTH: begin
+            if (reg_be[0]) horiz_display_start_reg[7:0]  <= reg_din[7:0];
+            if (reg_be[1]) horiz_display_start_reg[11:8] <= reg_din[11:8];
+            if (reg_be[2]) horiz_display_width_reg[7:0]  <= reg_din[23:16];
+            if (reg_be[3]) horiz_display_width_reg[11:8] <= reg_din[27:24];
+          end
+          H_DISP_FPEND_TOTAL: begin
+            if (reg_be[0]) horiz_sync_width_reg[7:0]   <= reg_din[7:0];
+            if (reg_be[1]) horiz_sync_width_reg[11:8]  <= reg_din[11:8];
+            if (reg_be[2]) horiz_total_width_reg[7:0]  <= reg_din[23:16];
+            if (reg_be[3]) horiz_total_width_reg[11:8] <= reg_din[27:24];
+          end
+          V_DISP_START_WIDTH: begin
+            if (reg_be[0]) vert_display_start_reg[7:0]  <= reg_din[7:0];
+            if (reg_be[1]) vert_display_start_reg[11:8] <= reg_din[11:8];
+            if (reg_be[2]) vert_display_width_reg[7:0]  <= reg_din[23:16];
+            if (reg_be[3]) vert_display_width_reg[11:8] <= reg_din[27:24];
+          end
+          V_DISP_FPEND_TOTAL: begin
+            if (reg_be[0]) vert_sync_width_reg[7:0]   <= reg_din[7:0];
+            if (reg_be[1]) vert_sync_width_reg[11:8]  <= reg_din[11:8];
+            if (reg_be[2]) vert_total_width_reg[7:0]  <= reg_din[23:16];
+            if (reg_be[3]) vert_total_width_reg[11:8] <= reg_din[27:24];
+          end
+          V_DISP_POLARITY_FORMAT: begin
+            if (reg_be[0]) polarity_reg[1:0]     <= reg_din[1:0];
+          end
+          DISPLAY_ADDR: begin
+            if (reg_be[0]) disp_addr_reg[7:0]    <= reg_din[7:0];
+            if (reg_be[1]) disp_addr_reg[15:8]   <= reg_din[15:8];
+            if (reg_be[2]) disp_addr_reg[23:16]  <= reg_din[23:16];
+            if (reg_be[3]) disp_addr_reg[31:24]  <= reg_din[31:24];
+          end
+          DISPLAY_PITCH: begin
+            if (reg_be[0]) pitch_reg[7:0]        <= reg_din[7:0];
+            if (reg_be[1]) pitch_reg[12:8]       <= reg_din[12:8];
+          end
+          VGA_LOAD_MODE: if (reg_be[0]) load_mode <= ~load_mode;
+          default: reg_bresp  <= AXI4_SLVERR;
+        endcase // case (reg_addr)
+        reg_cs <= REG_BRESP;
       end
       REG_BRESP: begin
         reg_bvalid  <= '1;
         if (reg_bready) begin
-          reg_awready <= '1;
-          reg_wready  <= '1;
           reg_cs      <= REG_IDLE;
-        end else begin
-          reg_awready <= '0;
-          reg_wready  <= '0;
-          reg_cs      <= REG_BRESP;
         end
       end
     endcase // case (reg_cs)
@@ -230,51 +248,6 @@ module vga_core
     //pitch                   = 2046;
     pitch                   = 5*16;
   end
-
-  always @(posedge reg_clk) begin
-    if (reg_we) begin
-      case (reg_addr)
-        H_DISP_START_WIDTH: begin
-          if (reg_be[0]) horiz_display_start_reg[7:0]  <= reg_din[7:0];
-          if (reg_be[1]) horiz_display_start_reg[11:8] <= reg_din[11:8];
-          if (reg_be[2]) horiz_display_width_reg[7:0]  <= reg_din[23:16];
-          if (reg_be[3]) horiz_display_width_reg[11:8] <= reg_din[27:24];
-        end
-        H_DISP_FPEND_TOTAL: begin
-          if (reg_be[0]) horiz_sync_width_reg[7:0]   <= reg_din[7:0];
-          if (reg_be[1]) horiz_sync_width_reg[11:8]  <= reg_din[11:8];
-          if (reg_be[2]) horiz_total_width_reg[7:0]  <= reg_din[23:16];
-          if (reg_be[3]) horiz_total_width_reg[11:8] <= reg_din[27:24];
-        end
-        V_DISP_START_WIDTH: begin
-          if (reg_be[0]) vert_display_start_reg[7:0]  <= reg_din[7:0];
-          if (reg_be[1]) vert_display_start_reg[11:8] <= reg_din[11:8];
-          if (reg_be[2]) vert_display_width_reg[7:0]  <= reg_din[23:16];
-          if (reg_be[3]) vert_display_width_reg[11:8] <= reg_din[27:24];
-        end
-        V_DISP_FPEND_TOTAL: begin
-          if (reg_be[0]) vert_sync_width_reg[7:0]   <= reg_din[7:0];
-          if (reg_be[1]) vert_sync_width_reg[11:8]  <= reg_din[11:8];
-          if (reg_be[2]) vert_total_width_reg[7:0]  <= reg_din[23:16];
-          if (reg_be[3]) vert_total_width_reg[11:8] <= reg_din[27:24];
-        end
-        V_DISP_POLARITY_FORMAT: begin
-          if (reg_be[0]) polarity_reg[1:0]     <= reg_din[1:0];
-        end
-        DISPLAY_ADDR: begin
-          if (reg_be[0]) disp_addr_reg[7:0]    <= reg_din[7:0];
-          if (reg_be[1]) disp_addr_reg[15:8]   <= reg_din[15:8];
-          if (reg_be[2]) disp_addr_reg[23:16]  <= reg_din[23:16];
-          if (reg_be[3]) disp_addr_reg[31:24]  <= reg_din[31:24];
-        end
-        DISPLAY_PITCH: begin
-          if (reg_be[0]) pitch_reg[7:0]        <= reg_din[7:0];
-          if (reg_be[1]) pitch_reg[12:8]       <= reg_din[12:8];
-        end
-        VGA_LOAD_MODE: if (reg_be[0]) load_mode <= ~load_mode;
-      endcase // case (reg_addr)
-    end // if (reg_we)
-  end // always @ (posedge reg_clk)
 
   logic [11:0] horiz_count;
   logic [11:0] vert_count;
