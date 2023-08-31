@@ -5,7 +5,9 @@
 
 ## Clock signal
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports clk]
-create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_ports clk]
+
+# NOTE: the 100 MHz input clock is already defined in sys_pll.xdc
+# create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} [get_ports clk]
 
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
@@ -225,12 +227,10 @@ set_max_delay -datapath_only -from */vert_display_start_reg* [expr 1.5 * $vga_cl
 set_max_delay -datapath_only -from */vert_display_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */vert_sync_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */vert_total_width_reg* [expr 1.5 * $vga_clk_period]
-set_max_delay -datapath_only -from */disp_addr_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */polarity_reg* [expr 1.5 * $vga_clk_period]
-set_max_delay -datapath_only -from */pixel_depth_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */pitch_reg_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from *sw_capt_reg*/C [expr 1.5 * $clkui_period]
-set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
+#set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */mc_words_reg* [expr 1.5 * $vga_clk_period]
 
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
@@ -238,6 +238,6 @@ set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
 set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 
 # For VHDL version
-set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
-set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
-set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
+#set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
+#set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
+#set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
