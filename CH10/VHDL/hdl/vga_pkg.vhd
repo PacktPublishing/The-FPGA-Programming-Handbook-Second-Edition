@@ -1,6 +1,6 @@
 -- vga_pkg.vhd
 -- ------------------------------------
--- Pakcage file for the VGA to clean up the architecture.
+-- VGA package
 -- ------------------------------------
 -- Author : Frank Bruno, Guy Eschemann
 -- Component instantiations
