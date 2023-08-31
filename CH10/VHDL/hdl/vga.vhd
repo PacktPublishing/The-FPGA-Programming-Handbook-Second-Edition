@@ -199,7 +199,7 @@ begin
   -- Pixel clock PLL
   ------------------------------------------------------------------------------
 
-  u_pix_clk : pix_clk
+  u_clk : pix_clk
     port map(
       s_axi_aclk    => clk200,
       s_axi_aresetn => '1',
