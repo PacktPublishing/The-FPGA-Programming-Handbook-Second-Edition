@@ -665,7 +665,8 @@ module vga
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[8]
+                CFG_WR[8],
+                W4PLL[2]
                 } cfg_state_t;
 
   cfg_state_t cfg_state;
@@ -695,26 +696,59 @@ module vga
     button_sync <= button_sync << 1 | button_c;
     last_write[0]  <= wr_count == 24;
     last_write[1]  <= wr_count == 31;
+
+    s_axi_awaddr  <= addr_array[wr_count];
+    case (wr_count)
+      0: s_axi_wdata   <= {6'b0, resolution[SW].mult_fraction,
+                           resolution[SW].mult_integer,
+                           resolution[SW].divide_count};
+      1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
+      5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
+      4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
+      2: begin
+        s_axi_wdata <= {15'b0,
+                        resolution[sw_capt].divide_fraction,
+                        resolution[sw_capt].divide_integer};
+      end
+      23:  s_axi_wdata <= 32'b11;
+      24: s_axi_wdata <= {4'b0,
+                          resolution[sw_capt].horiz_display_width,
+                          4'b0,
+                          resolution[sw_capt].horiz_display_start};
+      25: s_axi_wdata <= {4'b0,
+                          resolution[sw_capt].horiz_total_width,
+                          4'b0,
+                          resolution[sw_capt].horiz_sync_width};
+      26: s_axi_wdata <= {4'b0,
+                          resolution[sw_capt].vert_display_width,
+                          4'b0,
+                          resolution[sw_capt].vert_display_start};
+      27: s_axi_wdata <= {4'b0,
+                          resolution[sw_capt].vert_total_width,
+                          4'b0,
+                          resolution[sw_capt].vert_sync_width};
+      28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
+                          resolution[sw_capt].hpol,
+                          resolution[sw_capt].vpol};
+      29: s_axi_wdata <= '0;
+      30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
+      31: s_axi_wdata <= 32'b1;
+    endcase // case (wr_count)
     case (cfg_state)
       CFG_IDLE0: begin
         button_sync   <= 2'b10; // force programming on startup
         update_text   <= ~update_text;
+        wr_count      <= '0;
         cfg_state     <= CFG_IDLE1;
       end
       CFG_IDLE1: begin
-        wr_count      <= '0;
         s_axi_awvalid <= '0;
         s_axi_wvalid  <= '0;
         if (button_sync[2:1] == 2'b10) begin
           // We can start writing the text as we are updating
           update_text   <= ~update_text;
-          wr_count      <= 3'b1;
           s_axi_awvalid <= 2'b1;
-          s_axi_awaddr  <= addr_array[0];
           s_axi_wvalid  <= 2'b1;
-          s_axi_wdata   <= {6'b0, resolution[SW].mult_fraction,
-                            resolution[SW].mult_integer,
-                            resolution[SW].divide_count};
           sw_capt       <= SW;
           cfg_state     <= CFG_WR0;
         end
@@ -725,40 +759,6 @@ module vga
             wr_count      <= wr_count + 1'b1;
             s_axi_awvalid <= 2'b0;
             s_axi_wvalid  <= 2'b0;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23:  s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
             cfg_state     <= CFG_WR3;
           end // case: 3'b011
           2'b10: begin
@@ -779,40 +779,6 @@ module vga
           s_axi_awvalid <= 2'b0;
           s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR3;
-          s_axi_awaddr  <= addr_array[wr_count];
-          case (wr_count)
-            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-            2: begin
-              s_axi_wdata <= {15'b0,
-                              resolution[sw_capt].divide_fraction,
-                              resolution[sw_capt].divide_integer};
-            end
-            23:  s_axi_wdata <= 32'b11;
-            24: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_display_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_display_start};
-            25: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_total_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_sync_width};
-            26: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_display_width,
-                                4'b0,
-                                resolution[sw_capt].vert_display_start};
-            27: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_total_width,
-                                4'b0,
-                                resolution[sw_capt].vert_sync_width};
-            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                resolution[sw_capt].hpol,
-                                resolution[sw_capt].vpol};
-            29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-            31: s_axi_wdata <= 32'b1;
-          endcase // case (wr_count)
         end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR2: begin
@@ -821,49 +787,13 @@ module vga
           s_axi_awvalid <= 2'b0;
           s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR3;
-          s_axi_awaddr  <= addr_array[wr_count];
-          case (wr_count)
-            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-            2: begin
-              s_axi_wdata <= {15'b0,
-                              resolution[sw_capt].divide_fraction,
-                              resolution[sw_capt].divide_integer};
-            end
-            23: s_axi_wdata <= 32'b11;
-            24: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_display_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_display_start};
-            25: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_total_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_sync_width};
-            26: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_display_width,
-                                4'b0,
-                                resolution[sw_capt].vert_display_start};
-            27: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_total_width,
-                                4'b0,
-                                resolution[sw_capt].vert_sync_width};
-            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                resolution[sw_capt].hpol,
-                                resolution[sw_capt].vpol};
-            29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-            31: s_axi_wdata <= 32'b1;
-          endcase // case (wr_count)
         end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR3: begin
         // Note that we are not handling bresp error conditions
         case ({last_write[0], s_axi_bvalid})
           2'b11: begin
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state <= CFG_WR4;
+            cfg_state <= W4PLL0;
           end
           2'b01: begin
             s_axi_awvalid <= 2'b01;
@@ -872,46 +802,23 @@ module vga
           end
         endcase // case ({last_write[0], s_axi_bvalid})
       end
+      W4PLL0: begin
+        // Wait for the PLL config to take effect
+        if (~locked) cfg_state <= W4PLL1;
+      end
+      W4PLL1: begin
+        if (locked) begin
+          s_axi_awvalid <= 2'b10;
+          s_axi_wvalid  <= 2'b10;
+          cfg_state     <= CFG_WR4;
+        end
+      end
       CFG_WR4: begin
         casez ({s_axi_awready[1], s_axi_wready[1]})
           2'b11: begin
             wr_count      <= wr_count + 1'b1;
             s_axi_awvalid <= 2'b10;
             s_axi_wvalid  <= 2'b10;
-            s_axi_awaddr  <= addr_array[wr_count];
-            case (wr_count)
-              1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-              5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-              4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-              2: begin
-                s_axi_wdata <= {15'b0,
-                                resolution[sw_capt].divide_fraction,
-                                resolution[sw_capt].divide_integer};
-              end
-              23:  s_axi_wdata <= 32'b11;
-              24: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_display_start};
-              25: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].horiz_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].horiz_sync_width};
-              26: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_display_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_display_start};
-              27: s_axi_wdata <= {4'b0,
-                                    resolution[sw_capt].vert_total_width,
-                                    4'b0,
-                                    resolution[sw_capt].vert_sync_width};
-              28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                    resolution[sw_capt].hpol,
-                                    resolution[sw_capt].vpol};
-              29: s_axi_wdata <= '0;
-              30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-              31: s_axi_wdata <= 32'b1;
-            endcase // case (wr_count)
             cfg_state     <= CFG_WR7;
           end // case: 3'b011
           2'b10: begin
@@ -932,40 +839,6 @@ module vga
           s_axi_awvalid <= 2'b0;
           s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR7;
-          s_axi_awaddr  <= addr_array[wr_count];
-          case (wr_count)
-            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-            2: begin
-              s_axi_wdata <= {15'b0,
-                              resolution[sw_capt].divide_fraction,
-                              resolution[sw_capt].divide_integer};
-            end
-            23:  s_axi_wdata <= 32'b11;
-            24: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_display_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_display_start};
-            25: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_total_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_sync_width};
-            26: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_display_width,
-                                4'b0,
-                                resolution[sw_capt].vert_display_start};
-            27: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_total_width,
-                                4'b0,
-                                resolution[sw_capt].vert_sync_width};
-            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                resolution[sw_capt].hpol,
-                                resolution[sw_capt].vpol};
-            29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-            31: s_axi_wdata <= 32'b1;
-          endcase // case (wr_count)
         end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR6: begin
@@ -974,45 +847,12 @@ module vga
           s_axi_awvalid <= 2'b0;
           s_axi_wvalid  <= 2'b0;
           cfg_state     <= CFG_WR7;
-          s_axi_awaddr  <= addr_array[wr_count];
-          case (wr_count)
-            1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-            5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-            4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-            2: begin
-              s_axi_wdata <= {15'b0,
-                              resolution[sw_capt].divide_fraction,
-                              resolution[sw_capt].divide_integer};
-            end
-            23: s_axi_wdata <= 32'b11;
-            24: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_display_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_display_start};
-            25: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].horiz_total_width,
-                                4'b0,
-                                resolution[sw_capt].horiz_sync_width};
-            26: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_display_width,
-                                4'b0,
-                                resolution[sw_capt].vert_display_start};
-            27: s_axi_wdata <= {4'b0,
-                                resolution[sw_capt].vert_total_width,
-                                4'b0,
-                                resolution[sw_capt].vert_sync_width};
-            28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                                resolution[sw_capt].hpol,
-                                resolution[sw_capt].vpol};
-            29: s_axi_wdata <= '0;
-            30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
-            31: s_axi_wdata <= 32'b1;
-          endcase // case (wr_count)
         end // case: 3'b011
       end // case: CFG_WR1
       CFG_WR7: begin
         // Note VGA core doesn't generate bvalid
         if (last_write[1]) begin
+          wr_count      <= '0;
           s_axi_awvalid <= 2'b0;
           s_axi_wvalid  <= 2'b0;
           cfg_state <= CFG_IDLE1;
