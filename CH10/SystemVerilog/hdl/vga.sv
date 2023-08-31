@@ -671,8 +671,6 @@ module vga
 
   cfg_state_t cfg_state;
 
-  logic [31:0]         disp_addr;
-
   (* async_reg = "TRUE" *) logic [2:0]          button_sync;
   logic [4:0]          sw_capt = '0;
   logic [4:0]          wr_count;
@@ -731,7 +729,7 @@ module vga
                           resolution[sw_capt].hpol,
                           resolution[sw_capt].vpol};
       29: s_axi_wdata <= '0;
-      30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_total_width)};
+      30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_display_width)};
       31: s_axi_wdata <= 32'b1;
     endcase // case (wr_count)
     case (cfg_state)
@@ -898,7 +896,7 @@ module vga
   logic [2:0][3:0]  char_x;
   logic [12:0]      real_pitch;
   logic [12:0]      pitch_value;
-  assign pitch_value = get_pitch(resolution[sw_capt].horiz_total_width);
+  assign pitch_value = get_pitch(resolution[sw_capt].horiz_display_width);
 
   always @(posedge ui_clk) begin
     update_text_sync <= update_text_sync << 1 | update_text;

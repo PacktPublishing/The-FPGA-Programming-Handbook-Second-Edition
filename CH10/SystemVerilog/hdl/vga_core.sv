@@ -116,8 +116,8 @@ module vga_core
   end
 
   always @(posedge reg_clk) begin
-    reg_bvalid <= '0;
-    reg_bresp  <= AXI4_OKAY; // Okay
+    reg_bvalid  <= '0;
+    reg_bresp   <= AXI4_OKAY; // Okay
     reg_awready <= '0;
     reg_wready  <= '0;
 
@@ -285,7 +285,7 @@ module vga_core
       horiz_count <= '0;
       if (vert_count >= vert_total_width) vert_count <= '0;
       else vert_count <= vert_count + 1'b1;
-      scanline <= vert_count - vert_display_start + 2;
+      scanline <= vert_count - (vert_display_start - 1);
       mc_addr  <= scanline * pitch;
       mc_words <= pitch[12:4] +|pitch[3:0];
     end else
