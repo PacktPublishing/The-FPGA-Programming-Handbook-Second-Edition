@@ -758,7 +758,7 @@ begin
               text_sm       <= TEXT_WRITE_WAIT_BRESP;
             end if;
 
-          -- Clear screen: wait for write response
+          -- Write resolution text: wait for write response
           when TEXT_WRITE_WAIT_BRESP =>
             assert s_ddr_bready severity failure;
             if s_ddr_bvalid then

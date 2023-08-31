@@ -556,7 +556,6 @@ begin
   mem_rready <= not pixel_fifo_full;
 
   -- Read pixel data from pixel FIFO and convert values to RGB
-  -- REVIEW: adds one-cycle delay to vga_rgb vs. sync signals
   read_fifo : process(vga_clk)
     variable pix_count : natural range 0 to 127;
   begin
