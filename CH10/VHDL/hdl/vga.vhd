@@ -69,39 +69,40 @@ architecture rtl of vga is
   type slv2_array_t is array (natural range <>) of std_logic_vector(1 downto 0);
 
   -- Registered signals with initial values
-  signal s_axi_awaddr     : std_logic_vector(11 downto 0)            := (others => '0'); -- [clk200 domain]
-  signal s_axi_awvalid    : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
-  signal s_axi_wdata      : std_logic_vector(31 downto 0)            := (others => '0'); -- [clk200 domain]
-  signal s_axi_wvalid     : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
-  signal char_index       : natural range 0 to 255                   := 0; -- character index (ASCII code) in text_rom [ui_clk domain]
-  signal char_y           : natural range 0 to CHAR_ROWS - 1         := 0; -- character row index [ui_clk domain]
-  signal s_ddr_awaddr     : unsigned(26 downto 0)                    := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_awlen      : std_logic_vector(7 downto 0)             := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_awsize     : std_logic_vector(2 downto 0)             := "100"; -- 16 bytes in transfer [ui_clk domain]
-  signal s_ddr_awburst    : std_logic_vector(1 downto 0)             := "01"; -- [ui_clk domain]
-  signal s_ddr_awlock     : std_logic_vector(0 downto 0)             := "0"; -- [ui_clk domain]
-  signal s_ddr_awcache    : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_awprot     : std_logic_vector(2 downto 0)             := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_awqos      : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_awvalid    : std_logic                                := '0'; -- [ui_clk domain]
-  signal s_ddr_wdata      : std_logic_vector(127 downto 0)           := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_wstrb      : std_logic_vector(15 downto 0)            := (others => '0'); -- [ui_clk domain]
-  signal s_ddr_wlast      : std_logic                                := '0'; -- [ui_clk domain]
-  signal s_ddr_wvalid     : std_logic                                := '0'; -- [ui_clk domain]
-  signal s_ddr_bready     : std_logic                                := '0'; -- [ui_clk domain]  
-  signal cfg_state        : cfg_state_t                              := CFG_IDLE0; -- [clk200 domain]
-  signal button_sync      : std_logic_vector(2 downto 0)             := "000"; -- [clk200 domain]
-  signal sw_capt          : integer range 0 to RESOLUTION'length - 1 := 0; -- [clk200 domain] 
-  signal wr_count         : integer range 0 to TOTAL_REGISTER_COUNT  := 0; -- AXI4-lite write transaction counter [clk200 domain]
-  signal update_text      : std_logic                                := '0'; -- [clk200 domain]
-  signal update_text_sync : std_logic_vector(2 downto 0)             := "000"; -- [ui_clk domain]
-  signal text_sm          : text_sm_t                                := TEXT_IDLE; -- [ui_clk domain]
-  signal total_page       : unsigned(24 downto 0)                    := (others => '0'); -- [ui_clk domain]
-  signal char_x           : char_x_t(2 downto 0)                     := (others => 0); -- NOTE: could be a variable [ui_clk domain]
+  signal s_axi_awaddr              : std_logic_vector(11 downto 0)            := (others => '0'); -- [clk200 domain]
+  signal s_axi_awvalid             : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
+  signal s_axi_wdata               : std_logic_vector(31 downto 0)            := (others => '0'); -- [clk200 domain]
+  signal s_axi_wvalid              : std_logic_vector(1 downto 0)             := (others => '0'); -- 0: pix_clk, 1: vga_core [clk200 domain]
+  signal char_index                : natural range 0 to 255                   := 0; -- character index (ASCII code) in text_rom [ui_clk domain]
+  signal char_y                    : natural range 0 to CHAR_ROWS - 1         := 0; -- character row index [ui_clk domain]
+  signal s_ddr_awaddr              : unsigned(26 downto 0)                    := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awlen               : std_logic_vector(7 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awsize              : std_logic_vector(2 downto 0)             := "100"; -- 16 bytes in transfer [ui_clk domain]
+  signal s_ddr_awburst             : std_logic_vector(1 downto 0)             := "01"; -- [ui_clk domain]
+  signal s_ddr_awlock              : std_logic_vector(0 downto 0)             := "0"; -- [ui_clk domain]
+  signal s_ddr_awcache             : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awprot              : std_logic_vector(2 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awqos               : std_logic_vector(3 downto 0)             := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_awvalid             : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_wdata               : std_logic_vector(127 downto 0)           := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_wstrb               : std_logic_vector(15 downto 0)            := (others => '0'); -- [ui_clk domain]
+  signal s_ddr_wlast               : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_wvalid              : std_logic                                := '0'; -- [ui_clk domain]
+  signal s_ddr_bready              : std_logic                                := '0'; -- [ui_clk domain]  
+  signal cfg_state                 : cfg_state_t                              := CFG_IDLE0; -- [clk200 domain]
+  signal button_sync               : std_logic_vector(2 downto 0)             := "000"; -- [clk200 domain]
+  signal sw_capt                   : integer range 0 to RESOLUTION'length - 1 := 0; -- [clk200 domain] 
+  signal wr_count                  : integer range 0 to TOTAL_REGISTER_COUNT  := 0; -- AXI4-lite write transaction counter [clk200 domain]
+  signal update_text               : std_logic                                := '0'; -- [clk200 domain]
+  signal update_text_sync          : std_logic_vector(2 downto 0)             := "000"; -- [ui_clk domain]
+  signal text_sm                   : text_sm_t                                := TEXT_IDLE; -- [ui_clk domain]
+  signal total_page                : unsigned(24 downto 0)                    := (others => '0'); -- [ui_clk domain]
+  signal char_x                    : char_x_t(2 downto 0)                     := (others => 0); -- NOTE: could be a variable [ui_clk domain]
+  signal pix_clk_locked_clk200_old : std_logic                                := '0'; -- [clk200 domain]
 
   -- Unregistered signals without initial values
   signal sys_pll_locked        : std_logic;
-  signal pix_clk_locked        : std_logic;
+  signal locked                : std_logic; -- pix_clk locked
   signal rst200                : std_logic;
   signal s_axi_awready         : std_logic_vector(1 downto 0); -- 0: pix_clk, 1: vga_core
   signal s_axi_wready          : std_logic_vector(1 downto 0); -- 0: pix_clk, 1: vga_core
@@ -140,6 +141,7 @@ architecture rtl of vga is
   signal int_vga_rgb           : std_logic_vector(23 downto 0);
   signal vga_rst               : std_logic;
   signal pix_clk_locked_clk200 : std_logic;
+  signal init_calib_complete   : std_logic; -- @suppress "signal init_calib_complete is never read"
 
   -- Attributes
   attribute ASYNC_REG : string;
@@ -223,7 +225,7 @@ begin
       -- Clock out ports
       clk_out1      => vga_clk,
       -- Status and control signals
-      locked        => pix_clk_locked,
+      locked        => locked,
       -- Clock in ports
       clk_in1       => clk200
     );
@@ -236,7 +238,7 @@ begin
       RST_ACTIVE_HIGH => 1              -- DECIMAL; 0=active low reset, 1=active high reset
     )
     port map(
-      src_arst  => not pix_clk_locked,  -- 1-bit input: Source asynchronous reset signal.
+      src_arst  => not locked,          -- 1-bit input: Source asynchronous reset signal.
       dest_clk  => vga_clk,             -- 1-bit input: Destination clock.
       dest_arst => vga_rst              -- 1-bit output: src_arst asynchronous reset signal synchronized to destination clock domain
     );
@@ -250,7 +252,7 @@ begin
     )
     port map(
       src_clk  => '0',                  -- 1-bit input: optional; required when SRC_INPUT_REG = 1
-      src_in   => pix_clk_locked,       -- 1-bit input: Input signal to be synchronized to dest_clk domain.
+      src_in   => locked,               -- 1-bit input: Input signal to be synchronized to dest_clk domain.
       dest_clk => clk200,               -- 1-bit input: Clock signal for the destination clock domain.
       dest_out => pix_clk_locked_clk200 -- 1-bit output: src_in synchronized to the destination clock domain. This output is registered.
     );
@@ -290,7 +292,7 @@ begin
       ddr2_dq             => ddr2_dq,
       ddr2_dqs_n          => ddr2_dqs_n,
       ddr2_dqs_p          => ddr2_dqs_p,
-      init_calib_complete => open,
+      init_calib_complete => init_calib_complete,
       ddr2_cs_n           => ddr2_cs_n(0 downto 0),
       ddr2_dm             => ddr2_dm,
       ddr2_odt            => ddr2_odt(0 downto 0),
@@ -418,17 +420,20 @@ begin
   begin
     if rising_edge(clk200) then
       if rst200 = '1' then
-        button_sync   <= (others => '0');
-        wr_count      <= 0;
-        cfg_state     <= CFG_IDLE0;
-        update_text   <= '0';
-        sw_capt       <= 0;
-        s_axi_awvalid <= (others => '0');
-        s_axi_awaddr  <= (others => '0');
-        s_axi_wvalid  <= (others => '0');
-        s_axi_wdata   <= (others => '0');
-        s_axi_bready  <= (others => '0');
+        button_sync               <= (others => '0');
+        wr_count                  <= 0;
+        cfg_state                 <= CFG_IDLE0;
+        update_text               <= '0';
+        sw_capt                   <= 0;
+        s_axi_awvalid             <= (others => '0');
+        s_axi_awaddr              <= (others => '0');
+        s_axi_wvalid              <= (others => '0');
+        s_axi_wdata               <= (others => '0');
+        s_axi_bready              <= (others => '0');
+        pix_clk_locked_clk200_old <= '0';
       else
+        pix_clk_locked_clk200_old <= pix_clk_locked_clk200;
+
         -- Synchronize the center button signal
         button_sync <= button_sync(1 downto 0) & button_c;
 
@@ -436,9 +441,10 @@ begin
 
           -- Initial state
           when CFG_IDLE0 =>
-            update_text <= not update_text;
-            wr_count    <= 0;
-            cfg_state   <= CFG_IDLE1;
+            button_sync(2 downto 1) <= "10"; -- force programming on startup
+            update_text             <= not update_text;
+            wr_count                <= 0;
+            cfg_state               <= CFG_IDLE1;
 
           -- Wait for config trigger (center button press)
           when CFG_IDLE1 =>
@@ -507,9 +513,9 @@ begin
               end if;
             end if;
 
-          -- Load MMCM registers, wait until MMCM has locked and vga_clock is valid
+          -- Load MMCM registers, wait until MMCM has re-locked and vga_clock is valid
           when CFG_MMCM_WAIT_LOCKED =>
-            if pix_clk_locked_clk200 then
+            if pix_clk_locked_clk200 = '1' and pix_clk_locked_clk200_old = '0' then
               cfg_state <= CFG_WR3;
             end if;
 
@@ -686,6 +692,7 @@ begin
             if s_ddr_bvalid then
               s_ddr_bready <= '0';
               assert s_ddr_bresp = AXI4_OKAY severity failure;
+              assert s_ddr_bid = 4x"0" severity failure;
               assert total_page mod BYTES_PER_PAGE = 0 severity failure;
               if s_ddr_awaddr = total_page - BYTES_PER_PAGE then
                 text_sm <= TEXT_WRITE0;

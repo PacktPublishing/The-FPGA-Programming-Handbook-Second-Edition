@@ -214,6 +214,7 @@ set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
 #set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[3] }]; #IO_L2N_T0_D03_14 Sch=qspi_dq[3]
 #set_property -dict { PACKAGE_PIN L13   IOSTANDARD LVCMOS33 } [get_ports { QSPI_CSN }]; #IO_L6P_T0_FCS_B_14 Sch=qspi_csn
 
+# 135 MHz is the highest vga_clk frequency we can achieve with the current design
 create_clock -period 7.41 -name vga_clk -add [get_pins u_clk/clk_out1]
 set vga_clk_period [get_property PERIOD [get_clocks vga_clk]]
 # set clk200_period  [get_property PERIOD [get_clocks clk_out1_sys_clk]]
@@ -241,3 +242,6 @@ set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 #set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
 #set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
 #set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * $vga_clk_period]
+
+# vga_clk (25.18 MHz - 195 MHz) -> clk_pll_i (81.25 MHz)
+set_max_delay -datapath_only -from [get_clocks vga_clk] -to [get_clocks -of_objects [get_pins u_ddr2_vga/u_ddr2_vga_mig/u_ddr2_infrastructure/gen_mmcm.mmcm_i/CLKFBOUT]] [expr 1.5 * $vga_clk_period]
