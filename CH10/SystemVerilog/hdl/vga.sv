@@ -42,6 +42,8 @@ module vga
   logic                vga_vblank;
   logic                mc_clk;
   logic                clk200;
+  logic [2:0]          mem_cs_prb;
+  logic [2:0]          reg_cs_prb;
 
   sys_pll u_sys_pll
     (
@@ -284,7 +286,10 @@ module vga
      .vga_hblank   (vga_hblank),
      .vga_vsync    (vga_vsync),
      .vga_vblank   (vga_vblank),
-     .vga_rgb      (int_vga_rgb)
+     .vga_rgb      (int_vga_rgb),
+
+     .mem_cs_prb   (mem_cs_prb),
+     .reg_cs_prb   (reg_cs_prb)
      );
 
   assign vga_rgb = {int_vga_rgb[23:20],int_vga_rgb[15:12], int_vga_rgb[7:4]};
@@ -665,8 +670,7 @@ module vga
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[8],
-                W4PLL[2]
+                CFG_WR[8]
                 } cfg_state_t;
 
   cfg_state_t cfg_state;
@@ -791,7 +795,9 @@ module vga
         // Note that we are not handling bresp error conditions
         case ({last_write[0], s_axi_bvalid})
           2'b11: begin
-            cfg_state <= W4PLL0;
+            s_axi_awvalid <= 2'b10;
+            s_axi_wvalid  <= 2'b10;
+            cfg_state     <= CFG_WR4;
           end
           2'b01: begin
             s_axi_awvalid <= 2'b01;
@@ -799,17 +805,6 @@ module vga
             cfg_state <= CFG_WR0;
           end
         endcase // case ({last_write[0], s_axi_bvalid})
-      end
-      W4PLL0: begin
-        // Wait for the PLL config to take effect
-        if (~locked) cfg_state <= W4PLL1;
-      end
-      W4PLL1: begin
-        if (locked) begin
-          s_axi_awvalid <= 2'b10;
-          s_axi_wvalid  <= 2'b10;
-          cfg_state     <= CFG_WR4;
-        end
       end
       CFG_WR4: begin
         casez ({s_axi_awready[1], s_axi_wready[1]})
@@ -879,16 +874,9 @@ module vga
   end
 
   logic [3:0] button_count = '0;
-  assign LED[0] = text_sm == TEXT_IDLE;
-  assign LED[1] = text_sm == TEXT_CLR0;
-  assign LED[2] = text_sm == TEXT_CLR1;
-  assign LED[3] = text_sm == TEXT_CLR2;
-  assign LED[4] = text_sm == TEXT_WRITE0;
-  assign LED[5] = text_sm == TEXT_WRITE1;
-  assign LED[6] = text_sm == TEXT_WRITE2;
-  assign LED[7] = text_sm == TEXT_WRITE3;
-  assign LED[8] = text_sm == TEXT_WRITE4;
-  assign LED[9] = text_sm == TEXT_WRITE5;
+  assign LED[3:0] = text_sm;
+  assign LED[6:4] = mem_cs_prb;
+  assign LED[9:7] = reg_cs_prb;
   assign LED[10] = '1;
   assign LED[11] = '0;
   assign LED[15:12] = button_count;
