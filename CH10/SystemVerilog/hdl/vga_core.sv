@@ -7,57 +7,60 @@
 module vga_core
   (
    // Register address
-   input wire           reg_clk,
-   input wire           reg_reset,
+   input wire          reg_clk,
+   input wire          reg_reset,
 
-   input wire           reg_awvalid,
-   output logic         reg_awready,
-   input wire [11:0]    reg_awaddr,
+   input wire          reg_awvalid,
+   output logic        reg_awready,
+   input wire [11:0]   reg_awaddr,
 
-   input wire           reg_wvalid,
-   output logic         reg_wready,
-   input wire [31:0]    reg_wdata,
-   input wire [3:0]     reg_wstrb,
+   input wire          reg_wvalid,
+   output logic        reg_wready,
+   input wire [31:0]   reg_wdata,
+   input wire [3:0]    reg_wstrb,
 
-   input wire           reg_bready,
-   output logic         reg_bvalid,
-   output logic [1:0]   reg_bresp,
+   input wire          reg_bready,
+   output logic        reg_bvalid,
+   output logic [1:0]  reg_bresp,
 
-   input wire           reg_arvalid,
-   output logic         reg_arready,
-   input wire [11:0]    reg_araddr,
+   input wire          reg_arvalid,
+   output logic        reg_arready,
+   input wire [11:0]   reg_araddr,
 
-   input wire           reg_rready,
-   output logic         reg_rvalid,
-   output logic [31:0]  reg_rdata,
-   output logic [1:0]   reg_rresp,
+   input wire          reg_rready,
+   output logic        reg_rvalid,
+   output logic [31:0] reg_rdata,
+   output logic [1:0]  reg_rresp,
 
    // Master memory
-   input wire           mem_clk,
-   input wire           mem_reset,
+   input wire          mem_clk,
+   input wire          mem_reset,
 
-   output logic [3:0]   mem_arid,
-   output logic [26:0]  mem_araddr,
-   output logic [7:0]   mem_arlen,
-   output logic [2:0]   mem_arsize,
-   output logic [1:0]   mem_arburst,
-   output logic         mem_arlock,
-   output logic         mem_arvalid,
-   input wire           mem_arready,
+   output logic [3:0]  mem_arid,
+   output logic [26:0] mem_araddr,
+   output logic [7:0]  mem_arlen,
+   output logic [2:0]  mem_arsize,
+   output logic [1:0]  mem_arburst,
+   output logic        mem_arlock,
+   output logic        mem_arvalid,
+   input wire          mem_arready,
 
-   output logic         mem_rready,
-   input wire [3:0]     mem_rid,
-   input wire [127:0]   mem_rdata,
-   input wire [1:0]     mem_rresp,
-   input wire           mem_rlast,
-   input wire           mem_rvalid,
+   output logic        mem_rready,
+   input wire [3:0]    mem_rid,
+   input wire [127:0]  mem_rdata,
+   input wire [1:0]    mem_rresp,
+   input wire          mem_rlast,
+   input wire          mem_rvalid,
 
-   input wire           vga_clk,
-   output logic         vga_hsync,
-   output logic         vga_hblank,
-   output logic         vga_vsync,
-   output logic         vga_vblank,
-   output logic [23:0]  vga_rgb
+   input wire          vga_clk,
+   output logic        vga_hsync,
+   output logic        vga_hblank,
+   output logic        vga_vsync,
+   output logic        vga_vblank,
+   output logic [23:0] vga_rgb,
+
+   output logic [2:0]  mem_cs_prb,
+   output logic [2:0]  reg_cs_prb
    );
 
   localparam H_DISP_START_WIDTH     = 12'h000;
@@ -116,8 +119,8 @@ module vga_core
   end
 
   always @(posedge reg_clk) begin
-    reg_bvalid <= '0;
-    reg_bresp  <= AXI4_OKAY; // Okay
+    reg_bvalid  <= '0;
+    reg_bresp   <= AXI4_OKAY; // Okay
     reg_awready <= '0;
     reg_wready  <= '0;
 
@@ -255,7 +258,6 @@ module vga_core
   logic [7:0]  mc_words, mc_words_mem;
   logic [31:0] mc_addr, mc_addr_mem;
   logic        fifo_rst;
-  logic [31:0] scanline;
 
   // Timing generation
   initial begin
@@ -285,13 +287,17 @@ module vga_core
       horiz_count <= '0;
       if (vert_count >= vert_total_width) vert_count <= '0;
       else vert_count <= vert_count + 1'b1;
-      scanline <= vert_count - vert_display_start + 2;
-      mc_addr  <= scanline * pitch;
+      if (vert_count == vert_display_start) begin
+        mc_addr  <= '0;
+      end else begin
+        mc_addr  <= mc_addr + pitch;
+      end
       mc_words <= pitch[12:4] +|pitch[3:0];
+      mc_req   <= ~mc_req;
     end else
       horiz_count <= horiz_count + 1'b1;
 
-    if (vga_hblank && ~last_hblank && ~vga_vblank) mc_req   <= ~mc_req;
+    //if (vga_hblank && ~last_hblank && ~vga_vblank) mc_req   <= ~mc_req;
     last_hblank   <= vga_hblank;
 
     vga_hblank    <= ~((horiz_count > horiz_display_start) & (horiz_count <= (horiz_display_start + horiz_display_width)));
@@ -481,5 +487,8 @@ module vga_core
       end
     endcase
   end // always @ (posedge mem_clk)
+
+  assign mem_cs_prb = mem_cs;
+  assign reg_cs_prb = reg_cs;
 
 endmodule // vga
