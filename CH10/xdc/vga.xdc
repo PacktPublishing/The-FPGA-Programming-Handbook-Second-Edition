@@ -216,12 +216,11 @@ set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
 
 # 135 MHz is the highest vga_clk frequency we can achieve with the current design
 create_clock -period 7.410 -name vga_clk -add [get_pins u_clk/clk_out1]
-#create_clock -period 5.128 -name vga_clk -add [get_pins u_clk/clk_out1]
 
 set vga_clk_period [get_property PERIOD [get_clocks vga_clk]]
-# set clk200_period  [get_property PERIOD [get_clocks clk_out1_sys_clk]]
 set clkui_period  [get_property PERIOD [get_clocks clk_pll_i]]
 
+# Use max delay for vector signal CDCs
 set_max_delay -datapath_only -from */horiz_display_start_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */horiz_display_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from u_vga_core/horiz_sync_width_reg_reg[*] [expr 1.5 * $vga_clk_period]
@@ -233,14 +232,18 @@ set_max_delay -datapath_only -from */vert_total_width_reg* [expr 1.5 * $vga_clk_
 set_max_delay -datapath_only -from */polarity_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */pitch_reg_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from *sw_capt_reg*/C [expr 1.5 * $clkui_period]
-#set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
+set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */mc_words_reg* [expr 1.5 * $vga_clk_period]
 
+# Use false paths for single-bit flag CDCs
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
 set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
 set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 
 # For VHDL version
-set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
-set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * 7.410]
-set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * 7.410]
+
+# vga_clk (variable) -> ui_clk (81.25 MHz) 
+set_max_delay -datapath_only -from [get_clocks vga_clk] -to [get_clocks -of_objects [get_pins u_ddr2_vga/u_ddr2_vga_mig/u_ddr2_infrastructure/gen_mmcm.mmcm_i/CLKFBOUT]] [expr 1.5 * $vga_clk_period]
+
+# clk200 (200 MHz) -> vga_clk (variable)
+set_max_delay -datapath_only -from [get_clocks -of_objects [get_pins u_sys_clk/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks -of_objects [get_pins u_clk/inst/CLK_CORE_DRP_I/clk_inst/mmcm_adv_inst/CLKOUT0]] [expr 1.5 * $vga_clk_period]

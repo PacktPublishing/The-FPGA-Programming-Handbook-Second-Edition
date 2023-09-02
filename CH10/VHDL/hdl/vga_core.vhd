@@ -125,7 +125,8 @@ architecture rtl of vga_core is
   signal fifo_rst                : std_logic                     := '0'; -- [mem_clk domain]
   signal scan_cs                 : scan_cs_t                     := SCAN_IDLE; -- [vga_clk domain]
   signal mem_cs                  : mem_cs_t                      := MEM_IDLE; -- [mem_clk domain]
-  signal last_hblank             : std_logic                     := '0';
+  signal mc_addr_reg             : unsigned(mc_addr'range)       := (others => '0'); -- [mem_clk domain]
+  signal mc_words_reg            : unsigned(mc_words'range)      := (others => '0'); -- [mem_clk domain]
 
   -- Unregistered signals
   signal vga_data        : std_logic_vector(127 downto 0); -- [vga_clk domain]
@@ -321,16 +322,13 @@ begin
     variable vga_vblank_v       : std_logic;
 
     -- Registered variables
-    --variable horiz_count_v : unsigned(11 downto 0) := (others => '1');
-    --variable vert_count_v  : unsigned(11 downto 0) := (others => '1');
-    --variable scanline : unsigned(11 downto 0) := (others => '0');
-    variable is_init : boolean := false;
+    variable horiz_count_v : unsigned(11 downto 0) := (others => '1');
+    variable vert_count_v  : unsigned(11 downto 0) := (others => '1');
   begin
     if rising_edge(vga_clk) then
       if vga_rst then
-        is_init             := false;
-        --horiz_count_v       := (others => '1');
-        --vert_count_v        := (others => '1');
+        horiz_count_v       := (others => '1');
+        vert_count_v        := (others => '1');
         scanline            <= (others => '0');
         horiz_count         <= (others => '0');
         vert_count          <= (others => '0');
@@ -347,7 +345,6 @@ begin
         mc_req              <= '0';
         mc_addr             <= (others => '0');
         mc_words            <= (others => '0');
-        last_hblank         <= '0';
         vga_hblank          <= '0';
         vga_hsync           <= '0';
         vga_vblank          <= '0';
@@ -370,64 +367,41 @@ begin
           vert_total_width    <= vert_total_width_reg;
           polarity            <= polarity_reg;
           pitch               <= pitch_reg;
+          -- TODO: reset all the counters when loading new settings?
         end if;
 
-        if horiz_count >= horiz_total_width then
-          horiz_count <= (others => '0');
-          if vert_count >= vert_total_width then
-            vert_count <= (others => '0');
+        if horiz_count_v >= horiz_total_width then
+          horiz_count_v := (others => '0');
+          if vert_count_v >= vert_total_width then
+            vert_count_v := (others => '0');
           else
-            vert_count <= vert_count + 1;
+            vert_count_v := vert_count_v + 1;
           end if;
-          scanline    <= vert_count - vert_display_start + 2;
-          mc_addr     <= resize(scanline * pitch, mc_addr'length);
-          mc_words    <= pitch(pitch'high downto 4); -- in units of 16-byte words
+
+          -- Start reading from memory address 0x0, increment by pitch value at the start of 
+          -- each active scan line.
+          if vert_count_v <= vert_display_start + 1 then
+            mc_addr <= (others => '0');
+          elsif vert_count_v <= vert_display_start + vert_display_width then
+            mc_addr <= mc_addr + pitch;
+          end if;
+
+          -- Issue a memory read request at the beginning of each active scan line
+          if vert_count_v > vert_display_start and vert_count_v <= vert_display_start + vert_display_width then
+            mc_req   <= not mc_req;
+            mc_words <= pitch(pitch'high downto 4); -- in units of 16-byte words
+          end if;
         else
-          horiz_count <= horiz_count + 1;
+          horiz_count_v := horiz_count_v + 1;
         end if;
 
-        if vga_hblank = '1' and last_hblank = '0' and vga_vblank = '0' then
-          mc_req <= not mc_req;
-        end if;
+        horiz_count <= horiz_count_v;
+        vert_count  <= vert_count_v;
 
-        last_hblank <= vga_hblank;
-
-        vga_hblank <= not ((horiz_count ?> horiz_display_start) and (horiz_count ?<= (horiz_display_start + horiz_display_width)));
-        vga_hsync  <= polarity(1) xor not (horiz_count ?> (horiz_total_width - horiz_sync_width));
-        vga_vblank <= not ((vert_count ?> vert_display_start) and (vert_count ?<= (vert_display_start + vert_display_width)));
-        vga_vsync  <= polarity(0) xor not (vert_count ?> (vert_total_width - vert_sync_width));
-
-        --          -- Horizontal and vertical pixel counters
-        --          if horiz_count_v >= horiz_total_width then
-        --            horiz_count_v := 12d"0";
-        --            if vert_count_v >= vert_total_width then
-        --              vert_count_v := 12d"0";
-        --            else
-        --              vert_count_v := vert_count_v + 1;
-        --            end if;
-        --            report "vert_count = " & to_string(to_integer(vert_count_v));
-        --          else
-        --            horiz_count_v := horiz_count_v + 1;
-        --          end if;
-        --
-        --          -- Generate VGA signals
-        --          vga_hblank_v := '0' when horiz_count_v > horiz_display_start and horiz_count_v <= horiz_display_start + horiz_display_width else '1';
-        --          vga_vblank_v := '0' when vert_count_v > vert_display_start and vert_count_v <= vert_display_start + vert_display_width else '1';
-        --          hsync_en     := '1' when horiz_count_v > horiz_total_width - horiz_sync_width else '0';
-        --          vsync_en     := '1' when vert_count_v > vert_total_width - vert_sync_width else '0';
-        --          horiz_count  <= horiz_count_v;
-        --          vga_hblank   <= vga_hblank_v;
-        --          vga_hsync    <= polarity(1) xor not (hsync_en);
-        --          vga_vblank   <= vga_vblank_v;
-        --          vga_vsync    <= polarity(0) xor not (vsync_en);
-        --
-        --          -- Issue a new memory controller request at the start of every active line
-        --          scanline := vert_count_v - vert_display_start;
-        --          if horiz_count_v = horiz_display_start + horiz_display_width + 1 and vert_count_v >= vert_display_start and vert_count_v < vert_display_start + vert_display_width then
-        --            mc_req   <= not mc_req;
-        --            mc_addr  <= resize(scanline * pitch, mc_addr'length);
-        --            mc_words <= pitch(pitch'high downto 4); -- in units of 16-byte words
-        --          end if;
+        vga_hblank <= not ((horiz_count_v ?> horiz_display_start) and (horiz_count_v ?<= (horiz_display_start + horiz_display_width)));
+        vga_hsync  <= polarity(1) xor not (horiz_count_v ?> (horiz_total_width - horiz_sync_width));
+        vga_vblank <= not ((vert_count_v ?> vert_display_start) and (vert_count_v ?<= (vert_display_start + vert_display_width)));
+        vga_vsync  <= polarity(0) xor not (vert_count_v ?> (vert_total_width - vert_sync_width));
 
       end if;
     end if;
@@ -439,20 +413,18 @@ begin
 
   mem_ctrl : process(mem_clk)
     -- Registered variables 
-    variable mc_addr_reg  : unsigned(mc_addr'range)  := (others => '0');
-    variable mc_words_reg : unsigned(mc_words'range) := (others => '0');
-    variable mc_addr_high : unsigned(mc_addr'range)  := (others => '0'); -- address of the last byte in burst
-    variable next_addr    : unsigned(mc_addr'range)  := (others => '0');
-    variable len_diff     : unsigned(12 downto 0)    := (others => '0'); -- number of bytes until the next 4 KiB address boundary
+    variable mc_addr_high : unsigned(mc_addr'range) := (others => '0'); -- address of the last byte in burst
+    variable next_addr    : unsigned(mc_addr'range) := (others => '0');
+    variable len_diff     : unsigned(12 downto 0)   := (others => '0'); -- number of bytes until the next 4 KiB address boundary
 
   begin
     if rising_edge(mem_clk) then
       if mem_reset then
-        mc_addr_reg  := (others => '0');
-        mc_words_reg := (others => '0');
         mc_addr_high := (others => '0');
         len_diff     := (others => '0');
         next_addr    := (others => '0');
+        mc_addr_reg  <= (others => '0');
+        mc_words_reg <= (others => '0');
         mc_req_sync  <= (others => '0');
         mem_cs       <= MEM_IDLE;
         fifo_rst     <= '0';
@@ -472,8 +444,8 @@ begin
 
           when MEM_IDLE =>
             if xor(mc_req_sync(2 downto 1)) then
-              mc_addr_reg  := mc_addr;  -- assuming mc_addr is stable an can be safely registered into mem_clk domain here
-              mc_words_reg := mc_words; -- assuming mc_words is stable an can be safely registered into mem_clk domain here
+              mc_addr_reg  <= mc_addr;  -- assuming mc_addr is stable an can be safely registered into mem_clk domain here
+              mc_words_reg <= mc_words; -- assuming mc_words is stable an can be safely registered into mem_clk domain here
               fifo_rst     <= '1';
               mem_cs       <= MEM_W4RSTH;
             end if;
