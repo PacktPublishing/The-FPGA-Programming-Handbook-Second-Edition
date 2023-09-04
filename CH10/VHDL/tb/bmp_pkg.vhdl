@@ -36,9 +36,14 @@ end package bmp_pkg;
 package body bmp_pkg is
 
   procedure write_bmp(filename : string; width : natural; height : natural; data : integer_vector) is
-    variable f       : binary_file_t;
-    variable r, g, b : natural;
+    variable width_u32  : unsigned(31 downto 0);
+    variable height_u32 : unsigned(31 downto 0);
+    variable f          : binary_file_t;
+    variable r, g, b    : natural;
   begin
+    width_u32  := to_unsigned(width, 32);
+    height_u32 := to_unsigned(height, 32);
+
     f.fopen(filename);
 
     -- Bitmap file header
@@ -50,8 +55,12 @@ package body bmp_pkg is
 
     -- DIB header
     f.write_array((8x"28", 8x"00", 8x"00", 8x"00")); -- 40 bytes  Number of bytes in the DIB header ((from this point));
-    f.write_array((8x"80", 8x"02", 8x"00", 8x"00")); -- 640 pixels ((left to right order));  Width of the bitmap in pixels
-    f.write_array((8x"E0", 8x"01", 8x"00", 8x"00")); -- 480 pixels ((bottom to top order));  Height of the bitmap in pixels. Positive for bottom to top pixel order.
+    for i in 0 to 3 loop
+      f.write_byte(std_logic_vector(width_u32(i * 8 + 7 downto i * 8)));
+    end loop;
+    for i in 0 to 3 loop
+      f.write_byte(std_logic_vector(height_u32(i * 8 + 7 downto i * 8)));
+    end loop;
     f.write_array((8x"03", 8x"00"));    -- 3 planes  Number of color planes being used
     f.write_array((8x"18", 8x"00"));    -- 24 bits Number of bits per pixel
     f.write_array((8x"00", 8x"00", 8x"00", 8x"00")); -- 0 BI_RGB, no pixel array compression used

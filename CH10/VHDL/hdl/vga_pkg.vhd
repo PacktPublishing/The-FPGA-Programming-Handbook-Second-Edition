@@ -38,7 +38,7 @@ package vga_pkg is
 
   -- Constants
   constant RESOLUTION : resolution_array(0 to 17) := (
-    (
+    0  => (
       -- 25.18 MHz 640x480 @ 60Hz
       divide_count        => 8d"9",
       mult_integer        => 8d"50",
@@ -56,7 +56,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 31.5Mhz 640x480 @ 72 Hz
+    1  => (                             -- 31.5Mhz 640x480 @ 72 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"39",
       mult_fraction       => 10d"375",
@@ -73,7 +73,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 31.5Mhz 640x480 @ 75 Hz
+    2  => (                             -- 31.5Mhz 640x480 @ 75 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"39",
       mult_fraction       => 10d"375",
@@ -90,7 +90,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 36 MHz 640x480 @ 85 Hz
+    3  => (                             -- 36 MHz 640x480 @ 85 Hz
       divide_count        => 8d"5",
       mult_integer        => 8d"24",
       mult_fraction       => 10d"750",
@@ -107,7 +107,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 40 MHz 800x600 @ 60 Hz
+    4  => (                             -- 40 MHz 800x600 @ 60 Hz
       divide_count        => 8d"1",
       mult_integer        => 8d"5",
       mult_fraction       => 10d"000",
@@ -124,7 +124,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 49.5 MHz 800x600 @ 75 Hz
+    5  => (                             -- 49.5 MHz 800x600 @ 75 Hz
       divide_count        => 8d"5",
       mult_integer        => 8d"24",
       mult_fraction       => 10d"750",
@@ -140,9 +140,8 @@ package vga_pkg is
       vert_total_width    => 12d"624",
       hpol                => '1',
       vpol                => '1'
-      -- res_text[5]                        => "  zH57 @ 006x008",
     ),
-    (                                   -- 50 MHz 800x600 @ 72 Hz
+    6  => (                             -- 50 MHz 800x600 @ 72 Hz
       divide_count        => 8d"1",
       mult_integer        => 8d"5",
       mult_fraction       => 10d"000",
@@ -158,9 +157,8 @@ package vga_pkg is
       vert_total_width    => 12d"665",
       hpol                => '1',
       vpol                => '1'
-      -- res_text[6]                        => "  zH27 @ 006x008",
     ),
-    (                                   -- 56.25 MHz 800x600 @ 85 Hz
+    7  => (                             -- 56.25 MHz 800x600 @ 85 Hz
       divide_count        => 8d"2",
       mult_integer        => 8d"10",
       mult_fraction       => 10d"125",
@@ -176,9 +174,8 @@ package vga_pkg is
       vert_total_width    => 12d"630",
       hpol                => '1',
       vpol                => '1'
-      -- res_text[7]                        => "  zH58 @ 006x008",
     ),
-    (                                   -- 65 MHz 1024x768 @ 60 Hz
+    8  => (                             -- 65 MHz 1024x768 @ 60 Hz
       divide_count        => 8d"10",
       mult_integer        => 8d"50",
       mult_fraction       => 10d"375",
@@ -195,7 +192,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 75 MHz 1024x768 @ 70 Hz
+    9  => (                             -- 75 MHz 1024x768 @ 70 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"40",
       mult_fraction       => 10d"125",
@@ -212,7 +209,7 @@ package vga_pkg is
       hpol                => '0',
       vpol                => '0'
     ),
-    (                                   -- 78.75 MHz 1024x768 @ 75 Hz
+    10 => (                             -- 78.75 MHz 1024x768 @ 75 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"39",
       mult_fraction       => 10d"375",
@@ -229,7 +226,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 94.5 MHz 1024x768 @ 85 Hz
+    11 => (                             -- 94.5 MHz 1024x768 @ 85 Hz
       divide_count        => 8d"5",
       mult_integer        => 8d"23",
       mult_fraction       => 10d"625",
@@ -246,7 +243,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 108 MHz 1280x1024 @ 60 Hz
+    12 => (                             -- 108 MHz 1280x1024 @ 60 Hz
       divide_count        => 8d"2",
       mult_integer        => 8d"10",
       mult_fraction       => 10d"125",
@@ -263,7 +260,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 135 MHz 1280x1024 @ 75 Hz
+    13 => (                             -- 135 MHz 1280x1024 @ 75 Hz
       divide_count        => 8d"2",
       mult_integer        => 8d"10",
       mult_fraction       => 10d"125",
@@ -280,7 +277,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 157.5 MHz 1280x1024 @ 85 Hz
+    14 => (                             -- 157.5 MHz 1280x1024 @ 85 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"39",
       mult_fraction       => 10d"375",
@@ -297,7 +294,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 162 MHz 1600x1200 @ 60 Hz
+    15 => (                             -- 162 MHz 1600x1200 @ 60 Hz
       divide_count        => 8d"2",
       mult_integer        => 8d"10",
       mult_fraction       => 10d"125",
@@ -314,7 +311,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 195 MHz 1920x1200 @ 60 Hz
+    16 => (                             -- 195 MHz 1920x1200 @ 60 Hz
       divide_count        => 8d"1",
       mult_integer        => 8d"4",
       mult_fraction       => 10d"875",
@@ -331,7 +328,7 @@ package vga_pkg is
       hpol                => '1',
       vpol                => '1'
     ),
-    (                                   -- 195 MHz 1920x1200 @ 60 Hz
+    17 => (                             -- 195 MHz 1920x1200 @ 60 Hz
       divide_count        => 8d"8",
       mult_integer        => 8d"37",
       mult_fraction       => 10d"125",
