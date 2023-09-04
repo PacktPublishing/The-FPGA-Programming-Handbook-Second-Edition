@@ -6,6 +6,9 @@
 ## Clock signal
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports clk]
 
+# NOTE: the 100 MHz input clock is already defined in sys_pll.xdc
+# create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} [get_ports clk]
+
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 
@@ -28,22 +31,22 @@ set_property -dict {PACKAGE_PIN R17 IOSTANDARD LVCMOS33} [get_ports {SW[4]}]
 #set_property -dict { PACKAGE_PIN V10   IOSTANDARD LVCMOS33 } [get_ports { SW[15] }]; #IO_L21P_T3_DQS_14 Sch=sw[15]
 
 ## LEDs
-set_property -dict {PACKAGE_PIN H17 IOSTANDARD LVCMOS33} [get_ports {LED[0]}]
-set_property -dict {PACKAGE_PIN K15 IOSTANDARD LVCMOS33} [get_ports {LED[1]}]
-set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33} [get_ports {LED[2]}]
-set_property -dict {PACKAGE_PIN N14 IOSTANDARD LVCMOS33} [get_ports {LED[3]}]
-set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports {LED[4]}]
-set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVCMOS33} [get_ports {LED[5]}]
-set_property -dict {PACKAGE_PIN U17 IOSTANDARD LVCMOS33} [get_ports {LED[6]}]
-set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports {LED[7]}]
-set_property -dict {PACKAGE_PIN V16 IOSTANDARD LVCMOS33} [get_ports {LED[8]}]
-set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports {LED[9]}]
-set_property -dict {PACKAGE_PIN U14 IOSTANDARD LVCMOS33} [get_ports {LED[10]}]
-set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports {LED[11]}]
-set_property -dict {PACKAGE_PIN V15 IOSTANDARD LVCMOS33} [get_ports {LED[12]}]
-set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports {LED[13]}]
-set_property -dict {PACKAGE_PIN V12 IOSTANDARD LVCMOS33} [get_ports {LED[14]}]
-set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS33} [get_ports {LED[15]}]
+#set_property -dict {PACKAGE_PIN H17 IOSTANDARD LVCMOS33} [get_ports {LED[0]}]
+#set_property -dict {PACKAGE_PIN K15 IOSTANDARD LVCMOS33} [get_ports {LED[1]}]
+#set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33} [get_ports {LED[2]}]
+#set_property -dict {PACKAGE_PIN N14 IOSTANDARD LVCMOS33} [get_ports {LED[3]}]
+#set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports {LED[4]}]
+#set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVCMOS33} [get_ports {LED[5]}]
+#set_property -dict {PACKAGE_PIN U17 IOSTANDARD LVCMOS33} [get_ports {LED[6]}]
+#set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports {LED[7]}]
+#set_property -dict {PACKAGE_PIN V16 IOSTANDARD LVCMOS33} [get_ports {LED[8]}]
+#set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports {LED[9]}]
+#set_property -dict {PACKAGE_PIN U14 IOSTANDARD LVCMOS33} [get_ports {LED[10]}]
+#set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports {LED[11]}]
+#set_property -dict {PACKAGE_PIN V15 IOSTANDARD LVCMOS33} [get_ports {LED[12]}]
+#set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports {LED[13]}]
+#set_property -dict {PACKAGE_PIN V12 IOSTANDARD LVCMOS33} [get_ports {LED[14]}]
+#set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS33} [get_ports {LED[15]}]
 
 ## RGB LEDs
 #set_property -dict {PACKAGE_PIN R12 IOSTANDARD LVCMOS33} [get_ports B]
@@ -72,7 +75,7 @@ set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS33} [get_ports {LED[15]}]
 #set_property -dict { PACKAGE_PIN U13   IOSTANDARD LVCMOS33 } [get_ports { AN[7] }]; #IO_L23N_T3_A02_D18_14 Sch=an[7]
 
 ##Buttons
-set_property -dict {PACKAGE_PIN C12 IOSTANDARD LVCMOS33} [get_ports cpu_resetn]
+#set_property -dict {PACKAGE_PIN C12 IOSTANDARD LVCMOS33} [get_ports cpu_resetn]
 set_property -dict {PACKAGE_PIN N17 IOSTANDARD LVCMOS33} [get_ports button_c]
 #set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports BTNU]
 #set_property -dict { PACKAGE_PIN P17   IOSTANDARD LVCMOS33 } [get_ports { BTNL }]; #IO_L12P_T1_MRCC_14 Sch=btnl
@@ -172,13 +175,13 @@ set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
 #set_property -dict { PACKAGE_PIN B14   IOSTANDARD LVCMOS33 } [get_ports { TMP_CT }]; #IO_L2N_T0_AD8N_15 Sch=tmp_ct
 
 ##Omnidirectional Microphone
-set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33} [get_ports m_clk]
-set_property -dict {PACKAGE_PIN H5 IOSTANDARD LVCMOS33} [get_ports m_data]
-set_property -dict {PACKAGE_PIN F5 IOSTANDARD LVCMOS33} [get_ports m_lr_sel]
+#set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33} [get_ports m_clk]
+#set_property -dict {PACKAGE_PIN H5 IOSTANDARD LVCMOS33} [get_ports m_data]
+#set_property -dict {PACKAGE_PIN F5 IOSTANDARD LVCMOS33} [get_ports m_lr_sel]
 
 ##PWM Audio Amplifier
-set_property -dict {PACKAGE_PIN A11 IOSTANDARD LVCMOS33} [get_ports AUD_PWM]
-set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports AUD_SD]
+#set_property -dict {PACKAGE_PIN A11 IOSTANDARD LVCMOS33} [get_ports AUD_PWM]
+#set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports AUD_SD]
 
 ##USB-RS232 Interface
 #set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { UART_TXD_IN }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
@@ -211,12 +214,13 @@ set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports AUD_SD]
 #set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { QSPI_DQ[3] }]; #IO_L2N_T0_D03_14 Sch=qspi_dq[3]
 #set_property -dict { PACKAGE_PIN L13   IOSTANDARD LVCMOS33 } [get_ports { QSPI_CSN }]; #IO_L6P_T0_FCS_B_14 Sch=qspi_csn
 
+# 135 MHz is the highest vga_clk frequency we can achieve with the current design
 create_clock -period 7.410 -name vga_clk -add [get_pins u_clk/clk_out1]
-#create_clock -period 5.128 -name vga_clk -add [get_pins u_clk/clk_out1]
+
 set vga_clk_period [get_property PERIOD [get_clocks vga_clk]]
-set clk200_period  [get_property PERIOD [get_clocks clk_out1_sys_clk]]
 set clkui_period  [get_property PERIOD [get_clocks clk_pll_i]]
 
+# Use max delay for vector signal CDCs
 set_max_delay -datapath_only -from */horiz_display_start_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */horiz_display_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from u_vga_core/horiz_sync_width_reg_reg[*] [expr 1.5 * $vga_clk_period]
@@ -225,19 +229,21 @@ set_max_delay -datapath_only -from */vert_display_start_reg* [expr 1.5 * $vga_cl
 set_max_delay -datapath_only -from */vert_display_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */vert_sync_width_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */vert_total_width_reg* [expr 1.5 * $vga_clk_period]
-set_max_delay -datapath_only -from */disp_addr_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */polarity_reg* [expr 1.5 * $vga_clk_period]
-set_max_delay -datapath_only -from */pixel_depth_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */pitch_reg_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from *sw_capt_reg*/C [expr 1.5 * $clkui_period]
 set_max_delay -datapath_only -from */mc_addr_reg* [expr 1.5 * $vga_clk_period]
 set_max_delay -datapath_only -from */mc_words_reg* [expr 1.5 * $vga_clk_period]
 
+# Use false paths for single-bit flag CDCs
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
 set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
 set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 
 # For VHDL version
-set_false_path -from [get_clocks vga_clk] -to [get_clocks clk_pll_i]
-set_max_delay -datapath_only -from u_vga_core/plusOp/CLK -to */next_addr_reg*/D [expr 1.5 * 7.410]
-set_max_delay -datapath_only -from u_vga_core/next_addr0/CLK -to */next_addr_reg*/D [expr 1.5 * 7.410]
+
+# vga_clk (variable) -> ui_clk (81.25 MHz) 
+set_max_delay -datapath_only -from [get_clocks vga_clk] -to [get_clocks -of_objects [get_pins u_ddr2_vga/u_ddr2_vga_mig/u_ddr2_infrastructure/gen_mmcm.mmcm_i/CLKFBOUT]] [expr 1.5 * $vga_clk_period]
+
+# clk200 (200 MHz) -> vga_clk (variable)
+set_max_delay -datapath_only -from [get_clocks -of_objects [get_pins u_sys_clk/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks -of_objects [get_pins u_clk/inst/CLK_CORE_DRP_I/clk_inst/mmcm_adv_inst/CLKOUT0]] [expr 1.5 * $vga_clk_period]

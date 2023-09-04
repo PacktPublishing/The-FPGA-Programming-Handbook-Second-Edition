@@ -2,33 +2,35 @@
 -- ------------------------------------
 -- Simple read only memory implementation to store characters
 -- ------------------------------------
--- Author : Frank Bruno
-LIBRARY IEEE, XPM;
+-- Author : Frank Bruno, Guy Eschemann
+
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
-use IEEE.math_real.all;
-use XPM.vcomponents.all;
 
 entity text_rom is
-  port (clock      : in  std_logic;
-        index      : in  std_logic_vector(7 downto 0);
-        sub_index  : in  std_logic_vector(2 downto 0);
-
-        bitmap_out : out std_logic_vector(7 downto 0));
+  port(
+    clock      : in  std_logic;
+    index      : in  std_logic_vector(7 downto 0); -- ASCII code
+    sub_index  : in  std_logic_vector(2 downto 0); -- scan line (0..7)
+    bitmap_out : out std_logic_vector(7 downto 0)
+  );
 end entity text_rom;
 
 architecture rtl of text_rom is
-  signal bitmap      : std_logic_vector(7 downto 0); -- 8 bit horizontal slice of character
-  signal bitmap_flip : std_logic_vector(7 downto 0);
+  signal bitmap : std_logic_vector(7 downto 0); -- 8 bit horizontal slice of character
 begin
 
-  process (all) begin
+  reverse_bitmap : process(all)
+  begin
     for i in 0 to 7 loop
-      bitmap_out(i) <= bitmap(7-i);
+      bitmap_out(i) <= bitmap(7 - i);
     end loop;
   end process;
 
-  process (clock) begin
+  -- REVIEW: does this map to a block RAM?
+  process(clock)
+  begin
     if rising_edge(clock) then
       case index & sub_index is
         -- Middle Fill Bar - Empty
@@ -203,14 +205,14 @@ begin
         when x"31" & "110" => bitmap <= x"FC";
         when x"31" & "111" => bitmap <= x"00";
         -- 2
-        when x"32" & "000" => bitmap <= x"78";
-        when x"32" & "001" => bitmap <= x"CC";
-        when x"32" & "010" => bitmap <= x"0C";
-        when x"32" & "011" => bitmap <= x"38";
-        when x"32" & "100" => bitmap <= x"60";
-        when x"32" & "101" => bitmap <= x"C0";
-        when x"32" & "110" => bitmap <= x"FC";
-        when x"32" & "111" => bitmap <= x"00";
+        when x"32" & "000" => bitmap <= x"78"; -- 01111000
+        when x"32" & "001" => bitmap <= x"CC"; -- 11001100
+        when x"32" & "010" => bitmap <= x"0C"; -- 00001100
+        when x"32" & "011" => bitmap <= x"38"; -- 00111000
+        when x"32" & "100" => bitmap <= x"60"; -- 01100000
+        when x"32" & "101" => bitmap <= x"C0"; -- 11000000
+        when x"32" & "110" => bitmap <= x"FC"; -- 11111100
+        when x"32" & "111" => bitmap <= x"00"; -- 00000000
         -- 3
         when x"33" & "000" => bitmap <= x"78";
         when x"33" & "001" => bitmap <= x"CC";
