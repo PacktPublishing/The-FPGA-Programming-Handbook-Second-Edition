@@ -53,10 +53,10 @@ module vga_core
    input wire          mem_rvalid,
 
    input wire          vga_clk,
-   output logic        vga_hsync,
-   output logic        vga_hblank,
-   output logic        vga_vsync,
-   output logic        vga_vblank,
+   (* mark_debug = "true" *) output logic        vga_hsync,
+   (* mark_debug = "true" *) output logic        vga_hblank,
+   (* mark_debug = "true" *) output logic        vga_vsync,
+   (* mark_debug = "true" *) output logic        vga_vblank,
    output logic [23:0] vga_rgb,
 
    output logic [2:0]  mem_cs_prb,
@@ -252,12 +252,12 @@ module vga_core
     pitch                   = 5*16;
   end
 
-  logic [11:0] horiz_count;
-  logic [11:0] vert_count;
-  logic        mc_req;
+  (* mark_debug = "true" *) logic [11:0] horiz_count;
+  (* mark_debug = "true" *) logic [11:0] vert_count;
+  (* mark_debug = "true" *) logic        mc_req;
   logic [7:0]  mc_words, mc_words_mem;
-  logic [31:0] mc_addr, mc_addr_mem;
-  logic        fifo_rst;
+  (* mark_debug = "true" *) logic [31:0] mc_addr, mc_addr_mem;
+  (* mark_debug = "true" *) logic        fifo_rst;
 
   // Timing generation
   initial begin
@@ -266,7 +266,7 @@ module vga_core
     mc_req      = '0;
   end
 
-  logic last_hblank;
+  (* mark_debug = "true" *) logic last_hblank;
 
   always @(posedge vga_clk) begin
     load_mode_sync <= load_mode_sync << 1 | load_mode;
@@ -300,10 +300,10 @@ module vga_core
     //if (vga_hblank && ~last_hblank && ~vga_vblank) mc_req   <= ~mc_req;
     last_hblank   <= vga_hblank;
 
-    vga_hblank    <= ~((horiz_count > horiz_display_start) & (horiz_count <= (horiz_display_start + horiz_display_width)));
+    vga_hblank    <= ~((horiz_count >= horiz_display_start) & (horiz_count < (horiz_display_start + horiz_display_width)));
     vga_hsync     <= polarity[1] ^ ~(horiz_count > (horiz_total_width - horiz_sync_width));
 
-    vga_vblank    <= ~((vert_count > vert_display_start) & (vert_count <= (vert_display_start + vert_display_width)));
+    vga_vblank    <= ~((vert_count >= vert_display_start) & (vert_count < (vert_display_start + vert_display_width)));
     vga_vsync     <= polarity[0] ^ ~(vert_count > (vert_total_width - vert_sync_width));
 
   end // always @ (posedge vga_clk)

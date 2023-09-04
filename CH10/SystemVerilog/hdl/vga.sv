@@ -14,7 +14,6 @@ module vga
 
    input [4:0]         SW, // Switches to configure resolution
    input               button_c, // Center button
-   input               cpu_resetn, // When pressed, reset
 
    output [12:0]       ddr2_addr,
    output [2:0]        ddr2_ba,
@@ -30,9 +29,7 @@ module vga
 
    output [0:0]        ddr2_cs_n,
    output [1:0]        ddr2_dm,
-   output [0:0]        ddr2_odt,
-
-   output [15:0]        LED
+   output [0:0]        ddr2_odt
    );
 
   localparam           BYTES_PER_PAGE = 16; // Number of bytes returned by the DDR
@@ -670,7 +667,8 @@ module vga
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[8]
+                CFG_WR[8],
+                CFG_W4PLL[2]
                 } cfg_state_t;
 
   cfg_state_t cfg_state;
@@ -695,9 +693,9 @@ module vga
 
   // Clock reconfiguration
   always @(posedge clk200) begin
-    button_sync <= button_sync << 1 | button_c;
-    last_write[0]  <= wr_count == 24;
-    last_write[1]  <= wr_count == 31;
+    button_sync               <= button_sync << 1 | button_c;
+    last_write[0] <= wr_count == 24;
+    last_write[1] <= wr_count == 31;
 
     s_axi_awaddr  <= addr_array[wr_count];
     case (wr_count)
@@ -738,10 +736,10 @@ module vga
     endcase // case (wr_count)
     case (cfg_state)
       CFG_IDLE0: begin
-        button_sync   <= 2'b10; // force programming on startup
-        update_text   <= ~update_text;
-        wr_count      <= '0;
-        cfg_state     <= CFG_IDLE1;
+        button_sync <= 2'b10; // force programming on startup
+        update_text <= ~update_text;
+        wr_count    <= '0;
+        cfg_state   <= CFG_IDLE1;
       end
       CFG_IDLE1: begin
         s_axi_awvalid <= '0;
@@ -795,9 +793,7 @@ module vga
         // Note that we are not handling bresp error conditions
         case ({last_write[0], s_axi_bvalid})
           2'b11: begin
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state     <= CFG_WR4;
+            cfg_state     <= CFG_W4PLL0;
           end
           2'b01: begin
             s_axi_awvalid <= 2'b01;
@@ -805,6 +801,17 @@ module vga
             cfg_state <= CFG_WR0;
           end
         endcase // case ({last_write[0], s_axi_bvalid})
+      end
+      CFG_W4PLL0: begin
+        // Wait for the PLL config to take effect
+        if (~locked) cfg_state <= CFG_W4PLL1;
+      end
+      CFG_W4PLL1: begin
+        if (locked) begin
+          s_axi_awvalid <= 2'b10;
+          s_axi_wvalid  <= 2'b10;
+          cfg_state     <= CFG_WR4;
+        end
       end
       CFG_WR4: begin
         casez ({s_axi_awready[1], s_axi_wready[1]})
@@ -873,13 +880,7 @@ module vga
     text_sm = TEXT_IDLE;
   end
 
-  logic [3:0] button_count = '0;
-  assign LED[3:0] = text_sm;
-  assign LED[6:4] = mem_cs_prb;
-  assign LED[9:7] = reg_cs_prb;
-  assign LED[10] = '1;
-  assign LED[11] = '0;
-  assign LED[15:12] = button_count;
+  logic [3:0]       button_count = '0;
   logic [25:0]      total_page;
   logic [2:0][3:0]  char_x;
   logic [12:0]      real_pitch;

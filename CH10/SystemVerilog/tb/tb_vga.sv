@@ -56,11 +56,11 @@ module tb_sv;
      .vga_hsync,
      .vga_vsync,
      .vga_rgb,
-  
+
      .SW,
      .button_c,
      .cpu_resetn,
-  
+
      .ddr2_addr,
      .ddr2_ba,
      .ddr2_cas_n,
@@ -108,5 +108,7 @@ module tb_sv;
     button_c <= '0;
     repeat (10000) @(posedge clk);
   end
+
+  // Bitmap capture
 
 endmodule // tb_sv
