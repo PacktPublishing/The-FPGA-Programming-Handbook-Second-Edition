@@ -27,7 +27,7 @@ module ps2_host
    // Data from the device to the FPGA
    output logic [7:0]  rx_data,
    output logic        rx_user, // Error indicator
-   output logic        rx_valid,
+   output logic        rx_valid = '0,
    input wire          rx_ready
    );
 
@@ -60,7 +60,6 @@ module ps2_host
   localparam COUNT_20us  = int'(20000/CLK_PER);
 
   logic [$clog2(COUNT_100us):0] counter_100us;
-  logic [$clog2(COUNT_20us):0]  counter_20us;
 
   // Enable drives a 0 out on the clock or data lines
   assign ps2_clk  = ps2_clk_en  ? '0 : 'z;
@@ -95,7 +94,7 @@ module ps2_host
                {
                 START_IDLE,
                 SEND_CMD,
-                START[7]
+                START[3]
                 } start_state_t;
 
   start_state_t start_state;
@@ -140,7 +139,7 @@ module ps2_host
   always @(posedge clk) begin
     case (start_state)
       START_IDLE: begin
-        if (rx_valid && rx_data == rx_expect[start_count]) begin
+        if (rx_valid && rx_ready && rx_data == rx_expect[start_count]) begin
           start_state <= SEND_CMD;
         end
       end
@@ -280,17 +279,21 @@ module ps2_host
     rx_valid  = '0;
   end
   always @(posedge clk) begin
-    rx_valid <= '0;
     case (out_state)
       OUT_IDLE: begin
-        if (done && rx_ready) begin
-          rx_data                  <= data_capture[8:1];
-          rx_user                  <= err; // Error indicator
-          rx_valid                 <= '1;
-          if (~rx_ready) out_state <= OUT_WAIT;
+        if (done) begin
+          rx_data   <= data_capture[8:1];
+          rx_user   <= err; // Error indicator
+          rx_valid  <= '1;
+          out_state <= OUT_WAIT;
         end
       end
-      OUT_WAIT: if (rx_ready) out_state <= OUT_IDLE;
+      OUT_WAIT: begin
+        if (rx_ready) begin
+          rx_valid  <= '0;
+          out_state <= OUT_IDLE;
+        end
+      end
     endcase
     if (reset) out_state <= OUT_IDLE;
   end
