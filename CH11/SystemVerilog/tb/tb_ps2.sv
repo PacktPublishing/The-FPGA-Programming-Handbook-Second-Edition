@@ -222,36 +222,39 @@ module tb_ps2;
       repeat (5000/CLK_PER) @(posedge clk);
       // Drive data low
       ps2_data0 = '1;
-      repeat (10000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
       // first falling edge of the clock
       ps2_clk0 = '1;
-      repeat (20000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
+      ps2_clk0 = '0;
+      //repeat (30000/CLK_PER) @(posedge clk);
       for (int i = 0; i < 8; i++) begin
+        repeat (5000/CLK_PER) @(posedge clk);
         if (keycode[i]) ps2_data0 = '0;
         else            ps2_data0 = '1;
-        repeat (20000/CLK_PER) @(posedge clk);
-        ps2_clk0   = '0;
-        repeat (40000/CLK_PER) @(posedge clk);
+        repeat (30000/CLK_PER) @(posedge clk);
         ps2_clk0   = '1;
-        repeat (20000/CLK_PER) @(posedge clk);
+        repeat (30000/CLK_PER) @(posedge clk);
+        ps2_clk0   = '0;
+        //repeat (30000/CLK_PER) @(posedge clk);
       end
       // parity
       if (^{keycode, error}) ps2_data0 = '1;
       else                   ps2_data0 = '0;
-      repeat (20000/CLK_PER) @(posedge clk);
+      //repeat (30000/CLK_PER) @(posedge clk);
       ps2_clk0   = '0;
-      repeat (40000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
       ps2_clk0   = '1;
-      repeat (20000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
       // stop bit
       ps2_data0 = '0;
-      repeat (20000/CLK_PER) @(posedge clk);
+      //repeat (30000/CLK_PER) @(posedge clk);
       ps2_clk0   = '0;
-      repeat (40000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
       ps2_clk0   = '1;
-      repeat (40000/CLK_PER) @(posedge clk);
+      repeat (30000/CLK_PER) @(posedge clk);
       ps2_clk0   = '0;
-      repeat (100000/CLK_PER) @(posedge clk);
+      //repeat (100000/CLK_PER) @(posedge clk);
     end
   endtask // send_key
 

@@ -56,10 +56,10 @@ module ps2_host
      .sig_out  ({ps2_clk_clean, ps2_data_clean})
      );
 
-  localparam COUNT_100us = int'(100000/CLK_PER);
   localparam COUNT_20us  = int'(20000/CLK_PER);
+  localparam COUNT_30us  = int'(30000/CLK_PER);
 
-  logic [$clog2(COUNT_100us):0] counter_100us;
+  logic [$clog2(COUNT_30us):0] counter_30us;
 
   // Enable drives a 0 out on the clock or data lines
   assign ps2_clk  = ps2_clk_en  ? '0 : 'z;
@@ -156,7 +156,7 @@ module ps2_host
         end
       end
       START1: begin
-        if (rx_valid && rx_data == rx_expect[start_count]) begin
+        if (rx_valid && rx_ready && rx_data == rx_expect[start_count]) begin
           start_state <= (start_count == 10) ? START2 : SEND_CMD;
         end
       end
@@ -180,23 +180,23 @@ module ps2_host
       IDLE: begin
         // Wait for a falling edge of the clock or we received
         // a xmit request
-        if (counter_100us != COUNT_100us) begin
-          counter_100us <= counter_100us + 1'b1;
+        if (counter_30us != COUNT_30us) begin
+          counter_30us <= counter_30us + 1'b1;
           xmit_ready     <= '0;
         end else begin
           xmit_ready     <= '1;
         end
         data_counter  <= '0;
         if (~ps2_clk_clean && ps2_clk_clean_last) begin
-          counter_100us <= '0;
+          counter_30us <= '0;
           state <= CLK_FALL0;
         end else if (~tx_ready && xmit_ready) begin
-          counter_100us <= '0;
+          counter_30us <= '0;
           tx_data_out   <= {1'b1, ~^tx_data,tx_data, 1'b0};
           state         <= XMIT0;
         end else if (send_set && xmit_ready) begin
           clr_set       <= '1;
-          counter_100us <= '0;
+          counter_30us <= '0;
           tx_data_out   <= {1'b1, ~^send_data, send_data, 1'b0};
           state         <= XMIT0;
         end
@@ -213,27 +213,26 @@ module ps2_host
       end
       CLK_HIGH: begin
         if (data_counter == 11) begin
-          counter_100us <= '0;
+          counter_30us <= '0;
           done          <= '1;
           err           <= ~^data_capture[9:1];
           state         <= IDLE;
         end else if (~ps2_clk_clean) state <= CLK_FALL0;
       end
       XMIT0: begin
-        clr_set           <= '1;
         ps2_clk_en        <= '1; // Drop the clock
-        counter_100us     <= counter_100us + 1'b1;
-        if (counter_100us == COUNT_100us) begin
-          counter_100us   <= '0;
+        counter_30us     <= counter_30us + 1'b1;
+        if (counter_30us == COUNT_30us) begin
+          counter_30us   <= '0;
           state           <= XMIT1;
         end
       end
       XMIT1: begin
         ps2_data_en       <= ~tx_data_out[data_counter];
         ps2_clk_en        <= '1; // Drop the clock
-        counter_100us     <= counter_100us + 1'b1;
-        if (counter_100us == COUNT_20us) begin
-          counter_100us   <= '0;
+        counter_30us     <= counter_30us + 1'b1;
+        if (counter_30us == COUNT_20us) begin
+          counter_30us   <= '0;
           state           <= XMIT2;
         end
       end
