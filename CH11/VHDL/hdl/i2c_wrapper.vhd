@@ -1,8 +1,19 @@
-LIBRARY IEEE, XPM;
+-- i2c_wrapper.vhd
+-- ------------------------------------
+-- Floating point temperature sensor module wrapper
+-- ------------------------------------
+-- Author : Frank Bruno, Guy Eschemann
+-- Floating point version of the temperature sensor project
+
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
+
+LIBRARY XPM;
 use XPM.vcomponents.all;
+
+use WORK.i2c_wrapper_pkg.all;
 use WORK.counting_buttons_pkg.all;
 use WORK.temp_pkg.all;
 

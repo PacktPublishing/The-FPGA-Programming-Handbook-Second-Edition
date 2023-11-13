@@ -2,15 +2,19 @@
 -- ------------------------------------
 -- PS/2 host controller interface
 -- ------------------------------------
--- Author : Frank Bruno
+-- Author : Frank Bruno, Guy Eschemann
 -- Takes a PS/2 interface and generate data back into the FPGA.
 -- Also allows the FPGA to communicate wit hthe PS/2 device.
 -- Currently only keyboards are supported
-LIBRARY IEEE, XPM;
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE ieee.numeric_std.all;
 use IEEE.math_real.all;
+
+LIBRARY XPM;
 use XPM.vcomponents.all;
+
+use WORK.ps2_pkg.all;
 
 entity ps2_host is
   generic(CLK_PER : integer := 10;
@@ -33,63 +37,39 @@ entity ps2_host is
        rx_ready : in    std_logic);
 end entity ps2_host;
 architecture rtl of ps2_host is
-  component debounce is
-    generic(CYCLES : integer := 16);
-    port(clk     : in  std_logic;
-         reset   : in  std_logic;
-         sig_in  : in  std_logic;
-         sig_out : out std_logic);
-  end component debounce;
 
+  -- Constants
   constant COUNT_100us : integer := integer(100000/CLK_PER);
   constant COUNT_20us  : integer := integer(20000/CLK_PER);
+
+  -- Registered signals with initial values
   signal counter_100us : integer range 0 to COUNT_100us := 0;
-  signal counter_20us  : integer range 0 to COUNT_20us := 0;
-  signal rx_data_r  : std_logic_vector(7 downto 0) := x"00";
-  signal rx_user_r  : std_logic := '0';
-  signal rx_valid_r : std_logic := '0';
-  signal ps2_clk_clean : std_logic;
+  signal counter_20us  : integer range 0 to COUNT_20us  := 0;
+  signal rx_data_r     : std_logic_vector(7 downto 0)   := x"00";
+  signal rx_user_r     : std_logic                      := '0';
+  signal rx_valid_r    : std_logic                      := '0';
+  signal send_set      : std_logic                      := '0';
+  signal start_count   : integer range 0 to 10          := 0;
+  signal state         : state_t                        := IDLE;
+  signal start_state   : start_state_t                  := START_IDLE;
+  signal out_state     : out_state_t                    := OUT_IDLE;
+
+  -- Unregistered signals
+  signal ps2_clk_clean      : std_logic;
   signal ps2_clk_clean_last : std_logic;
-  signal ps2_data_clean : std_logic;
-  signal ps2_clk_en : std_logic;
-  signal ps2_data_en : std_logic;
-  signal data_capture : std_logic_vector(10 downto 0);
-  signal data_counter : integer range 0 to 15;
-  signal done         : std_logic;
-  signal err          : std_logic;
-  signal tx_xmit      : std_logic;
-  signal tx_data_capt : std_logic_vector(7 downto 0);
-  type state_t is (IDLE, CLK_FALL0, CLK_FALL1,
-                   CLK_HIGH, XMIT0, XMIT1, XMIT2,
-                   XMIT3, XMIT4, XMIT5, XMIT6);
-  signal state : state_t := IDLE;
-  type start_state_t is (START_IDLE, SEND_CMD, START0,
-                         START1, START2, START3, START4,
-                         START5, START6);
-  signal start_state : start_state_t := START_IDLE;
-  signal send_set : std_logic := '0';
-  signal clr_set : std_logic;
-  signal send_data : std_logic_vector(7 downto 0);
-  type array8_t is array (natural range <>) of std_logic_vector(7 downto 0);
-  signal init_data : array8_t(0 to 9) :=
-    (x"ED", x"00", x"F2", x"ED", x"02", x"F3", x"20", x"F4", x"F3", x"00");
-  signal rx_expect : array8_t(0 to 10) :=
-    (x"AA", -- Self test
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"AB", -- Ack + keyboard code
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"FA", -- Ack
-     x"FA"); -- Ack
-  signal start_count : integer range 0 to 10 := 0;
-  signal tx_data_out : std_logic_vector(10 downto 0);
-  signal xmit_ready  : std_logic;
-  type out_state_t is (OUT_IDLE, OUT_WAIT);
-  signal out_state : out_state_t := OUT_IDLE;
+  signal ps2_data_clean     : std_logic;
+  signal ps2_clk_en         : std_logic;
+  signal ps2_data_en        : std_logic;
+  signal data_capture       : std_logic_vector(10 downto 0);
+  signal data_counter       : integer range 0 to 15;
+  signal done               : std_logic;
+  signal err                : std_logic;
+  signal tx_xmit            : std_logic;
+  signal tx_data_capt       : std_logic_vector(7 downto 0);
+  signal clr_set            : std_logic;
+  signal send_data          : std_logic_vector(7 downto 0);
+  signal tx_data_out        : std_logic_vector(10 downto 0);
+  signal xmit_ready         : std_logic;
 
 begin
   rx_data <= rx_data_r;
