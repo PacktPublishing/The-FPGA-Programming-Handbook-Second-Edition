@@ -32,7 +32,7 @@ module debounce
   always @(posedge clk) begin
     sig_in_sync <= sig_in_sync << 1 | sig_in;
     if (sig_in_sync[1] != current_state) begin
-      current_state            <= sig_in_sync;
+      current_state            <= sig_in_sync[1];
       cycle_count              <= '0;
     end else if (cycle_count == CYCLES) begin
       cycle_count            <= '0;

@@ -276,11 +276,11 @@ begin
       s_axi_aclk    => clk200,
       s_axi_aresetn => '1',
       s_axi_awaddr  => s_axi_awaddr(10 downto 0),
-      s_axi_awvalid => s_axi_awvalid(0),
+      s_axi_awvalid => s_axi_awvalid(MMCM_IDX),
       s_axi_awready => s_axi_awready(MMCM_IDX),
       s_axi_wdata   => s_axi_wdata,
       s_axi_wstrb   => x"F",
-      s_axi_wvalid  => s_axi_wvalid(0),
+      s_axi_wvalid  => s_axi_wvalid(MMCM_IDX),
       s_axi_wready  => s_axi_wready(MMCM_IDX),
       s_axi_bresp   => s_axi_bresp(MMCM_IDX),
       s_axi_bvalid  => s_axi_bvalid(MMCM_IDX),
@@ -577,7 +577,7 @@ begin
 
           -- Initial state
           when CFG_IDLE0 =>
-            button_sync(2 downto 1) <= "10"; -- force programming on startup
+            --button_sync(2 downto 1) <= "10"; -- force programming on startup
             update_text             <= not update_text;
             wr_count                <= 0;
             cfg_state               <= CFG_IDLE1;

@@ -230,20 +230,46 @@ set_max_delay -datapath_only -from *sw_capt_reg*/C 18.462
 set_max_delay -datapath_only -from */mc_addr_reg* 11.115
 set_max_delay -datapath_only -from */mc_words_reg* 11.115
 set_max_delay -datapath_only -from *ps2_data_capt_reg* 11.115
+set_max_delay -datapath_only -from */capt_temp_reg*/C 11.115
 
 set_false_path -from u_vga_core/load_mode_reg*/C -to */load_mode_sync_reg[0]/D
 set_false_path -from u_vga_core/mc_req_reg*/C -to */mc_req_sync_reg[0]/D
 set_false_path -from update_text_reg/C -to update_text_sync_reg[0]/D
 set_false_path -from ps2_toggle_reg/C -to ps2_sync_reg[0]/D
-set_false_path -from u_vga_core/vga_sync_toggle_r_reg*/C -to vga_sync_toggle_sync_reg[0]/D
 
-set_false_path -from [get_pins u_vga_core/plusOp/CLK] -to *
-set_false_path -from [get_pins u_vga_core/plusOp/CLK] -to *
 
 set_false_path -from [get_pins u_i2c_wrapper/update_temp_reg/C] -to [get_pins {update_temp_sync_reg[0]/D}]
 
 
-set_max_delay -from [get_pins {u_vga_core/next_addr[12]_i_1_psdsp/C}] -to [get_pins {u_vga_core/next_addr_reg[12]/D}] 11.000
-set_max_delay -datapath_only -from [get_pins u_vga_core/next_addr*_psdsp*/C] -to [get_pins u_vga_core/next_addr_reg*/D] 11.000
-set_max_delay -datapath_only -from [get_pins u_vga_core/next_addr0/CLK] -to [get_pins u_vga_core/next_addr_reg*/D] 11.000
-set_max_delay -datapath_only -from [get_pins u_i2c_wrapper/capt_temp_r_reg*/C] -to [get_pins capt_text_reg*/D] 11.000
+
+create_pblock pblock_u_clk
+add_cells_to_pblock [get_pblocks pblock_u_clk] [get_cells -quiet [list u_clk]]
+resize_pblock [get_pblocks pblock_u_clk] -add {CLOCKREGION_X0Y0:CLOCKREGION_X0Y0}
+
+set_false_path -from [get_pins u_vga_core/vga_sync_toggle_reg*/C] -to [get_pins {vga_sync_toggle_sync_reg[0]/D}]
+
+
+
+
+create_debug_core u_ila_0 ila
+set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_0]
+set_property ALL_PROBE_SAME_MU_CNT 1 [get_debug_cores u_ila_0]
+set_property C_ADV_TRIGGER false [get_debug_cores u_ila_0]
+set_property C_DATA_DEPTH 1024 [get_debug_cores u_ila_0]
+set_property C_EN_STRG_QUAL false [get_debug_cores u_ila_0]
+set_property C_INPUT_PIPE_STAGES 0 [get_debug_cores u_ila_0]
+set_property C_TRIGIN_EN false [get_debug_cores u_ila_0]
+set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
+set_property port_width 1 [get_debug_ports u_ila_0/clk]
+connect_debug_port u_ila_0/clk [get_nets [list u_sys_pll/inst/clk_out1]]
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe0]
+set_property port_width 4 [get_debug_ports u_ila_0/probe0]
+connect_debug_port u_ila_0/probe0 [get_nets [list {cfg_state[0]} {cfg_state[1]} {cfg_state[2]} {cfg_state[3]}]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe1]
+set_property port_width 1 [get_debug_ports u_ila_0/probe1]
+connect_debug_port u_ila_0/probe1 [get_nets [list rst200]]
+set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
+set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
+set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
+connect_debug_port dbg_hub/clk [get_nets clk200]
