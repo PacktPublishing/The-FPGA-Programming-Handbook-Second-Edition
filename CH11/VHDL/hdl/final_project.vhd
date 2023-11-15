@@ -774,6 +774,7 @@ begin
         -- Resolution character index delay line
         char_x(1) <= char_x(0);
         char_x(2) <= char_x(1);
+        clear_ps2 <= '0';
 
         case text_sm is
 
