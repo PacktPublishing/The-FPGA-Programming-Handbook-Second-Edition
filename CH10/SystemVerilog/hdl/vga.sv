@@ -32,21 +32,49 @@ module vga
    output [0:0]        ddr2_odt
    );
 
-  localparam           BYTES_PER_PAGE = 16; // Number of bytes returned by the DDR
-  localparam           BITS_PER_PAGE  = 16*8; // Number of bits per each page
+  import vga_pkg::*;
+
+  localparam           MMCM_REGISTER_COUNT  = 24;
+  localparam           VGA_REGISTER_COUNT   = 8;
+  localparam           TOTAL_REGISTER_COUNT = MMCM_REGISTER_COUNT + VGA_REGISTER_COUNT;
+  localparam           BYTES_PER_PAGE       = 16; // Number of bytes returned by the DDR
+  localparam           BITS_PER_PAGE        = 16*8; // Number of bits per each page
+  localparam           MMCM_IDX             = 0;
+  localparam           VGA_IDX              = 1;
+  localparam           CHAR_ROWS            = 8; // number of rows in character bitmap
+  localparam           RES_TEXT_LENGTH      = 16;
+  localparam           AXI4_OKAY            = '0;
+
   logic                init_calib_complete;
   logic                vga_hblank;
   logic                vga_vblank;
   logic                mc_clk;
-  logic                clk200;
-  logic [2:0]          mem_cs_prb;
-  logic [2:0]          reg_cs_prb;
+  logic                clk200, rst200;
+  logic                sys_pll_locked;
+  logic                pix_clk_locked_clk200;
+  logic                pix_clk_locked_clk200_old = '0;
 
   sys_pll u_sys_pll
     (
      .clk_out1         (clk200),
      .clk_out2         (mc_clk),
-     .clk_in1          (clk)
+     .clk_in1          (clk),
+     .locked           (sys_pll_locked)
+     );
+
+  // 200 MHz reset synchronizer
+  xpm_cdc_async_rst
+    #
+    (
+     .DEST_SYNC_FF    (4), // 2-10
+     .INIT_SYNC_FF    (0), // 0=disable simulation init values, 1=enable simulation init values
+     .RST_ACTIVE_HIGH (1)  // 0=active low reset, 1=active high reset
+    )
+  u_rst200_sync
+    (
+     .src_arst        (~sys_pll_locked),  // Source asynchronous reset signal.
+     .dest_clk        (clk200),           // Destination clock.
+     .dest_arst       (rst200)            // src_arst asynchronous reset signal synchronized to destination clock domain
      );
 
   logic [11:0]         s_axi_awaddr;
@@ -55,23 +83,26 @@ module vga
   logic [31:0]         s_axi_wdata;
   logic [1:0]          s_axi_wvalid;
   logic [1:0]          s_axi_wready;
-  logic                s_axi_bvalid;
+  logic [1:0]          s_axi_bvalid;
+  logic [1:0]          s_axi_bready;
+  logic [1:0]          s_axi_bresp[2];
   logic                locked;
+  logic                pll_rst;
 
   pix_clk u_clk
     (
      .s_axi_aclk       (clk200),
      .s_axi_aresetn    (1'b1),
      .s_axi_awaddr     (s_axi_awaddr),
-     .s_axi_awvalid    (s_axi_awvalid[0]),
-     .s_axi_awready    (s_axi_awready[0]),
+     .s_axi_awvalid    (s_axi_awvalid[MMCM_IDX]),
+     .s_axi_awready    (s_axi_awready[MMCM_IDX]),
      .s_axi_wdata      (s_axi_wdata),
      .s_axi_wstrb      (4'hF),
-     .s_axi_wvalid     (s_axi_wvalid[0]),
-     .s_axi_wready     (s_axi_wready[0]),
-     .s_axi_bresp      (), // We don't handle anything other than OKAY
-     .s_axi_bvalid     (s_axi_bvalid),
-     .s_axi_bready     (1'b1),
+     .s_axi_wvalid     (s_axi_wvalid[MMCM_IDX]),
+     .s_axi_wready     (s_axi_wready[MMCM_IDX]),
+     .s_axi_bresp      (s_axi_bresp[MMCM_IDX]),
+     .s_axi_bvalid     (s_axi_bvalid[MMCM_IDX]),
+     .s_axi_bready     (s_axi_bready[MMCM_IDX]),
      .s_axi_araddr     (11'b0),
      .s_axi_arvalid    (1'b0),
      .s_axi_arready    (),
@@ -88,18 +119,40 @@ module vga
      .clk_in1          (clk200)
      );
 
+  // Generate vga_rst
+  xpm_cdc_async_rst
+    #
+    (
+     .DEST_SYNC_FF    (2), // 2-10
+     .INIT_SYNC_FF    (0), // 0=disable simulation init values, 1=enable simulation init values
+     .RST_ACTIVE_HIGH (1)  // 0=active low reset, 1=active high reset
+     )
+  u_vga_rst_sync
+    (
+     .src_arst        (~locked), // Source asynchronous reset signal.
+     .dest_clk        (vga_clk), // Destination clock.
+     .dest_arst       (vga_rst)  // src_arst asynchronous reset signal synchronized to destination clock domain
+    );
+
+  xpm_cdc_single
+    #
+    (
+     .DEST_SYNC_FF   (4), // 2-10
+     .INIT_SYNC_FF   (0), // 0=disable simulation init values, 1=enable simulation init values
+     .SIM_ASSERT_CHK (0), // 0=disable simulation messages, 1=enable simulation messages
+     .SRC_INPUT_REG  (0)  // 0=do not register input, 1=register input
+    )
+  u_pix_clk_locked_sync
+    (
+     .src_clk        ('0),                   // 1-bit input: optional; required when SRC_INPUT_REG = 1
+     .src_in         (locked),               // 1-bit input: Input signal to be synchronized to dest_clk domain.
+     .dest_clk       (clk200),               // 1-bit input: Clock signal for the destination clock domain.
+     .dest_out       (pix_clk_locked_clk200) // 1-bit output: src_in synchronized to the destination clock domain. This output is registered.
+    );
+
   logic [7:0]          char_index;
   logic [2:0]          char_y;
   logic [7:0]          char_slice;
-
-  text_rom u_text_rom
-    (
-     .clock            (ui_clk),         // Clock
-     .index            (char_index),  // Character Index
-     .sub_index        (char_y),         // Y position in character
-
-     .bitmap_out       (char_slice)      // 8 bit horizontal slice of character
-     );
 
   logic                ui_clk;
   logic                ui_clk_sync_rst;
@@ -131,10 +184,10 @@ module vga
   logic [1:0]          s_ddr_bresp;
   logic                s_ddr_bvalid;
   logic                s_ddr_bready = '1;
-  logic [3:0]          s_ddr_arid;
+  logic [3:0]          s_ddr_arid = '0;
   logic [26:0]         s_ddr_araddr;
   logic [7:0]          s_ddr_arlen;
-  logic [2:0]          s_ddr_arsize; // 16 bytes
+  logic [2:0]          s_ddr_arsize = 3'b100; // 16 bytes
   logic [1:0]          s_ddr_arburst = 2'b01;  // incrementing
   logic [0:0]          s_ddr_arlock;
   logic [3:0]          s_ddr_arcache = '0;;
@@ -148,6 +201,15 @@ module vga
   logic                s_ddr_rlast;
   logic                s_ddr_rvalid;
   logic                s_ddr_rready;
+
+  text_rom u_text_rom
+    (
+     .clock            (ui_clk),         // Clock
+     .index            (char_index),  // Character Index
+     .sub_index        (char_y),         // Y position in character
+
+     .bitmap_out       (char_slice)      // 8 bit horizontal slice of character
+     );
 
   ddr2_vga u_ddr2_vga
     (
@@ -234,20 +296,20 @@ module vga
     (
      // Register address
      .reg_clk      (clk200),
-     .reg_reset    (ui_clk_sync_rst),
+     .reg_reset    (rst200),
 
-     .reg_awvalid  (s_axi_awvalid[1]),
-     .reg_awready  (s_axi_awready[1]),
+     .reg_awvalid  (s_axi_awvalid[VGA_IDX]),
+     .reg_awready  (s_axi_awready[VGA_IDX]),
      .reg_awaddr   (s_axi_awaddr),
 
-     .reg_wvalid   (s_axi_wvalid[1]),
-     .reg_wready   (s_axi_wready[1]),
+     .reg_wvalid   (s_axi_wvalid[VGA_IDX]),
+     .reg_wready   (s_axi_wready[VGA_IDX]),
      .reg_wdata    (s_axi_wdata),
      .reg_wstrb    (4'b1111),
 
-     .reg_bready   (1'b1),
-     .reg_bvalid   (),
-     .reg_bresp    (),
+     .reg_bready   (s_axi_bready[VGA_IDX]),
+     .reg_bvalid   (s_axi_bvalid[VGA_IDX]),
+     .reg_bresp    (s_axi_bresp[VGA_IDX]),
 
      .reg_arvalid  (1'b0),
      .reg_arready  (),
@@ -260,7 +322,7 @@ module vga
 
      // Master memory
      .mem_clk      (ui_clk),
-     .mem_reset    (),
+     .mem_reset    (ui_clk_sync_rst),
 
      .mem_arid     (s_ddr_arid),
      .mem_araddr   (s_ddr_araddr),
@@ -283,399 +345,28 @@ module vga
      .vga_hblank   (vga_hblank),
      .vga_vsync    (vga_vsync),
      .vga_vblank   (vga_vblank),
-     .vga_rgb      (int_vga_rgb),
-
-     .mem_cs_prb   (mem_cs_prb),
-     .reg_cs_prb   (reg_cs_prb)
+     .vga_rgb      (int_vga_rgb)
      );
 
   assign vga_rgb = {int_vga_rgb[23:20],int_vga_rgb[15:12], int_vga_rgb[7:4]};
 
-  typedef struct packed {
-    logic [7:0 ]  divide_count;
-    logic [15:8]  mult_integer;
-    logic [25:16] mult_fraction;
-    logic [7:0]   divide_integer;
-    logic [17:0]  divide_fraction;
-    logic [11:0]  horiz_display_start;
-    logic [11:0]  horiz_display_width;
-    logic [11:0]  horiz_sync_width;
-    logic [11:0]  horiz_total_width;
-    logic [11:0]  vert_display_start;
-    logic [11:0]  vert_display_width;
-    logic [11:0]  vert_sync_width;
-    logic [11:0]  vert_total_width;
-    logic         hpol;
-    logic         vpol;
-  } resolution_t;
-
-  resolution_t resolution[18];
-
-  logic [17:0][15:0][7:0] res_text;
   logic [15:0][7:0]       res_text_capt;
-
-  initial begin
-    res_text                           = '{default:" "};
-
-    // 25.18 Mhz 640x480 @ 60Hz
-    resolution[0].divide_count         = 8'd9;
-    resolution[0].mult_integer         = 8'd50;
-    resolution[0].mult_fraction        = 10'd000;
-    resolution[0].divide_integer       = 8'd44;
-    resolution[0].divide_fraction      = 18'd125;
-    resolution[0].horiz_display_start  = 12'd47; // BP -1
-    resolution[0].horiz_display_width  = 12'd640;
-    resolution[0].horiz_sync_width     = 12'd96;
-    resolution[0].horiz_total_width    = 12'd799; // -1
-    resolution[0].vert_display_start   = 12'd32;  // -1
-    //resolution[0].vert_display_start   = 12'd2;  // -1
-    resolution[0].vert_display_width   = 12'd480;
-    resolution[0].vert_sync_width      = 12'd2;
-    resolution[0].vert_total_width     = 12'd524; //-1
-    resolution[0].hpol                 = '0;
-    resolution[0].vpol                 = '0;
-    res_text[0]                        = "  zH06 @ 084x046";
-    // 31.5Mhz 640x480 @ 72 Hz
-    resolution[1].divide_count         = 8'd8;
-    resolution[1].mult_integer         = 8'd39;
-    resolution[1].mult_fraction        = 10'd375;
-    resolution[1].divide_integer       = 8'd31;
-    resolution[1].divide_fraction      = 18'd250;
-    resolution[1].horiz_display_start  = 12'd127;
-    resolution[1].horiz_display_width  = 12'd640;
-    resolution[1].horiz_sync_width     = 12'd40;
-    resolution[1].horiz_total_width    = 12'd831;
-    resolution[1].vert_display_start   = 12'd27;
-    resolution[1].vert_display_width   = 12'd480;
-    resolution[1].vert_sync_width      = 12'd3;
-    resolution[1].vert_total_width     = 12'd519;
-    resolution[1].hpol                 = '0;
-    resolution[1].vpol                 = '0;
-    res_text[1]                        = "  zH27 @ 084x046";
-    // 31.5Mhz 640x480 @ 75 Hz
-    resolution[2].divide_count         = 8'd8;
-    resolution[2].mult_integer         = 8'd39;
-    resolution[2].mult_fraction        = 10'd375;
-    resolution[2].divide_integer       = 8'd31;
-    resolution[2].divide_fraction      = 18'd250;
-    resolution[2].horiz_display_start  = 12'd47;
-    resolution[2].horiz_display_width  = 12'd640;
-    resolution[2].horiz_sync_width     = 12'd96;
-    resolution[2].horiz_total_width    = 12'd800;
-    resolution[2].vert_display_start   = 12'd31;
-    resolution[2].vert_display_width   = 12'd480;
-    resolution[2].vert_sync_width      = 12'd2;
-    resolution[2].vert_total_width     = 12'd520;
-    resolution[2].hpol                 = '0;
-    resolution[2].vpol                 = '0;
-    res_text[2]                        = "  zH57 @ 084x046";
-    // 36 Mhz 640x480 @ 85 Hz
-    resolution[3].divide_count         = 8'd5;
-    resolution[3].mult_integer         = 8'd24;
-    resolution[3].mult_fraction        = 10'd750;
-    resolution[3].divide_integer       = 8'd27;
-    resolution[3].divide_fraction      = 18'd500;
-    resolution[3].horiz_display_start  = 12'd111;
-    resolution[3].horiz_display_width  = 12'd640;
-    resolution[3].horiz_sync_width     = 12'd48;
-    resolution[3].horiz_total_width    = 12'd831;
-    resolution[3].vert_display_start   = 12'd23;
-    resolution[3].vert_display_width   = 12'd480;
-    resolution[3].vert_sync_width      = 12'd3;
-    resolution[3].vert_total_width     = 12'd508;
-    resolution[3].hpol                 = '0;
-    resolution[3].vpol                 = '0;
-    res_text[3]                        = "  zH58 @ 084x046";
-    // 40 Mhz 800x600 @ 60 Hz
-    resolution[4].divide_count         = 8'd1;
-    resolution[4].mult_integer         = 8'd5;
-    resolution[4].mult_fraction        = 10'd000;
-    resolution[4].divide_integer       = 8'd20;
-    resolution[4].divide_fraction      = 18'd000;
-    resolution[4].horiz_display_start  = 12'd87;
-    resolution[4].horiz_display_width  = 12'd800;
-    resolution[4].horiz_sync_width     = 12'd128;
-    resolution[4].horiz_total_width    = 12'd1055;
-    resolution[4].vert_display_start   = 12'd22;
-    resolution[4].vert_display_width   = 12'd600;
-    resolution[4].vert_sync_width      = 12'd4;
-    resolution[4].vert_total_width     = 12'd627;
-    resolution[4].hpol                 = '1;
-    resolution[4].vpol                 = '1;
-    res_text[4]                        = "  zH06 @ 006x008";
-    // 49.5 Mhz 800x600 @ 75 Hz
-    resolution[5].divide_count         = 8'd5;
-    resolution[5].mult_integer         = 8'd24;
-    resolution[5].mult_fraction        = 10'd750;
-    resolution[5].divide_integer       = 8'd20;
-    resolution[5].divide_fraction      = 18'd000;
-    resolution[5].horiz_display_start  = 12'd159;
-    resolution[5].horiz_display_width  = 12'd800;
-    resolution[5].horiz_sync_width     = 12'd80;
-    resolution[5].horiz_total_width    = 12'd1055;
-    resolution[5].vert_display_start   = 12'd20;
-    resolution[5].vert_display_width   = 12'd600;
-    resolution[5].vert_sync_width      = 12'd2;
-    resolution[5].vert_total_width     = 12'd624;
-    resolution[5].hpol                 = '1;
-    resolution[5].vpol                 = '1;
-    res_text[5]                        = "  zH57 @ 006x008";
-    // 50 Mhz 800x600 @ 72 Hz
-    resolution[6].divide_count         = 8'd1;
-    resolution[6].mult_integer         = 8'd5;
-    resolution[6].mult_fraction        = 10'd000;
-    resolution[6].divide_integer       = 8'd20;
-    resolution[6].divide_fraction      = 18'd000;
-    resolution[6].horiz_display_start  = 12'd63;
-    resolution[6].horiz_display_width  = 12'd800;
-    resolution[6].horiz_sync_width     = 12'd120;
-    resolution[6].horiz_total_width    = 12'd1039;
-    resolution[6].vert_display_start   = 12'd22;
-    resolution[6].vert_display_width   = 12'd600;
-    resolution[6].vert_sync_width      = 12'd6;
-    resolution[6].vert_total_width     = 12'd665;
-    resolution[6].hpol                 = '1;
-    resolution[6].vpol                 = '1;
-    res_text[6]                        = "  zH27 @ 006x008";
-    // 56.25 Mhz 800x600 @ 85 Hz
-    resolution[7].divide_count         = 8'd2;
-    resolution[7].mult_integer         = 8'd10;
-    resolution[7].mult_fraction        = 10'd125;
-    resolution[7].divide_integer       = 8'd18;
-    resolution[7].divide_fraction      = 18'd000;
-    resolution[7].horiz_display_start  = 12'd151;
-    resolution[7].horiz_display_width  = 12'd800;
-    resolution[7].horiz_sync_width     = 12'd64;
-    resolution[7].horiz_total_width    = 12'd1047;
-    resolution[7].vert_display_start   = 12'd26;
-    resolution[7].vert_display_width   = 12'd600;
-    resolution[7].vert_sync_width      = 12'd3;
-    resolution[7].vert_total_width     = 12'd630;
-    resolution[7].hpol                 = '1;
-    resolution[7].vpol                 = '1;
-    res_text[7]                        = "  zH58 @ 006x008";
-    // 65 Mhz 1024x768 @ 60 Hz
-    resolution[8].divide_count         = 8'd10;
-    resolution[8].mult_integer         = 8'd50;
-    resolution[8].mult_fraction        = 10'd375;
-    resolution[8].divide_integer       = 8'd15;
-    resolution[8].divide_fraction      = 18'd500;
-    resolution[8].horiz_display_start  = 12'd159;
-    resolution[8].horiz_display_width  = 12'd1024;
-    resolution[8].horiz_sync_width     = 12'd136;
-    resolution[8].horiz_total_width    = 12'd1339;
-    resolution[8].vert_display_start   = 12'd28;
-    resolution[8].vert_display_width   = 12'd768;
-    resolution[8].vert_sync_width      = 12'd6;
-    resolution[8].vert_total_width     = 12'd805;
-    resolution[8].hpol                 = '0;
-    resolution[8].vpol                 = '0;
-    res_text[8]                        = " zH06 @ 867x4201";
-    // 75 Mhz 1024x768 @ 70 Hz
-    resolution[9].divide_count         = 8'd8;
-    resolution[9].mult_integer         = 8'd40;
-    resolution[9].mult_fraction        = 10'd125;
-    resolution[9].divide_integer       = 8'd13;
-    resolution[9].divide_fraction      = 18'd375;
-    resolution[9].horiz_display_start  = 12'd143;
-    resolution[9].horiz_display_width  = 12'd1024;
-    resolution[9].horiz_sync_width     = 12'd136;
-    resolution[9].horiz_total_width    = 12'd1327;
-    resolution[9].vert_display_start   = 12'd28;
-    resolution[9].vert_display_width   = 12'd768;
-    resolution[9].vert_sync_width      = 12'd6;
-    resolution[9].vert_total_width     = 12'd805;
-    resolution[9].hpol                 = '0;
-    resolution[9].vpol                 = '0;
-    res_text[9]                        = " zH07 @ 867x4201";
-    // 78.75 Mhz 1024x768 @ 75 Hz
-    resolution[10].divide_count        = 8'd8;
-    resolution[10].mult_integer        = 8'd39;
-    resolution[10].mult_fraction       = 10'd375;
-    resolution[10].divide_integer      = 8'd12;
-    resolution[10].divide_fraction     = 18'd500;
-    resolution[10].horiz_display_start = 12'd175;
-    resolution[10].horiz_display_width = 12'd1024;
-    resolution[10].horiz_sync_width    = 12'd96;
-    resolution[10].horiz_total_width   = 12'd1311;
-    resolution[10].vert_display_start  = 12'd27;
-    resolution[10].vert_display_width  = 12'd768;
-    resolution[10].vert_sync_width     = 12'd3;
-    resolution[10].vert_total_width    = 12'd799;
-    resolution[10].hpol                = '1;
-    resolution[10].vpol                = '1;
-    res_text[10]                       = " zH57 @ 867x4201";
-    // 94.5 Mhz 1024x768 @ 85 Hz
-    resolution[11].divide_count        = 8'd5;
-    resolution[11].mult_integer        = 8'd23;
-    resolution[11].mult_fraction       = 10'd625;
-    resolution[11].divide_integer      = 8'd10;
-    resolution[11].divide_fraction     = 18'd000;
-    resolution[11].horiz_display_start = 12'd207;
-    resolution[11].horiz_display_width = 12'd1024;
-    resolution[11].horiz_sync_width    = 12'd96;
-    resolution[11].horiz_total_width   = 12'd1375;
-    resolution[11].vert_display_start  = 12'd35;
-    resolution[11].vert_display_width  = 12'd768;
-    resolution[11].vert_sync_width     = 12'd3;
-    resolution[11].vert_total_width    = 12'd807;
-    resolution[11].hpol                = '1;
-    resolution[11].vpol                = '1;
-    res_text[11]                       = " zH58 @ 867x4201";
-    // 108 Mhz 1280x1024 @ 60 Hz
-    resolution[12].divide_count        = 8'd2;
-    resolution[12].mult_integer        = 8'd10;
-    resolution[12].mult_fraction       = 10'd125;
-    resolution[12].divide_integer      = 8'd9;
-    resolution[12].divide_fraction     = 18'd375;
-    resolution[12].horiz_display_start = 12'd247;
-    resolution[12].horiz_display_width = 12'd1280;
-    resolution[12].horiz_sync_width    = 12'd112;
-    resolution[12].horiz_total_width   = 12'd1688;
-    resolution[12].vert_display_start  = 12'd37;
-    resolution[12].vert_display_width  = 12'd1024;
-    resolution[12].vert_sync_width     = 12'd3;
-    resolution[12].vert_total_width    = 12'd1066;
-    resolution[12].hpol                = '1;
-    resolution[12].vpol                = '1;
-    res_text[12]                       = "zH06 @ 4201x0821";
-    // 135 Mhz 1280x1024 @ 75 Hz
-    resolution[13].divide_count        = 8'd2;
-    resolution[13].mult_integer        = 8'd10;
-    resolution[13].mult_fraction       = 10'd125;
-    resolution[13].divide_integer      = 8'd7;
-    resolution[13].divide_fraction     = 18'd500;
-    resolution[13].horiz_display_start = 12'd247;
-    resolution[13].horiz_display_width = 12'd1280;
-    resolution[13].horiz_sync_width    = 12'd144;
-    resolution[13].horiz_total_width   = 12'd1688;
-    resolution[13].vert_display_start  = 12'd37;
-    resolution[13].vert_display_width  = 12'd1024;
-    resolution[13].vert_sync_width     = 12'd3;
-    resolution[13].vert_total_width    = 12'd1066;
-    resolution[13].hpol                = '1;
-    resolution[13].vpol                = '1;
-    res_text[13]                       = "zH57 @ 4201x0821";
-    // 157.5 Mhz 1280x1024 @ 85 Hz
-    resolution[14].divide_count        = 8'd8;
-    resolution[14].mult_integer        = 8'd39;
-    resolution[14].mult_fraction       = 10'd375;
-    resolution[14].divide_integer      = 8'd6;
-    resolution[14].divide_fraction     = 18'd250;
-    resolution[14].horiz_display_start = 12'd223;
-    resolution[14].horiz_display_width = 12'd1280;
-    resolution[14].horiz_sync_width    = 12'd160;
-    resolution[14].horiz_total_width   = 12'd1728;
-    resolution[14].vert_display_start  = 12'd043;
-    resolution[14].vert_display_width  = 12'd1024;
-    resolution[14].vert_sync_width     = 12'd3;
-    resolution[14].vert_total_width    = 12'd1072;
-    resolution[14].hpol                = '1;
-    resolution[14].vpol                = '1;
-    res_text[14]                       = "zH58 @ 4201x0821";
-    // 162 Mhz 1600x1200 @ 60 Hz
-    resolution[15].divide_count        = 8'd2;
-    resolution[15].mult_integer        = 8'd10;
-    resolution[15].mult_fraction       = 10'd125;
-    resolution[15].divide_integer      = 8'd6;
-    resolution[15].divide_fraction     = 18'd250;
-    resolution[15].horiz_display_start = 12'd303;
-    resolution[15].horiz_display_width = 12'd1600;
-    resolution[15].horiz_sync_width    = 12'd192;
-    resolution[15].horiz_total_width   = 12'd2160;
-    resolution[15].vert_display_start  = 12'd45;
-    resolution[15].vert_display_width  = 12'd1200;
-    resolution[15].vert_sync_width     = 12'd3;
-    resolution[15].vert_total_width    = 12'd1250;
-    resolution[15].hpol                = '1;
-    resolution[15].vpol                = '1;
-    res_text[15]                       = "zH06 @ 0021x0061";
-    // 195 Mhz 1920x1200 @ 60 Hz
-    resolution[16].divide_count        = 8'd1;
-    resolution[16].mult_integer        = 8'd4;
-    resolution[16].mult_fraction       = 10'd875;
-    resolution[16].divide_integer      = 8'd5;
-    resolution[16].divide_fraction     = 18'd000;
-    resolution[16].horiz_display_start = 12'd399;
-    resolution[16].horiz_display_width = 12'd1920;
-    resolution[16].horiz_sync_width    = 12'd200;
-    resolution[16].horiz_total_width   = 12'd2616;
-    resolution[16].vert_display_start  = 12'd35;
-    resolution[16].vert_display_width  = 12'd1200;
-    resolution[16].vert_sync_width     = 12'd3;
-    resolution[16].vert_total_width    = 12'd1242;
-    resolution[16].hpol                = '1;
-    resolution[16].vpol                = '1;
-    res_text[16]                       = "zH06 @ 0021x0291";
-    // 195 Mhz 1920x1200 @ 60 Hz
-    resolution[17].divide_count        = 8'd8;
-    resolution[17].mult_integer        = 8'd37;
-    resolution[17].mult_fraction       = 10'd125;
-    resolution[17].divide_integer      = 8'd6;
-    resolution[17].divide_fraction     = 18'd250;
-    resolution[17].horiz_display_start = 12'd147;
-    resolution[17].horiz_display_width = 12'd1920;
-    resolution[17].horiz_sync_width    = 12'd44;
-    resolution[17].horiz_total_width   = 12'd2199;
-    resolution[17].vert_display_start  = 12'd3;
-    resolution[17].vert_display_width  = 12'd1080;
-    resolution[17].vert_sync_width     = 12'd5;
-    resolution[17].vert_total_width    = 12'd1124;
-    resolution[17].hpol                = '1;
-    resolution[17].vpol                = '1;
-    res_text[17]                       = "zH06 @ 0801x0291";
-
-  end
-
-  logic [11:0] addr_array[32];
-
-  initial begin
-    addr_array[0]  = 12'h200;
-    addr_array[1]  = 12'h204;
-    addr_array[2]  = 12'h208;
-    addr_array[3]  = 12'h20C;
-    addr_array[4]  = 12'h210;
-    addr_array[5]  = 12'h214;
-    addr_array[6]  = 12'h218;
-    addr_array[7]  = 12'h21C;
-    addr_array[8]  = 12'h220;
-    addr_array[9]  = 12'h224;
-    addr_array[10] = 12'h228;
-    addr_array[11] = 12'h22C;
-    addr_array[12] = 12'h230;
-    addr_array[13] = 12'h234;
-    addr_array[14] = 12'h238;
-    addr_array[15] = 12'h23C;
-    addr_array[16] = 12'h240;
-    addr_array[17] = 12'h244;
-    addr_array[18] = 12'h248;
-    addr_array[19] = 12'h24C;
-    addr_array[20] = 12'h250;
-    addr_array[21] = 12'h254;
-    addr_array[22] = 12'h258;
-    addr_array[23] = 12'h25C;
-    addr_array[24] = 12'h000;
-    addr_array[25] = 12'h004;
-    addr_array[26] = 12'h008;
-    addr_array[27] = 12'h00C;
-    addr_array[28] = 12'h010;
-    addr_array[29] = 12'h100;
-    addr_array[30] = 12'h104;
-    addr_array[31] = 12'h108;
-  end
 
   typedef enum bit [3:0]
                {
                 CFG_IDLE[2],
-                CFG_WR[8],
-                CFG_W4PLL[2]
+                CFG_WR[6],
+                CFG_WR31,
+                CFG_MMCM_WAIT_BRESP,
+                CFG_MMCM_WAIT_LOCKED,
+                CFG_VGA_WAIT_BRESP
                 } cfg_state_t;
 
-  cfg_state_t cfg_state;
+  (* mark_debug = "TRUE" *) cfg_state_t cfg_state;
 
   (* async_reg = "TRUE" *) logic [2:0]          button_sync;
   logic [4:0]          sw_capt = '0;
-  logic [4:0]          wr_count;
+  logic [5:0]          wr_count;
 
   initial begin
     button_sync = '0;
@@ -693,364 +384,357 @@ module vga
 
   // Clock reconfiguration
   always @(posedge clk200) begin
-    button_sync               <= button_sync << 1 | button_c;
-    last_write[0] <= wr_count == 24;
-    last_write[1] <= wr_count == 31;
+    if (rst200) begin
+      button_sync               <= '0;
+      wr_count                  <= '0;
+      cfg_state                 <= CFG_IDLE0;
+      update_text               <= '0;
+      sw_capt                   <= '0;
+      s_axi_awvalid             <= '0;
+      s_axi_awaddr              <= '0;
+      s_axi_wvalid              <= '0;
+      s_axi_wdata               <= '0;
+      s_axi_bready              <= '0;
+      pix_clk_locked_clk200_old <= '0;
+    end else begin
+      pix_clk_locked_clk200_old <= pix_clk_locked_clk200;
 
-    s_axi_awaddr  <= addr_array[wr_count];
-    case (wr_count)
-      0: s_axi_wdata   <= {6'b0, resolution[SW].mult_fraction,
-                           resolution[SW].mult_integer,
-                           resolution[SW].divide_count};
-      1, 3, 6, 9, 12, 15, 18, 21: s_axi_wdata <= '0;
-      5, 8, 11, 14, 17, 20:       s_axi_wdata <= 32'hA;
-      4, 7, 10, 13, 16, 19, 22:   s_axi_wdata <= 32'hC350;
-      2: begin
-        s_axi_wdata <= {15'b0,
-                        resolution[sw_capt].divide_fraction,
-                        resolution[sw_capt].divide_integer};
-      end
-      23:  s_axi_wdata <= 32'b11;
-      24: s_axi_wdata <= {4'b0,
-                          resolution[sw_capt].horiz_display_width,
-                          4'b0,
-                          resolution[sw_capt].horiz_display_start};
-      25: s_axi_wdata <= {4'b0,
-                          resolution[sw_capt].horiz_total_width,
-                          4'b0,
-                          resolution[sw_capt].horiz_sync_width};
-      26: s_axi_wdata <= {4'b0,
-                          resolution[sw_capt].vert_display_width,
-                          4'b0,
-                          resolution[sw_capt].vert_display_start};
-      27: s_axi_wdata <= {4'b0,
-                          resolution[sw_capt].vert_total_width,
-                          4'b0,
-                          resolution[sw_capt].vert_sync_width};
-      28: s_axi_wdata <= {16'b0, 8'd0, 6'b0,
-                          resolution[sw_capt].hpol,
-                          resolution[sw_capt].vpol};
-      29: s_axi_wdata <= '0;
-      30: s_axi_wdata <= {18'b0, get_pitch(resolution[sw_capt].horiz_display_width)};
-      31: s_axi_wdata <= 32'b1;
-    endcase // case (wr_count)
-    case (cfg_state)
-      CFG_IDLE0: begin
-        button_sync <= 2'b10; // force programming on startup
-        update_text <= ~update_text;
-        wr_count    <= '0;
-        cfg_state   <= CFG_IDLE1;
-      end
-      CFG_IDLE1: begin
-        s_axi_awvalid <= '0;
-        s_axi_wvalid  <= '0;
-        if (button_sync[2:1] == 2'b10) begin
-          // We can start writing the text as we are updating
-          update_text   <= ~update_text;
-          s_axi_awvalid <= 2'b1;
-          s_axi_wvalid  <= 2'b1;
-          sw_capt       <= SW;
-          cfg_state     <= CFG_WR0;
+      // Synchronize the center button signal
+      button_sync <= button_sync << 1 | button_c;
+
+      case (cfg_state)
+        CFG_IDLE0: begin
+          update_text <= ~update_text;
+          wr_count    <= '0;
+          cfg_state   <= CFG_IDLE1;
         end
-      end
-      CFG_WR0: begin
-        casez ({s_axi_awready[0], s_axi_wready[0]})
-          2'b11: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b0;
-            s_axi_wvalid  <= 2'b0;
-            cfg_state     <= CFG_WR3;
+        CFG_IDLE1: begin
+          s_axi_awvalid[MMCM_IDX] <= '0;
+          s_axi_wvalid[MMCM_IDX]  <= '0;
+          if (button_sync[2:1] == 2'b10) begin
+            // We can start writing the text as we are updating
+            update_text             <= ~update_text;
+            s_axi_awvalid[MMCM_IDX] <= '1;
+            s_axi_wvalid[MMCM_IDX]  <= '1;
+            sw_capt                 <= SW;
+            wr_count                <= 1;
+            s_axi_awaddr            <= addr_array[wr_count];
+            s_axi_wdata             <= resolution_lookup(SW, wr_count);
+            cfg_state               <= CFG_WR0;
+          end
+        end
+        CFG_WR0: begin
+          casez ({s_axi_awready[0], s_axi_wready[0]})
+            2'b11: begin
+              s_axi_awvalid[MMCM_IDX] <= '0;
+              s_axi_wvalid[MMCM_IDX]  <= '0;
+              s_axi_bready[MMCM_IDX]  <= '1;
+              cfg_state     <= CFG_MMCM_WAIT_BRESP;
+            end // case: 3'b011
+            2'b10: begin
+              s_axi_awvalid[MMCM_IDX] <= '0;
+              cfg_state     <= CFG_WR1;
+            end
+            2'b01: begin
+              s_axi_wvalid[MMCM_IDX]  <= '0;
+              cfg_state     <= CFG_WR2;
+            end
+          endcase // casez ({last_write, s_axi_awready, s_axi_wready})
+        end // case: CFG_WR0
+        CFG_WR1: begin
+          if (s_axi_wready[0]) begin
+            s_axi_wvalid[MMCM_IDX]  <= '0;
+            s_axi_bready[MMCM_IDX]  <= '1;
+            cfg_state     <= CFG_MMCM_WAIT_BRESP;
           end // case: 3'b011
-          2'b10: begin
-            s_axi_awvalid <= 2'b0;
-            s_axi_wvalid  <= 2'b1;
-            cfg_state     <= CFG_WR1;
-          end
-          2'b01: begin
-            s_axi_awvalid <= 2'b1;
-            s_axi_wvalid  <= 2'b0;
-            cfg_state     <= CFG_WR2;
-          end
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
-      end // case: CFG_WR0
-      CFG_WR1: begin
-        if (s_axi_wready[0]) begin
-          wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b0;
-          s_axi_wvalid  <= 2'b0;
-          cfg_state     <= CFG_WR3;
-        end // case: 3'b011
-      end // case: CFG_WR1
-      CFG_WR2: begin
-        if (s_axi_awready[0]) begin
-          wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b0;
-          s_axi_wvalid  <= 2'b0;
-          cfg_state     <= CFG_WR3;
-        end // case: 3'b011
-      end // case: CFG_WR1
-      CFG_WR3: begin
-        // Note that we are not handling bresp error conditions
-        case ({last_write[0], s_axi_bvalid})
-          2'b11: begin
-            cfg_state     <= CFG_W4PLL0;
-          end
-          2'b01: begin
-            s_axi_awvalid <= 2'b01;
-            s_axi_wvalid  <= 2'b01;
-            cfg_state <= CFG_WR0;
-          end
-        endcase // case ({last_write[0], s_axi_bvalid})
-      end
-      CFG_W4PLL0: begin
-        // Wait for the PLL config to take effect
-        if (~locked) cfg_state <= CFG_W4PLL1;
-      end
-      CFG_W4PLL1: begin
-        if (locked) begin
-          s_axi_awvalid <= 2'b10;
-          s_axi_wvalid  <= 2'b10;
-          cfg_state     <= CFG_WR4;
-        end
-      end
-      CFG_WR4: begin
-        casez ({s_axi_awready[1], s_axi_wready[1]})
-          2'b11: begin
-            wr_count      <= wr_count + 1'b1;
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state     <= CFG_WR7;
+        end // case: CFG_WR1
+        CFG_WR2: begin
+          if (s_axi_awready[MMCM_IDX]) begin
+            s_axi_awvalid[MMCM_IDX] <= '0;
+            s_axi_bready[MMCM_IDX]  <= '1;
+            cfg_state     <= CFG_MMCM_WAIT_BRESP;
           end // case: 3'b011
-          2'b10: begin
-            s_axi_awvalid <= 2'b00;
-            s_axi_wvalid  <= 2'b10;
-            cfg_state     <= CFG_WR5;
+        end // case: CFG_WR1
+        CFG_MMCM_WAIT_BRESP: begin
+          if (s_axi_bvalid[MMCM_IDX]) begin
+            s_axi_bready[MMCM_IDX] <= '0;
+            if (wr_count == MMCM_REGISTER_COUNT) begin
+              cfg_state <= CFG_MMCM_WAIT_LOCKED;
+            end else begin
+              s_axi_awvalid[MMCM_IDX] <= '1;
+              s_axi_wvalid[MMCM_IDX]  <= '1;
+              cfg_state               <= CFG_WR0;
+              s_axi_awaddr            <= addr_array[wr_count];
+              s_axi_wdata             <= resolution_lookup(sw_capt, wr_count);
+              wr_count                <= wr_count + 1;
+            end
           end
-          2'b01: begin
-            s_axi_awvalid <= 2'b10;
-            s_axi_wvalid  <= 2'b00;
-            cfg_state     <= CFG_WR6;
+        end // case: CFG_MMCM_WAIT_BRESP
+        CFG_MMCM_WAIT_LOCKED: begin
+          if (pix_clk_locked_clk200 && ~pix_clk_locked_clk200_old) begin
+            cfg_state <= CFG_WR3;
           end
-        endcase // casez ({last_write, s_axi_awready, s_axi_wready})
-      end // case: CFG_WR0
-      CFG_WR5: begin
-        if (s_axi_wready[1]) begin
-          wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b0;
-          s_axi_wvalid  <= 2'b0;
-          cfg_state     <= CFG_WR7;
-        end // case: 3'b011
-      end // case: CFG_WR1
-      CFG_WR6: begin
-        if (s_axi_awready[1]) begin
-          wr_count      <= wr_count + 1'b1;
-          s_axi_awvalid <= 2'b0;
-          s_axi_wvalid  <= 2'b0;
-          cfg_state     <= CFG_WR7;
-        end // case: 3'b011
-      end // case: CFG_WR1
-      CFG_WR7: begin
-        // Note VGA core doesn't generate bvalid
-        if (last_write[1]) begin
-          wr_count      <= '0;
-          s_axi_awvalid <= 2'b0;
-          s_axi_wvalid  <= 2'b0;
-          cfg_state <= CFG_IDLE1;
-        end else begin
-          s_axi_awvalid <= 2'b10;
-          s_axi_wvalid  <= 2'b10;
-          cfg_state     <= CFG_WR4;
         end
-      end
-    endcase // case (cfg_state)
+        CFG_WR3: begin
+          s_axi_awvalid[VGA_IDX] <= '1;
+          s_axi_wvalid[VGA_IDX]  <= '1;
+          cfg_state              <= CFG_WR31;
+          s_axi_awaddr           <= addr_array[wr_count];
+          s_axi_wdata            <= resolution_lookup(sw_capt, wr_count);
+          wr_count               <= wr_count + 1;
+        end
+        CFG_WR31: begin
+          // Note that we are not handling bresp error conditions
+          case ({s_axi_awready[VGA_IDX], s_axi_wready[VGA_IDX]})
+            2'b11: begin
+              s_axi_awvalid[VGA_IDX] <= '0;
+              s_axi_wvalid[VGA_IDX]  <= '0;
+              s_axi_bready[VGA_IDX]  <= '1;
+              cfg_state              <= CFG_VGA_WAIT_BRESP;
+            end
+            2'b10: begin
+              s_axi_awvalid[VGA_IDX] <= '0;
+              cfg_state              <= CFG_WR4;
+            end
+            2'b01: begin
+              s_axi_wvalid[VGA_IDX] <= '0;
+              cfg_state             <= CFG_WR5;
+            end
+          endcase // case ({last_write[0], s_axi_bvalid})
+        end
+        // Load VGA registers: got awready, wait for wready
+        CFG_WR4: begin
+          if (s_axi_wready[VGA_IDX]) begin
+            s_axi_wvalid[VGA_IDX] <= '0;
+            s_axi_bready[VGA_IDX] <= '1;
+            cfg_state             <= CFG_VGA_WAIT_BRESP;
+          end
+        end
+        // Load VGA registers: got wready, wait for awready
+        CFG_WR5: begin
+          if (s_axi_awready[VGA_IDX]) begin
+            s_axi_awvalid[VGA_IDX] <= '0;
+            s_axi_bready[VGA_IDX]  <= '1;
+            cfg_state              <= CFG_VGA_WAIT_BRESP;
+          end
+        end
+        // Load VGA registers, wait for write response
+        CFG_VGA_WAIT_BRESP: begin
+          if (s_axi_bvalid[VGA_IDX])  begin
+            s_axi_bready[VGA_IDX] <= '0;
+            if (wr_count == TOTAL_REGISTER_COUNT) begin
+              wr_count  <= '0;
+              cfg_state <= CFG_IDLE1;
+            end else begin
+              cfg_state <= CFG_WR3;
+            end
+          end
+        end
+      endcase // case (cfg_state)
+    end // else: !if(rst200)
   end // always @ (posedge mc_clk)
 
   // State machine to load initial text
   // 1. Clear screen
   // 2. Draw the text on the first 8 scanlines
   logic done;
-  enum bit [3:0]
+  typedef enum  bit [3:0]
        {
         TEXT_IDLE,
         TEXT_CLR[3],
-        TEXT_WRITE[6]
-        } text_sm;
+        TEXT_CLR_WAIT_BRESP,
+        TEXT_WRITE_WAIT_BRESP,
+        TEXT_WRITE[5]
+        } text_sm_t;
 
-  initial begin
-    text_sm = TEXT_IDLE;
-  end
+  text_sm_t text_sm = TEXT_IDLE;
 
   logic [3:0]       button_count = '0;
   logic [25:0]      total_page;
   logic [2:0][3:0]  char_x;
-  logic [12:0]      real_pitch;
-  logic [12:0]      pitch_value;
-  assign pitch_value = get_pitch(resolution[sw_capt].horiz_display_width);
+  logic [12:0]      pitch;
+  logic [15:0][7:0] capt_text;
+  logic [26:0]      y_offset;
 
   always @(posedge ui_clk) begin
-    update_text_sync <= update_text_sync << 1 | update_text;
-    s_ddr_awvalid    <= '0;
-    done             <= s_ddr_awaddr >= total_page;
-    char_x[1]        <= char_x[0];
-    char_x[2]        <= char_x[1];
-    real_pitch       <= |pitch_value[3:0] ?
-                        {pitch_value[12:4], 4'b0} + 16 :
-                        {pitch_value[12:4], 4'b0};
-    case (text_sm)
-      TEXT_IDLE: begin
-        if (^update_text_sync[2:1]) begin
-          button_count <= button_count + 1;
-          // Clear the screen
-          res_text_capt <= res_text[sw_capt];
-          total_page <= resolution[sw_capt].vert_display_width *
-                        real_pitch;
-          s_ddr_awaddr  <= '0;
-          s_ddr_awvalid <= '1;
-          s_ddr_wdata   <= '0;
-          s_ddr_wstrb   <= '1;
-          s_ddr_wlast   <= '1;
-          s_ddr_wvalid  <= '1;
-          char_index    <= res_text[sw_capt][0];
+    if (ui_clk_sync_rst) begin
+      update_text_sync <= '0;
+      s_ddr_awvalid    <= '0;
+      s_ddr_awlen      <= '0;
+      s_ddr_awsize     <= 3'b100;      // 16 bytes in transfer
+      s_ddr_awburst    <= 2'b01;       // INCR burst type
+      s_ddr_awlock     <= '0;        // normal access
+      s_ddr_awcache    <= '0;
+      s_ddr_awprot     <= '0;
+      s_ddr_awqos      <= '0;
+      s_ddr_awaddr     <= '0;
+      s_ddr_wvalid     <= '0;
+      s_ddr_wdata      <= '0;
+      s_ddr_wstrb      <= '0;
+      s_ddr_wlast      <= '0;
+      s_ddr_bready     <= '0;
+
+      char_x           <= '0;
+      char_y           <= '0;
+      text_sm          <= TEXT_IDLE;
+      char_index       <= '0;
+      total_page       <= '0;
+
+    end else begin
+      // Defaults:
+      s_ddr_awlen   <= '0;
+      s_ddr_awsize  <= 3'b100;         // 16 bytes in transfer
+      s_ddr_awburst <= 2'b01;          // INCR burst type
+      s_ddr_awlock  <= '0;             // normal access
+      s_ddr_awcache <= '0;
+      s_ddr_awprot  <= '0;
+      s_ddr_awqos   <= '0;
+
+      // Synchronize update_text toggle into ui_clk domain
+      update_text_sync <= update_text_sync << 1 | update_text;
+
+      // Resolution character index delay line
+      char_x[1]        <= char_x[0];
+      char_x[2]        <= char_x[1];
+
+      case (text_sm)
+        TEXT_IDLE: begin
           char_x        <= '0;
           char_y        <= '0;
-          text_sm       <= TEXT_CLR0;
-          end // if (update_text_sync[2:1] == 2'b01)
-      end // case: TEXT_IDLE
-      TEXT_CLR0: begin
-        casez ({done, s_ddr_awready, s_ddr_wready})
-          3'b111: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-          3'b011: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
+          if (^update_text_sync[2:1]) begin
+            // Clear the screen
+            pitch         <= get_pitch(resolution[sw_capt].horiz_display_width);
+            total_page    <= resolution[sw_capt].vert_display_width *
+                             get_pitch(resolution[sw_capt].horiz_display_width);
+            y_offset      <= '0;
+            s_ddr_awaddr  <= '0;
             s_ddr_awvalid <= '1;
+            s_ddr_wdata   <= '0;
+            s_ddr_wstrb   <= '1;
+            s_ddr_wlast   <= '1;
             s_ddr_wvalid  <= '1;
+            char_index    <= res_text[sw_capt][0];
+            capt_text     <= res_text[sw_capt];
             text_sm       <= TEXT_CLR0;
           end
-          3'b010: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR1;
-          end
-          3'b001: begin
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_CLR2;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_CLR1: begin
-        casez ({done, s_ddr_wready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-          2'b01: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_CLR2: begin
-        casez ({done, s_ddr_awready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-          2'b01: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end // case: TEXT_CLR2
-      TEXT_WRITE0: begin
-        char_index               <= res_text[sw_capt][char_x[0]];
-        char_x[0]                <= char_x[0] + 1'b1;
-        text_sm                  <= TEXT_WRITE1;
-      end
-      TEXT_WRITE1: begin
-        char_x[0]                   <= char_x[0] + 1'b1;
-        char_index                  <= res_text[sw_capt][char_x[0]];
-        s_ddr_wdata[char_x[2]*8+:8] <= char_slice;
-        s_ddr_awaddr                <= char_y * real_pitch;
-        if (&char_x[2]) begin
-          s_ddr_awvalid <= '1;
-          s_ddr_wvalid  <= '1;
-          text_sm       <= TEXT_WRITE2;
-        end else begin
-          text_sm       <= TEXT_WRITE1;
+        end // case: TEXT_IDLE
+        TEXT_CLR0: begin
+          casez ({s_ddr_awready, s_ddr_wready})
+            2'b11: begin
+              s_ddr_awvalid <= '0;
+              s_ddr_wvalid  <= '0;
+              s_ddr_bready  <= '1;
+              text_sm       <= TEXT_CLR_WAIT_BRESP;
+            end
+            2'b10: begin
+              s_ddr_awvalid <= '0;
+              text_sm       <= TEXT_CLR1;
+            end
+            2'b01: begin
+              s_ddr_wvalid  <= '0;
+              text_sm       <= TEXT_CLR2;
+            end
+          endcase // casez ({s_ddr_awready, s_ddr_wready})
         end
-      end
-      TEXT_WRITE2: begin
-        casez ({&char_y, s_ddr_awready, s_ddr_wready})
-          3'b111: begin
-            s_ddr_awvalid <= '0;
+        TEXT_CLR1: begin
+          if (s_ddr_wready) begin
             s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_CLR_WAIT_BRESP;
           end
-          3'b011: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
+        end
+        TEXT_CLR2: begin
+          if (s_ddr_awready) begin
             s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_CLR_WAIT_BRESP;
           end
-          3'b010: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_WRITE3;
+        end // case: TEXT_CLR2
+        // Clear screen: wait for write response
+        TEXT_CLR_WAIT_BRESP: begin
+          if (s_ddr_bvalid) begin
+            s_ddr_bready <= '0;
+            if (s_ddr_awaddr == (total_page - BYTES_PER_PAGE)) begin
+              text_sm <= TEXT_WRITE0;
+            end else begin
+              s_ddr_bready  <= '0;
+              s_ddr_awaddr  <= s_ddr_awaddr + BYTES_PER_PAGE;
+              s_ddr_awvalid <= '1;
+              s_ddr_wvalid  <= '1;
+              text_sm       <= TEXT_CLR0;
+            end
           end
-          3'b001: begin
+        end
+        TEXT_WRITE0: begin
+          char_index               <= capt_text[char_x[0]];
+          char_x[0]                <= char_x[0] + 1'b1;
+          text_sm                  <= TEXT_WRITE1;
+        end
+        TEXT_WRITE1: begin
+          char_index                  <= capt_text[char_x[0]];
+          if (char_x[0] < RES_TEXT_LENGTH - 1) begin
+            char_x[0]                   <= char_x[0] + 1'b1;
+          end
+          s_ddr_wdata[char_x[2]*8+:8] <= char_slice;
+          if (char_x[2] == (RES_TEXT_LENGTH - 1)) begin
             s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE4;
+            s_ddr_awaddr  <= char_y * pitch + y_offset;
+            s_ddr_wvalid  <= '1;
+            s_ddr_wstrb   <= '1;
+            s_ddr_wlast   <= '1;
+            text_sm       <= TEXT_WRITE2;
           end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_WRITE3: begin
-        casez ({&char_y, s_ddr_wready})
-          2'b11: begin
+        end
+        TEXT_WRITE2: begin
+          casez ({s_ddr_awready, s_ddr_wready})
+            2'b11: begin
+              s_ddr_awvalid <= '0;
+              s_ddr_wvalid  <= '0;
+              s_ddr_bready  <= '1;
+              text_sm       <= TEXT_WRITE_WAIT_BRESP;
+            end
+            2'b10: begin
+              s_ddr_awvalid <= '0;
+              text_sm       <= TEXT_WRITE3;
+            end
+            2'b01: begin
+              s_ddr_wvalid  <= '0;
+              text_sm       <= TEXT_WRITE4;
+            end
+          endcase // casez ({s_ddr_awready, s_ddr_wready})
+        end
+        TEXT_WRITE3: begin
+          if (s_ddr_wready) begin
+            s_ddr_wvalid  <= '0;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_WRITE_WAIT_BRESP;
+          end
+        end
+        TEXT_WRITE4: begin
+          if (s_ddr_awready) begin
             s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_WRITE_WAIT_BRESP;
           end
-          2'b01: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
+        end // case: TEXT_CLR2
+        // Write resolution text: wait for write response
+        TEXT_WRITE_WAIT_BRESP: begin
+          if (s_ddr_bvalid) begin
+            s_ddr_bready <= '0;
+            if (char_y == (CHAR_ROWS - 1)) begin
+              text_sm <= TEXT_IDLE;
+            end else begin
+              char_x  <= '0;
+              char_y  <= char_y + 1'b1;  // proceed with next character row
+              text_sm <= TEXT_WRITE0;
+            end
           end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_WRITE4: begin
-        casez ({done, s_ddr_awready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
-          end
-          2'b01: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end // case: TEXT_CLR2
-    endcase // case (text_sm)
+        end
+      endcase // case (text_sm)
+    end
   end // always @ (posedge ui_clk)
 
-  function [12:0] get_pitch(logic [11:0] horiz_display_width);
+  function [12:0] get_pitch(input logic [11:0] horiz_display_width);
     logic [11:0] pitch_whole;
     logic [11:0] pitch_fraction;
     pitch_whole         = horiz_display_width/BITS_PER_PAGE;

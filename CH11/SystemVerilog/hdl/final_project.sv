@@ -49,9 +49,11 @@ module final_project
 
   import final_project_pkg::*;
 
-  localparam MMCM_REGISTER_COUNT  = 24;
-  localparam VGA_REGISTER_COUNT   = 8;
-  localparam TOTAL_REGISTER_COUNT = MMCM_REGISTER_COUNT + VGA_REGISTER_COUNT;
+  localparam           CHAR_ROWS            = 8; // number of rows in character bitmap
+  localparam           RES_TEXT_LENGTH      = 16;
+  localparam           MMCM_REGISTER_COUNT  = 24;
+  localparam           VGA_REGISTER_COUNT   = 8;
+  localparam           TOTAL_REGISTER_COUNT = MMCM_REGISTER_COUNT + VGA_REGISTER_COUNT;
   localparam           BYTES_PER_PAGE = 16; // Number of bytes returned by the DDR
   localparam           BITS_PER_PAGE  = BYTES_PER_PAGE*8; // Number of bits per each page
   localparam           MMCM_IDX = 0;
@@ -339,7 +341,7 @@ module final_project
     (
      // Register address
      .reg_clk         (clk200),
-     .reg_reset       (ui_clk_sync_rst),
+     .reg_reset       (rst200),
 
      .reg_awvalid     (s_axi_awvalid[VGA_IDX]),
      .reg_awready     (s_axi_awready[VGA_IDX]),
@@ -365,7 +367,7 @@ module final_project
 
      // Master memory
      .mem_clk         (ui_clk),
-     .mem_reset       (),
+     .mem_reset       (ui_clk_sync_rst),
 
      .mem_arid        (s_ddr_arid),
      .mem_araddr      (s_ddr_araddr),
@@ -393,9 +395,6 @@ module final_project
      );
 
   assign vga_rgb = {int_vga_rgb[23:20],int_vga_rgb[15:12], int_vga_rgb[7:4]};
-
-  logic [15:0][7:0]       res_text_capt;
-
 
   typedef enum bit [3:0]
                {
@@ -508,7 +507,7 @@ module final_project
           end // case: 3'b011
         end // case: CFG_WR1
         CFG_WR2: begin
-          if (s_axi_awready[0]) begin
+          if (s_axi_awready[MMCM_IDX]) begin
             s_axi_awvalid[MMCM_IDX] <= '0;
             s_axi_bready[MMCM_IDX]  <= '1;
             cfg_state     <= CFG_MMCM_WAIT_BRESP;
@@ -516,7 +515,6 @@ module final_project
         end // case: CFG_WR1
         CFG_MMCM_WAIT_BRESP: begin
           if (s_axi_bvalid[MMCM_IDX]) begin
-            wr_count               <= wr_count + 1;
             s_axi_bready[MMCM_IDX] <= '0;
             if (wr_count == MMCM_REGISTER_COUNT) begin
               cfg_state <= CFG_MMCM_WAIT_LOCKED;
@@ -526,6 +524,7 @@ module final_project
               cfg_state               <= CFG_WR0;
               s_axi_awaddr            <= addr_array[wr_count];
               s_axi_wdata             <= resolution_lookup(sw_capt, wr_count);
+              wr_count                <= wr_count + 1;
             end
           end
         end // case: CFG_MMCM_WAIT_BRESP
@@ -596,223 +595,232 @@ module final_project
   // State machine to load initial text
   // 1. Clear screen
   // 2. Draw the text on the first 8 scanlines
-  logic done;
   typedef enum bit [3:0]
                {
                 TEXT_IDLE,
                 TEXT_CLR[3],
-                TEXT_WRITE[6]
+                TEXT_CLR_WAIT_BRESP,
+                TEXT_WRITE_WAIT_BRESP,
+                TEXT_WRITE[5]
                 } text_sm_t;
 
-  text_sm_t text_sm;
-
-  initial begin
-    text_sm = TEXT_IDLE;
-
-  end
+  text_sm_t text_sm = TEXT_IDLE;
 
   logic [25:0]      total_page;
   logic [2:0][3:0]  char_x;
-  logic [12:0]      real_pitch;
+  logic [12:0]      pitch;
   logic [15:0][7:0] capt_text;
-  logic [12:0]      pitch_value;
-  assign pitch_value = get_pitch(resolution[sw_capt].horiz_display_width);
   logic [15:0][7:0] capt_temp;
   logic [26:0]      y_offset;
 
   always @(posedge ui_clk) begin
-    update_text_sync <= update_text_sync << 1 | update_text;
-    update_temp_sync <= update_temp_sync << 1 | update_temp;
-    if (^update_temp_sync[2:1]) update_temp_capt <= '1;
-    pdm_pop          <= '0;
-    s_ddr_awvalid    <= '0;
-    done             <= s_ddr_awaddr >= total_page;
-    char_x[1]        <= char_x[0];
-    char_x[2]        <= char_x[1];
-    real_pitch       <= |pitch_value[3:0] ?
-                        {pitch_value[12:4], 4'b0} + 16 :
-                        {pitch_value[12:4], 4'b0};
-    clear_ps2        <= '0;
-    case (text_sm)
-      TEXT_IDLE: begin
-        char_x        <= '0;
-        char_y        <= '0;
-        if (^update_text_sync[2:1]) begin
-          // Clear the screen
-          res_text_capt <= res_text[sw_capt];
-          total_page <= resolution[sw_capt].vert_display_width *
-                        real_pitch;
-          y_offset      <= '0;
-          s_ddr_awaddr  <= '0;
-          s_ddr_awvalid <= '1;
-          s_ddr_wdata   <= '0;
-          s_ddr_wstrb   <= '1;
-          s_ddr_wlast   <= '1;
-          s_ddr_wvalid  <= '1;
-          char_index    <= res_text[sw_capt][0];
-          capt_text     <= res_text[sw_capt];
-          text_sm       <= TEXT_CLR0;
-        end else if (update_ps2) begin // if (^update_text_sync[2:1])
-          // We'll start the PS2 output on line 8
-          y_offset      <= 8 * real_pitch;
-          clear_ps2     <= '1;
-          char_index    <= ps2_data_store[0];
-          capt_text     <= ps2_data_store;
-          s_ddr_awvalid <= '0;
-          s_ddr_wvalid  <= '0;
-          text_sm       <= TEXT_WRITE0;
-        end else if (update_temp_capt) begin
-          // We'll start the temperature output on line 16
-          y_offset         <= 16 * real_pitch;
-          update_temp_capt <= '0;
-          char_index       <= capt_temp[0];
-          capt_text        <= capt_temp;
-          s_ddr_awvalid    <= '0;
-          s_ddr_wvalid     <= '0;
-          text_sm          <= TEXT_WRITE0;
-        end else if (!pdm_empty) begin
-          pdm_pop          <= '1;
-          char_y           <= '1; // Force only one line to be written
-          //update_temp_capt <= '0;
-          s_ddr_awvalid    <= '1;
-          s_ddr_awaddr     <= pdm_dout.address * real_pitch;
-          s_ddr_wvalid     <= '1;
-          s_ddr_wdata      <= pdm_dout.data;
-          text_sm          <= TEXT_WRITE2;
+    if (ui_clk_sync_rst) begin
+      update_text_sync <= '0;
+      s_ddr_awvalid    <= '0;
+      s_ddr_awlen      <= '0;
+      s_ddr_awsize     <= 3'b100;      // 16 bytes in transfer
+      s_ddr_awburst    <= 2'b01;       // INCR burst type
+      s_ddr_awlock     <= '0;        // normal access
+      s_ddr_awcache    <= '0;
+      s_ddr_awprot     <= '0;
+      s_ddr_awqos      <= '0;
+      s_ddr_awaddr     <= '0;
+      s_ddr_wvalid     <= '0;
+      s_ddr_wdata      <= '0;
+      s_ddr_wstrb      <= '0;
+      s_ddr_wlast      <= '0;
+      s_ddr_bready     <= '0;
+
+      char_x           <= '0;
+      char_y           <= '0;
+      text_sm          <= TEXT_IDLE;
+      char_index       <= '0;
+      total_page       <= '0;
+      pdm_pop          <= '0;
+
+    end else begin
+      // Defaults:
+      s_ddr_awlen   <= '0;
+      s_ddr_awsize  <= 3'b100;         // 16 bytes in transfer
+      s_ddr_awburst <= 2'b01;          // INCR burst type
+      s_ddr_awlock  <= '0;             // normal access
+      s_ddr_awcache <= '0;
+      s_ddr_awprot  <= '0;
+      s_ddr_awqos   <= '0;
+      pdm_pop       <= '0;
+
+      // Synchronize update_text toggle into ui_clk domain
+      update_text_sync <= update_text_sync << 1 | update_text;
+      update_temp_sync <= update_temp_sync << 1 | update_temp;
+      if (^update_temp_sync[2:1]) update_temp_capt <= '1;
+
+      // Resolution character index delay line
+      char_x[1]        <= char_x[0];
+      char_x[2]        <= char_x[1];
+
+      clear_ps2        <= '0;
+      case (text_sm)
+        TEXT_IDLE: begin
+          char_x        <= '0;
+          char_y        <= '0;
+          if (^update_text_sync[2:1]) begin
+            // Clear the screen
+            pitch         <= get_pitch(resolution[sw_capt].horiz_display_width);
+            total_page    <= resolution[sw_capt].vert_display_width *
+                             get_pitch(resolution[sw_capt].horiz_display_width);
+            y_offset      <= '0;
+            s_ddr_awaddr  <= '0;
+            s_ddr_awvalid <= '1;
+            s_ddr_wdata   <= '0;
+            s_ddr_wstrb   <= '1;
+            s_ddr_wlast   <= '1;
+            s_ddr_wvalid  <= '1;
+            char_index    <= res_text[sw_capt][0];
+            capt_text     <= res_text[sw_capt];
+            text_sm       <= TEXT_CLR0;
+          end else if (update_ps2) begin // if (^update_text_sync[2:1])
+            // We'll start the PS2 output on line 10
+            y_offset      <= 10 * pitch;
+            clear_ps2     <= '1;
+            char_index    <= ps2_data_store[0];
+            capt_text     <= ps2_data_store;
+            s_ddr_awvalid <= '0;
+            s_ddr_wvalid  <= '0;
+            text_sm       <= TEXT_WRITE0;
+          end else if (update_temp_capt) begin
+            // We'll start the temperature output on line 18
+            y_offset         <= 18 * pitch;
+            update_temp_capt <= '0;
+            char_index       <= capt_temp[0];
+            capt_text        <= capt_temp;
+            s_ddr_awvalid    <= '0;
+            s_ddr_wvalid     <= '0;
+            text_sm          <= TEXT_WRITE0;
+          end else if (!pdm_empty) begin
+            pdm_pop          <= '1;
+            char_y           <= '1; // Force only one line to be written
+            //update_temp_capt <= '0;
+            s_ddr_awvalid    <= '1;
+            s_ddr_awaddr     <= pdm_dout.address * pitch;
+            s_ddr_wvalid     <= '1;
+            s_ddr_wdata      <= pdm_dout.data;
+            text_sm          <= TEXT_WRITE2;
+          end
+        end // case: TEXT_IDLE
+        TEXT_CLR0: begin
+          casez ({s_ddr_awready, s_ddr_wready})
+            2'b11: begin
+              s_ddr_awvalid <= '0;
+              s_ddr_wvalid  <= '0;
+              s_ddr_bready  <= '1;
+              text_sm       <= TEXT_CLR_WAIT_BRESP;
+            end
+            2'b10: begin
+              s_ddr_awvalid <= '0;
+              text_sm       <= TEXT_CLR1;
+            end
+            2'b01: begin
+              s_ddr_wvalid  <= '0;
+              text_sm       <= TEXT_CLR2;
+            end
+          endcase // casez ({s_ddr_awready, s_ddr_wready})
         end
-      end // case: TEXT_IDLE
-      TEXT_CLR0: begin
-        casez ({done, s_ddr_awready, s_ddr_wready})
-          3'b111: begin
-            s_ddr_awvalid <= '0;
+        TEXT_CLR1: begin
+          if (s_ddr_wready) begin
             s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_CLR_WAIT_BRESP;
           end
-          3'b011: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR0;
-          end
-          3'b010: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR1;
-          end
-          3'b001: begin
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_CLR2;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_CLR1: begin
-        casez ({done, s_ddr_wready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-          2'b01: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_CLR2: begin
-        casez ({done, s_ddr_awready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-          2'b01: begin
-            s_ddr_awaddr  <= s_ddr_awaddr + 16;
-            s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_CLR0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end // case: TEXT_CLR2
-      TEXT_WRITE0: begin
-        char_index               <= capt_text[char_x[0]];
-        char_x[0]                <= char_x[0] + 1'b1;
-        text_sm                  <= TEXT_WRITE1;
-      end
-      TEXT_WRITE1: begin
-        char_x[0]                   <= char_x[0] + 1'b1;
-        char_index                  <= capt_text[char_x[0]];
-        s_ddr_wdata[char_x[2]*8+:8] <= char_slice;
-        s_ddr_awaddr                <= char_y * real_pitch + y_offset;
-        if (&char_x[2]) begin
-          s_ddr_awvalid <= '1;
-          s_ddr_wvalid  <= '1;
-          text_sm       <= TEXT_WRITE2;
-        end else begin
-          text_sm       <= TEXT_WRITE1;
         end
-      end
-      TEXT_WRITE2: begin
-        casez ({&char_y, s_ddr_awready, s_ddr_wready})
-          3'b111: begin
+        TEXT_CLR2: begin
+          if (s_ddr_awready) begin
             s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_CLR_WAIT_BRESP;
           end
-          3'b011: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
+        end // case: TEXT_CLR2
+        // Clear screen: wait for write response
+        TEXT_CLR_WAIT_BRESP: begin
+          if (s_ddr_bvalid) begin
+            s_ddr_bready <= '0;
+            if (s_ddr_awaddr == (total_page - BYTES_PER_PAGE)) begin
+              text_sm <= TEXT_WRITE0;
+            end else begin
+              s_ddr_bready  <= '0;
+              s_ddr_awaddr  <= s_ddr_awaddr + BYTES_PER_PAGE;
+              s_ddr_awvalid <= '1;
+              s_ddr_wvalid  <= '1;
+              text_sm       <= TEXT_CLR0;
+            end
           end
-          3'b010: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '1;
-            text_sm       <= TEXT_WRITE3;
+        end
+        TEXT_WRITE0: begin
+          char_index               <= capt_text[char_x[0]];
+          char_x[0]                <= char_x[0] + 1'b1;
+          text_sm                  <= TEXT_WRITE1;
+        end
+        TEXT_WRITE1: begin
+          char_index                  <= capt_text[char_x[0]];
+          if (char_x[0] < RES_TEXT_LENGTH - 1) begin
+            char_x[0]                   <= char_x[0] + 1'b1;
           end
-          3'b001: begin
+          s_ddr_wdata[char_x[2]*8+:8] <= char_slice;
+          if (char_x[2] == (RES_TEXT_LENGTH - 1)) begin
             s_ddr_awvalid <= '1;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE4;
+            s_ddr_awaddr  <= char_y * pitch + y_offset;
+            s_ddr_wvalid  <= '1;
+            s_ddr_wstrb   <= '1;
+            s_ddr_wlast   <= '1;
+            text_sm       <= TEXT_WRITE2;
           end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_WRITE3: begin
-        casez ({&char_y, s_ddr_wready})
-          2'b11: begin
+        end
+        TEXT_WRITE2: begin
+          casez ({s_ddr_awready, s_ddr_wready})
+            2'b11: begin
+              s_ddr_awvalid <= '0;
+              s_ddr_wvalid  <= '0;
+              s_ddr_bready  <= '1;
+              text_sm       <= TEXT_WRITE_WAIT_BRESP;
+            end
+            2'b10: begin
+              s_ddr_awvalid <= '0;
+              text_sm       <= TEXT_WRITE3;
+            end
+            2'b01: begin
+              s_ddr_wvalid  <= '0;
+              text_sm       <= TEXT_WRITE4;
+            end
+          endcase // casez ({s_ddr_awready, s_ddr_wready})
+        end
+        TEXT_WRITE3: begin
+          if (s_ddr_wready) begin
+            s_ddr_wvalid  <= '0;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_WRITE_WAIT_BRESP;
+          end
+        end
+        TEXT_WRITE4: begin
+          if (s_ddr_awready) begin
             s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
+            s_ddr_bready  <= '1;
+            text_sm       <= TEXT_WRITE_WAIT_BRESP;
           end
-          2'b01: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
+        end // case: TEXT_CLR2
+        // Write resolution text: wait for write response
+        TEXT_WRITE_WAIT_BRESP: begin
+          if (s_ddr_bvalid) begin
+            s_ddr_bready <= '0;
+            if (char_y == (CHAR_ROWS - 1)) begin
+              text_sm <= TEXT_IDLE;
+            end else begin
+              char_x  <= '0;
+              char_y  <= char_y + 1'b1;  // proceed with next character row
+              text_sm <= TEXT_WRITE0;
+            end
           end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end
-      TEXT_WRITE4: begin
-        casez ({done, s_ddr_awready})
-          2'b11: begin
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_IDLE;
-          end
-          2'b01: begin
-            char_x        <= '0;
-            char_y        <= char_y + 1'b1;
-            s_ddr_awvalid <= '0;
-            s_ddr_wvalid  <= '0;
-            text_sm       <= TEXT_WRITE0;
-          end
-        endcase // casez ({done, s_ddr_awready, s_ddr_wready})
-      end // case: TEXT_CLR2
-    endcase // case (text_sm)
+        end
+      endcase // case (text_sm)
+    end
   end // always @ (posedge ui_clk)
 
   logic [7:0]  ps2_rx_data;

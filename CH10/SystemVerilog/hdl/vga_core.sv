@@ -7,61 +7,62 @@
 module vga_core
   (
    // Register address
-   input wire          reg_clk,
-   input wire          reg_reset,
+   input wire           reg_clk,
+   input wire           reg_reset,
 
-   input wire          reg_awvalid,
-   output logic        reg_awready,
-   input wire [11:0]   reg_awaddr,
+   input wire           reg_awvalid,
+   output logic         reg_awready,
+   input wire [11:0]    reg_awaddr,
 
-   input wire          reg_wvalid,
-   output logic        reg_wready,
-   input wire [31:0]   reg_wdata,
-   input wire [3:0]    reg_wstrb,
+   input wire           reg_wvalid,
+   output logic         reg_wready,
+   input wire [31:0]    reg_wdata,
+   input wire [3:0]     reg_wstrb,
 
-   input wire          reg_bready,
-   output logic        reg_bvalid,
-   output logic [1:0]  reg_bresp,
+   input wire           reg_bready,
+   output logic         reg_bvalid,
+   output logic [1:0]   reg_bresp,
 
-   input wire          reg_arvalid,
-   output logic        reg_arready,
-   input wire [11:0]   reg_araddr,
+   input wire           reg_arvalid,
+   output logic         reg_arready,
+   input wire [11:0]    reg_araddr,
 
-   input wire          reg_rready,
-   output logic        reg_rvalid,
-   output logic [31:0] reg_rdata,
-   output logic [1:0]  reg_rresp,
+   input wire           reg_rready,
+   output logic         reg_rvalid,
+   output logic [31:0]  reg_rdata,
+   output logic [1:0]   reg_rresp,
 
    // Master memory
-   input wire          mem_clk,
-   input wire          mem_reset,
+   input wire           mem_clk,
+   input wire           mem_reset,
 
-   output logic [3:0]  mem_arid,
-   output logic [26:0] mem_araddr,
-   output logic [7:0]  mem_arlen,
-   output logic [2:0]  mem_arsize,
-   output logic [1:0]  mem_arburst,
-   output logic        mem_arlock,
-   output logic        mem_arvalid,
-   input wire          mem_arready,
+   output logic [3:0]   mem_arid,
+   output logic [26:0]  mem_araddr,
+   output logic [7:0]   mem_arlen,
+   output logic [2:0]   mem_arsize,
+   output logic [1:0]   mem_arburst,
+   output logic         mem_arlock,
+   output logic         mem_arvalid,
+   input wire           mem_arready,
 
-   output logic        mem_rready,
-   input wire [3:0]    mem_rid,
-   input wire [127:0]  mem_rdata,
-   input wire [1:0]    mem_rresp,
-   input wire          mem_rlast,
-   input wire          mem_rvalid,
+   output logic         mem_rready,
+   input wire [3:0]     mem_rid,
+   input wire [127:0]   mem_rdata,
+   input wire [1:0]     mem_rresp,
+   input wire           mem_rlast,
+   input wire           mem_rvalid,
 
-   input wire          vga_clk,
-   (* mark_debug = "true" *) output logic        vga_hsync,
-   (* mark_debug = "true" *) output logic        vga_hblank,
-   (* mark_debug = "true" *) output logic        vga_vsync,
-   (* mark_debug = "true" *) output logic        vga_vblank,
-   output logic [23:0] vga_rgb,
-
-   output logic [2:0]  mem_cs_prb,
-   output logic [2:0]  reg_cs_prb
+   input wire           vga_clk,
+   input wire           vga_rst,
+   output logic         vga_hsync,
+   output logic         vga_hblank,
+   output logic         vga_vsync,
+   output logic         vga_vblank,
+   output logic [23:0]  vga_rgb,
+   output logic         vga_sync_toggle
    );
+
+  import vga_pkg::*;
 
   localparam H_DISP_START_WIDTH     = 12'h000;
   localparam H_DISP_FPEND_TOTAL     = 12'h004;
@@ -71,6 +72,7 @@ module vga_core
   localparam DISPLAY_ADDR           = 12'h100;
   localparam DISPLAY_PITCH          = 12'h104;
   localparam VGA_LOAD_MODE          = 12'h108;
+  localparam AXI4_PAGE_SIZE         = 4096;
   localparam AXI4_OKAY              = 2'b00;
   localparam AXI4_SLVERR            = 2'b10;
 
@@ -113,114 +115,139 @@ module vga_core
   logic        vga_pop;
   logic [127:0] vga_data;
   logic         vga_empty;
+  logic       load_mode;
+  (* async_reg = "TRUE" *) logic [2:0] load_mode_sync;
+
+
+  assign reg_arready = '1;
+  assign reg_rvalid  = '0;
+  assign reg_rdata   = '0;
+  assign reg_rresp   = '0;
 
   initial begin
     reg_cs = REG_IDLE;
   end
 
   always @(posedge reg_clk) begin
-    reg_bvalid  <= '0;
-    reg_bresp   <= AXI4_OKAY; // Okay
-    reg_awready <= '0;
-    reg_wready  <= '0;
+    if (reg_reset) begin
+      horiz_display_start_reg <= '0;
+      horiz_display_width_reg <= '0;
+      horiz_sync_width_reg    <= '0;
+      horiz_total_width_reg   <= '0;
+      vert_display_start_reg  <= '0;
+      vert_display_width_reg  <= '0;
+      vert_sync_width_reg     <= '0;
+      vert_total_width_reg    <= '0;
+      polarity_reg            <= '0;
+      pitch_reg               <= '0;
+      load_mode               <= '0;
+      reg_addr                <= '0;
+      reg_din                 <= '0;
+      reg_be                  <= '0;
+      reg_awready             <= '0;
+      reg_wready              <= '0;
+      reg_bvalid              <= '0;
+      reg_bresp               <= '0;
+      reg_cs                  <= REG_IDLE;
+    end else begin
+      reg_awready <= '0;
+      reg_wready  <= '0;
 
-    case (reg_cs)
-      REG_IDLE: begin
-        case ({reg_awvalid, reg_wvalid})
-          2'b11: begin
-            // Addr and data are available
-            reg_awready <= '1;
-            reg_wready  <= '1;
-            reg_addr    <= reg_awaddr;
+      case (reg_cs)
+        REG_IDLE: begin
+          case ({reg_awvalid, reg_wvalid})
+            2'b11: begin
+              // Addr and data are available
+              reg_awready <= '1;
+              reg_wready  <= '1;
+              reg_addr    <= reg_awaddr;
+              reg_din     <= reg_wdata;
+              reg_be      <= reg_wstrb;
+              reg_cs      <= REG_WRITE;
+            end
+            2'b10: begin
+              // Address only
+              reg_awready <= '1;
+              reg_addr    <= reg_awaddr;
+              reg_cs      <= REG_W4DATA;
+            end
+            2'b01: begin
+              reg_wready <= '1;
+              reg_din    <= reg_wdata;
+              reg_be     <= reg_wstrb;
+              reg_cs     <= REG_W4ADDR;
+            end
+          endcase // case ({reg_awvalid, reg_awvalid})
+        end // case: REG_IDLE
+        REG_W4DATA: begin
+          if (reg_wvalid) begin
             reg_din     <= reg_wdata;
             reg_be      <= reg_wstrb;
+            reg_wready  <= '1;
             reg_cs      <= REG_WRITE;
           end
-          2'b10: begin
-            // Address only
-            reg_awready <= '1;
+        end
+        REG_W4ADDR: begin
+          if (reg_awvalid) begin
             reg_addr    <= reg_awaddr;
-            reg_cs      <= REG_W4DATA;
+            reg_cs      <= REG_WRITE;
           end
-          2'b01: begin
-            reg_wready <= '1;
-            reg_din    <= reg_wdata;
-            reg_be     <= reg_wstrb;
-            reg_cs     <= REG_W4ADDR;
-          end
-        endcase // case ({reg_awvalid, reg_awvalid})
-      end // case: REG_IDLE
-      REG_W4DATA: begin
-        reg_din     <= reg_wdata;
-        reg_be      <= reg_wstrb;
-        if (reg_wvalid) begin
-            reg_wready  <= '1;
-          reg_cs      <= REG_WRITE;
+        end // case: REG_W4ADDR
+        REG_WRITE: begin
+          reg_bvalid <= '1;
+          reg_bresp  <= AXI4_OKAY;
+          case (reg_addr)
+            H_DISP_START_WIDTH: begin
+              if (reg_be[0]) horiz_display_start_reg[7:0]  <= reg_din[7:0];
+              if (reg_be[1]) horiz_display_start_reg[11:8] <= reg_din[11:8];
+              if (reg_be[2]) horiz_display_width_reg[7:0]  <= reg_din[23:16];
+              if (reg_be[3]) horiz_display_width_reg[11:8] <= reg_din[27:24];
+            end
+            H_DISP_FPEND_TOTAL: begin
+              if (reg_be[0]) horiz_sync_width_reg[7:0]   <= reg_din[7:0];
+              if (reg_be[1]) horiz_sync_width_reg[11:8]  <= reg_din[11:8];
+              if (reg_be[2]) horiz_total_width_reg[7:0]  <= reg_din[23:16];
+              if (reg_be[3]) horiz_total_width_reg[11:8] <= reg_din[27:24];
+            end
+            V_DISP_START_WIDTH: begin
+              if (reg_be[0]) vert_display_start_reg[7:0]  <= reg_din[7:0];
+              if (reg_be[1]) vert_display_start_reg[11:8] <= reg_din[11:8];
+              if (reg_be[2]) vert_display_width_reg[7:0]  <= reg_din[23:16];
+              if (reg_be[3]) vert_display_width_reg[11:8] <= reg_din[27:24];
+            end
+            V_DISP_FPEND_TOTAL: begin
+              if (reg_be[0]) vert_sync_width_reg[7:0]   <= reg_din[7:0];
+              if (reg_be[1]) vert_sync_width_reg[11:8]  <= reg_din[11:8];
+              if (reg_be[2]) vert_total_width_reg[7:0]  <= reg_din[23:16];
+              if (reg_be[3]) vert_total_width_reg[11:8] <= reg_din[27:24];
+            end
+            V_DISP_POLARITY_FORMAT: begin
+              if (reg_be[0]) polarity_reg[1:0]     <= reg_din[1:0];
+            end
+            DISPLAY_ADDR: begin
+              if (reg_be[0]) disp_addr_reg[7:0]    <= reg_din[7:0];
+              if (reg_be[1]) disp_addr_reg[15:8]   <= reg_din[15:8];
+              if (reg_be[2]) disp_addr_reg[23:16]  <= reg_din[23:16];
+              if (reg_be[3]) disp_addr_reg[31:24]  <= reg_din[31:24];
+            end
+            DISPLAY_PITCH: begin
+              if (reg_be[0]) pitch_reg[7:0]        <= reg_din[7:0];
+              if (reg_be[1]) pitch_reg[12:8]       <= reg_din[12:8];
+            end
+            VGA_LOAD_MODE: if (reg_be[0]) load_mode <= ~load_mode;
+            default: reg_bresp  <= AXI4_SLVERR;
+          endcase // case (reg_addr)
+          reg_cs <= REG_BRESP;
         end
-      end
-      REG_W4ADDR: begin
-        reg_addr    <= reg_awaddr;
-        if (reg_awvalid) begin
-          reg_awready <= '1;
-          reg_cs      <= REG_WRITE;
+        REG_BRESP: begin
+          if (reg_bready) begin
+            reg_bvalid  <= '0;
+            reg_cs      <= REG_IDLE;
+          end
         end
-      end // case: REG_W4ADDR
-      REG_WRITE: begin
-        reg_bvalid  <= '1;
-        case (reg_addr)
-          H_DISP_START_WIDTH: begin
-            if (reg_be[0]) horiz_display_start_reg[7:0]  <= reg_din[7:0];
-            if (reg_be[1]) horiz_display_start_reg[11:8] <= reg_din[11:8];
-            if (reg_be[2]) horiz_display_width_reg[7:0]  <= reg_din[23:16];
-            if (reg_be[3]) horiz_display_width_reg[11:8] <= reg_din[27:24];
-          end
-          H_DISP_FPEND_TOTAL: begin
-            if (reg_be[0]) horiz_sync_width_reg[7:0]   <= reg_din[7:0];
-            if (reg_be[1]) horiz_sync_width_reg[11:8]  <= reg_din[11:8];
-            if (reg_be[2]) horiz_total_width_reg[7:0]  <= reg_din[23:16];
-            if (reg_be[3]) horiz_total_width_reg[11:8] <= reg_din[27:24];
-          end
-          V_DISP_START_WIDTH: begin
-            if (reg_be[0]) vert_display_start_reg[7:0]  <= reg_din[7:0];
-            if (reg_be[1]) vert_display_start_reg[11:8] <= reg_din[11:8];
-            if (reg_be[2]) vert_display_width_reg[7:0]  <= reg_din[23:16];
-            if (reg_be[3]) vert_display_width_reg[11:8] <= reg_din[27:24];
-          end
-          V_DISP_FPEND_TOTAL: begin
-            if (reg_be[0]) vert_sync_width_reg[7:0]   <= reg_din[7:0];
-            if (reg_be[1]) vert_sync_width_reg[11:8]  <= reg_din[11:8];
-            if (reg_be[2]) vert_total_width_reg[7:0]  <= reg_din[23:16];
-            if (reg_be[3]) vert_total_width_reg[11:8] <= reg_din[27:24];
-          end
-          V_DISP_POLARITY_FORMAT: begin
-            if (reg_be[0]) polarity_reg[1:0]     <= reg_din[1:0];
-          end
-          DISPLAY_ADDR: begin
-            if (reg_be[0]) disp_addr_reg[7:0]    <= reg_din[7:0];
-            if (reg_be[1]) disp_addr_reg[15:8]   <= reg_din[15:8];
-            if (reg_be[2]) disp_addr_reg[23:16]  <= reg_din[23:16];
-            if (reg_be[3]) disp_addr_reg[31:24]  <= reg_din[31:24];
-          end
-          DISPLAY_PITCH: begin
-            if (reg_be[0]) pitch_reg[7:0]        <= reg_din[7:0];
-            if (reg_be[1]) pitch_reg[12:8]       <= reg_din[12:8];
-          end
-          VGA_LOAD_MODE: if (reg_be[0]) load_mode <= ~load_mode;
-          default: reg_bresp  <= AXI4_SLVERR;
-        endcase // case (reg_addr)
-        reg_cs <= REG_BRESP;
-      end
-      REG_BRESP: begin
-        reg_bvalid  <= '1;
-        if (reg_bready) begin
-          reg_cs      <= REG_IDLE;
-        end
-      end
-    endcase // case (reg_cs)
+      endcase // case (reg_cs)
+    end
   end // always @ (posedge reg_clk)
-
-  logic       load_mode;
-  (* async_reg = "TRUE" *) logic [2:0] load_mode_sync;
 
   initial begin
     horiz_display_start_reg = 47;
@@ -252,64 +279,108 @@ module vga_core
     pitch                   = 5*16;
   end
 
-  (* mark_debug = "true" *) logic [11:0] horiz_count;
-  (* mark_debug = "true" *) logic [11:0] vert_count;
-  (* mark_debug = "true" *) logic        mc_req;
-  logic [7:0]  mc_words, mc_words_mem;
-  (* mark_debug = "true" *) logic [31:0] mc_addr, mc_addr_mem;
-  (* mark_debug = "true" *) logic        fifo_rst;
+  logic [11:0] horiz_count;
+  logic [11:0] vert_count;
+  logic        mc_req;
+  logic [7:0]  mc_words, mc_words_reg;
+  logic [31:0] mc_addr, mc_addr_reg, mc_addr_high_comb;
+  logic        fifo_rst;
+  logic [31:0] scanline;
 
   // Timing generation
   initial begin
-    horiz_count = '0;
-    vert_count  = '0;
-    mc_req      = '0;
+    horiz_count     = '0;
+    vert_count      = '0;
+    mc_req          = '0;
+    vga_sync_toggle = '0;
   end
 
-  (* mark_debug = "true" *) logic last_hblank;
+  logic last_hblank;
 
   always @(posedge vga_clk) begin
-    load_mode_sync <= load_mode_sync << 1 | load_mode;
-    if (^load_mode_sync[2:1]) begin
-      horiz_display_start <= horiz_display_start_reg;
-      horiz_display_width <= horiz_display_width_reg;
-      horiz_sync_width    <= horiz_sync_width_reg;
-      horiz_total_width   <= horiz_total_width_reg;
-      vert_display_start  <= vert_display_start_reg;
-      vert_display_width  <= vert_display_width_reg;
-      vert_sync_width     <= vert_sync_width_reg;
-      vert_total_width    <= vert_total_width_reg;
-      disp_addr           <= disp_addr_reg;
-      polarity            <= polarity_reg;
-      pitch               <= pitch_reg;
+    logic hsync_en;
+    logic vsync_en;
+    logic vga_hblank_v;
+    logic vga_vblank_v;
+    logic [11:0] horiz_count_v, vert_count_v;
+    if (vga_rst) begin
+      scanline            <= '0;
+      horiz_count_v       = '0;
+      vert_count_v        = '0;
+      horiz_display_start <= resolution[0].horiz_display_start;
+      horiz_display_width <= resolution[0].horiz_display_width;
+      horiz_sync_width    <= resolution[0].horiz_sync_width;
+      horiz_total_width   <= resolution[0].horiz_total_width;
+      vert_display_start  <= resolution[0].vert_display_start;
+      vert_display_width  <= resolution[0].vert_display_width;
+      vert_sync_width     <= resolution[0].vert_sync_width;
+      vert_total_width    <= resolution[0].vert_total_width;
+      polarity            <= resolution[0].hpol & resolution[0].vpol;
+      pitch               <= get_pitch(resolution[0].horiz_display_width);
+      mc_req              <= '0;
+      mc_addr             <= '0;
+      mc_words            <= '0;
+      vga_hblank          <= '0;
+      vga_hsync           <= '0;
+      vga_vblank          <= '0;
+      vga_vsync           <= '0;
+    end else begin // if (vga_rst)
+      // Synchronize load mode
+      load_mode_sync <= load_mode_sync << 1 | load_mode;
+
+      if (^load_mode_sync[2:1]) begin
+        horiz_display_start <= horiz_display_start_reg;
+        horiz_display_width <= horiz_display_width_reg;
+        horiz_sync_width    <= horiz_sync_width_reg;
+        horiz_total_width   <= horiz_total_width_reg;
+        vert_display_start  <= vert_display_start_reg;
+        vert_display_width  <= vert_display_width_reg;
+        vert_sync_width     <= vert_sync_width_reg;
+        vert_total_width    <= vert_total_width_reg;
+        disp_addr           <= disp_addr_reg;
+        polarity            <= polarity_reg;
+        pitch               <= pitch_reg;
+      end // if (^load_mode_sync[2:1])
+
+      if (horiz_count_v >= horiz_total_width) begin
+        horiz_count_v = '0;
+        if (vert_count_v >= vert_total_width) vert_count_v <= '0;
+        else vert_count_v = vert_count_v + 1'b1;
+
+        // Start reading from memory address 0x0, increment by pitch value at
+        // the start of each active scan line.
+        if (vert_count_v <= vert_display_start + 1) begin
+          mc_addr <= '0;
+        end else if (vert_count_v <= vert_display_start + vert_display_width) begin
+          mc_addr <= mc_addr + pitch;
+        end
+
+        // Issue a memory read request at the beginning of each active scan line
+        if ((vert_count_v > vert_display_start) &&
+            (vert_count_v <= (vert_display_start + vert_display_width))) begin
+          mc_req   <= ~mc_req;
+          mc_words <= pitch[$high(pitch):4]; // in units of 16-byte words
+        end
+        if (vert_count_v == vert_display_start) begin
+          vga_sync_toggle <= ~vga_sync_toggle;
+        end
+        if (vert_count_v == vert_display_start) vga_sync_toggle <= ~vga_sync_toggle;
+      end else
+        horiz_count_v <= horiz_count_v + 1'b1;
+
+      horiz_count <= horiz_count_v;
+      vert_count  <= vert_count_v;
+
+      vga_hblank    <= ~((horiz_count_v > horiz_display_start) & (horiz_count_v <= (horiz_display_start + horiz_display_width)));
+      vga_hsync     <= polarity[1] ^ ~(horiz_count_v > (horiz_total_width - horiz_sync_width));
+
+      vga_vblank    <= ~((vert_count_v > vert_display_start) & (vert_count_v <= (vert_display_start + vert_display_width)));
+      vga_vsync     <= polarity[0] ^ ~(vert_count_v > (vert_total_width - vert_sync_width));
     end
-    if (horiz_count >= horiz_total_width) begin
-      horiz_count <= '0;
-      if (vert_count >= vert_total_width) vert_count <= '0;
-      else vert_count <= vert_count + 1'b1;
-      if (vert_count == vert_display_start) begin
-        mc_addr  <= '0;
-      end else begin
-        mc_addr  <= mc_addr + pitch;
-      end
-      mc_words <= pitch[12:4] +|pitch[3:0];
-      mc_req   <= ~mc_req;
-    end else
-      horiz_count <= horiz_count + 1'b1;
-
-    //if (vga_hblank && ~last_hblank && ~vga_vblank) mc_req   <= ~mc_req;
-    last_hblank   <= vga_hblank;
-
-    vga_hblank    <= ~((horiz_count >= horiz_display_start) & (horiz_count < (horiz_display_start + horiz_display_width)));
-    vga_hsync     <= polarity[1] ^ ~(horiz_count > (horiz_total_width - horiz_sync_width));
-
-    vga_vblank    <= ~((vert_count >= vert_display_start) & (vert_count < (vert_display_start + vert_display_width)));
-    vga_vsync     <= polarity[0] ^ ~(vert_count > (vert_total_width - vert_sync_width));
-
   end // always @ (posedge vga_clk)
 
   logic [6:0] pix_count;
-  logic        rd_rst_busy;
+  logic       rd_rst_busy;
 
   enum         bit {SCAN_IDLE, SCAN_OUT} scan_cs;
 
@@ -391,7 +462,7 @@ module vga_core
                 MEM_IDLE,
                 MEM_W4RSTH,
                 MEM_W4RSTL,
-                MEM_W4RDY[2],
+                MEM_W4RDY[3],
                 MEM_REQ} mem_cs_t;
 
   mem_cs_t mem_cs;
@@ -414,81 +485,99 @@ module vga_core
     mem_cs      = MEM_IDLE;
   end
 
-  //assign mc_addr_mem  = mc_addr;
-  //assign mc_words_mem = mc_words;
+  assign mc_addr_high_comb = mc_addr_reg + mc_words_reg * BYTES_PER_PAGE - 1;
+  logic [31:0] mc_addr_high;
 
   // memory controller state machine
   (* async_reg = "TRUE" *) logic [2:0]  mc_req_sync;
   always @(posedge mem_clk) begin
-    mc_req_sync <= mc_req_sync << 1 | mc_req;
-    case (mem_cs)
-      MEM_IDLE: begin
-        mem_arvalid  <= '0;
-        if (^mc_req_sync[2:1]) begin
-          // Register on the destination clock domain so we are clear it's safe
-          // to use on the memory clock
-          mc_addr_mem  <= mc_addr;
-          mc_words_mem <= mc_words;
-          fifo_rst     <= '1;
-          mem_cs       <= MEM_W4RSTH;
+    if (mem_reset) begin
+      mc_addr_high <= '0;
+      len_diff     <= '0;
+      next_addr    <= '0;
+      mc_addr_reg  <= '0;
+      mc_words_reg <= '0;
+      mc_req_sync  <= '0;
+      mem_cs       <= MEM_IDLE;
+      fifo_rst     <= '0;
+      mem_arid     <= '0;
+      mem_araddr   <= '0;
+      mem_arsize   <= '0;
+      mem_arburst  <= '0;
+      mem_arlock   <= '0;
+      mem_arvalid  <= '0;
+      mem_arlen    <= '0;
+    end else begin
+      mc_req_sync <= mc_req_sync << 1 | mc_req;
+      case (mem_cs)
+        MEM_IDLE: begin
+          mem_arvalid <= '0;
+          if (^mc_req_sync[2:1]) begin
+            mc_addr_reg  <= mc_addr;
+            mc_words_reg <= mc_words;
+            fifo_rst     <= '1;
+            mem_cs       <= MEM_W4RSTH;
+          end
         end
-      end
-      MEM_W4RSTH: begin
-        next_addr <= mc_addr_mem + {mc_words_mem, 4'b0}; // Look to see if we need to break req
-        len_diff  <= (4096 - mc_addr_mem[11:0]) >> 4;
-        if (wr_rst_busy) begin
-          fifo_rst <= '0;
-          mem_cs   <= MEM_W4RSTL;
+        MEM_W4RSTH: begin
+          mc_addr_high <= mc_addr_high_comb;
+          //next_addr <= mc_addr_reg + {mc_words_reg, 4'b0}; // Look to see if we need to break req
+          len_diff  <= (AXI4_PAGE_SIZE - mc_addr_reg[11:0]);
+          if (wr_rst_busy) begin
+            fifo_rst <= '0;
+            mem_cs   <= MEM_W4RSTL;
+          end
         end
-      end
-      MEM_W4RSTL: begin
-        if (~wr_rst_busy) begin
+        MEM_W4RSTL: begin
+          if (~wr_rst_busy) begin
+            mem_arid    <= '0;
+            mem_araddr  <= mc_addr_reg;
+            mem_arsize  <= 3'b100; // 16 bytes
+            mem_arburst <= 2'b01; // incrementing
+            mem_arlock  <= '0;
+            mem_arvalid <= '1;
+            if (mc_addr_high[31:12] != mc_addr_reg[31:12]) begin
+              // look if we are going to cross 2K boundary
+              next_addr <= mc_addr_reg  + {len_diff, 4'h0};
+              len_diff  <= mc_words_reg - ((len_diff >> 4) + |len_diff[3:0]);
+              mem_arlen <= (len_diff >> 4) + |len_diff[3:0] - 1;
+              mem_cs <= MEM_W4RDY1;
+            end else begin
+              mem_arlen   <= mc_words_reg - 1;
+              mem_cs <= MEM_W4RDY0;
+            end // else: !if(next_addr[12])
+          end
+        end // case: MEM_W4RSTH
+        MEM_W4RDY0: begin
+          if (mem_arready) begin
+            mem_cs      <= MEM_IDLE;
+            mem_arvalid <= '0;
+          end
+        end
+        MEM_W4RDY1: begin
+          if (mem_arready) begin
+            mem_cs      <= MEM_REQ;
+            mem_arvalid <= '0;
+          end
+        end
+        MEM_REQ: begin
           mem_arid    <= '0;
-          mem_araddr  <= mc_addr_mem;
+          mem_araddr  <= next_addr;
           mem_arsize  <= 3'b100; // 16 bytes
           mem_arburst <= 2'b01; // incrementing
           mem_arlock  <= '0;
           mem_arvalid <= '1;
-          next_addr   <= mc_addr_mem  + {len_diff, 4'h0};
-          len_diff    <= mc_words_mem - ((len_diff >> 4) + |len_diff[3:0]);
-          if (next_addr[31:12] != mc_addr_mem[31:12]) begin
-            // look if we are going to cross 2K boundary
-            mem_arlen <= (len_diff >> 4) + |len_diff[3:0] - 1;
-            mem_cs <= MEM_W4RDY1;
-          end else begin
-            mem_arlen   <= mc_words_mem - 1;
-            mem_cs <= MEM_W4RDY0;
-          end // else: !if(next_addr[12])
+          mem_arlen   <= len_diff;
+          mem_cs      <= MEM_W4RDY0;
+        end // case: MEM_W4RSTH
+        MEM_W4RDY2: begin
+          if (mem_arready) begin
+            mem_cs      <= MEM_REQ;
+            mem_arvalid <= '0;
+          end
         end
-      end // case: MEM_W4RSTH
-      MEM_W4RDY0: begin
-        if (mem_arready) begin
-          mem_cs      <= MEM_IDLE;
-          mem_arvalid <= '0;
-        end else
-          mem_cs <= MEM_W4RDY0;
-      end
-      MEM_W4RDY1: begin
-        if (mem_arready) begin
-          mem_cs      <= MEM_REQ;
-          mem_arvalid <= '0;
-        end else
-          mem_cs <= MEM_W4RDY1;
-      end
-      MEM_REQ: begin
-        mem_arid    <= '0;
-        mem_araddr  <= next_addr;
-        mem_arsize  <= 3'b100; // 16 bytes
-        mem_arburst <= 2'b01; // incrementing
-        mem_arlock  <= '0;
-        mem_arvalid <= '1;
-        mem_arlen   <= len_diff;
-        mem_cs      <= MEM_W4RDY0;
-      end
-    endcase
+      endcase
+    end // else: !if(mem_reset)
   end // always @ (posedge mem_clk)
-
-  assign mem_cs_prb = mem_cs;
-  assign reg_cs_prb = reg_cs;
 
 endmodule // vga

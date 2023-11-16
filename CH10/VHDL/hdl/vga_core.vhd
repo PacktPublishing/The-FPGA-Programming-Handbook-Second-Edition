@@ -18,51 +18,52 @@ use work.vga_pkg.all;
 entity vga_core is
   port(
     -- Register address
-    reg_clk     : in  std_logic;
-    reg_reset   : in  std_logic;
-    reg_awvalid : in  std_logic;
-    reg_awready : out std_logic;
-    reg_awaddr  : in  std_logic_vector(11 downto 0);
-    reg_wvalid  : in  std_logic;
-    reg_wready  : out std_logic;
-    reg_wdata   : in  std_logic_vector(31 downto 0);
-    reg_wstrb   : in  std_logic_vector(3 downto 0);
-    reg_bready  : in  std_logic;
-    reg_bvalid  : out std_logic;
-    reg_bresp   : out std_logic_vector(1 downto 0);
-    reg_arvalid : in  std_logic;        -- @suppress "Unused port"
-    reg_arready : out std_logic;
-    reg_araddr  : in  std_logic_vector(11 downto 0); -- @suppress "Unused port"
-    reg_rready  : in  std_logic;        -- @suppress "Unused port"
-    reg_rvalid  : out std_logic;
-    reg_rdata   : out std_logic_vector(31 downto 0);
-    reg_rresp   : out std_logic_vector(1 downto 0);
+    reg_clk         : in  std_logic;
+    reg_reset       : in  std_logic;
+    reg_awvalid     : in  std_logic;
+    reg_awready     : out std_logic;
+    reg_awaddr      : in  std_logic_vector(11 downto 0);
+    reg_wvalid      : in  std_logic;
+    reg_wready      : out std_logic;
+    reg_wdata       : in  std_logic_vector(31 downto 0);
+    reg_wstrb       : in  std_logic_vector(3 downto 0);
+    reg_bready      : in  std_logic;
+    reg_bvalid      : out std_logic;
+    reg_bresp       : out std_logic_vector(1 downto 0);
+    reg_arvalid     : in  std_logic;        -- @suppress "Unused port"
+    reg_arready     : out std_logic;
+    reg_araddr      : in  std_logic_vector(11 downto 0); -- @suppress "Unused port"
+    reg_rready      : in  std_logic;        -- @suppress "Unused port"
+    reg_rvalid      : out std_logic;
+    reg_rdata       : out std_logic_vector(31 downto 0);
+    reg_rresp       : out std_logic_vector(1 downto 0);
     -- Master memory
-    mem_clk     : in  std_logic;
-    mem_reset   : in  std_logic;
-    mem_arid    : out std_logic_vector(3 downto 0);
-    mem_araddr  : out std_logic_vector(26 downto 0);
-    mem_arlen   : out std_logic_vector(7 downto 0);
-    mem_arsize  : out std_logic_vector(2 downto 0);
-    mem_arburst : out std_logic_vector(1 downto 0);
-    mem_arlock  : out std_logic;
-    mem_arvalid : out std_logic;
-    mem_arready : in  std_logic;
-    mem_rready  : out std_logic;
-    mem_rid     : in  std_logic_vector(3 downto 0); -- @suppress "Unused port"
-    mem_rdata   : in  std_logic_vector(127 downto 0);
-    mem_rresp   : in  std_logic_vector(1 downto 0); -- @suppress "Unused port"
-    mem_rlast   : in  std_logic;        -- @suppress "Unused port"
-    mem_rvalid  : in  std_logic;
+    mem_clk         : in  std_logic;
+    mem_reset       : in  std_logic;
+    mem_arid        : out std_logic_vector(3 downto 0);
+    mem_araddr      : out std_logic_vector(26 downto 0);
+    mem_arlen       : out std_logic_vector(7 downto 0);
+    mem_arsize      : out std_logic_vector(2 downto 0);
+    mem_arburst     : out std_logic_vector(1 downto 0);
+    mem_arlock      : out std_logic;
+    mem_arvalid     : out std_logic;
+    mem_arready     : in  std_logic;
+    mem_rready      : out std_logic;
+    mem_rid         : in  std_logic_vector(3 downto 0); -- @suppress "Unused port"
+    mem_rdata       : in  std_logic_vector(127 downto 0);
+    mem_rresp       : in  std_logic_vector(1 downto 0); -- @suppress "Unused port"
+    mem_rlast       : in  std_logic;        -- @suppress "Unused port"
+    mem_rvalid      : in  std_logic;
     -- VGA interface
-    vga_clk     : in  std_logic;
-    vga_rst     : in  std_logic;
-    vga_hsync   : out std_logic;
-    vga_hblank  : out std_logic;
-    vga_vsync   : out std_logic;
-    vga_vblank  : out std_logic;
-    vga_rgb     : out std_logic_vector(23 downto 0)
-  );
+    vga_clk         : in  std_logic;
+    vga_rst         : in  std_logic;
+    vga_hsync       : out std_logic;
+    vga_hblank      : out std_logic;
+    vga_vsync       : out std_logic;
+    vga_vblank      : out std_logic;
+    vga_rgb         : out std_logic_vector(23 downto 0);
+    vga_sync_toggle : out std_logic := '0'
+    );
 end entity vga_core;
 
 architecture rtl of vga_core is
@@ -122,11 +123,14 @@ architecture rtl of vga_core is
   signal mc_req                  : std_logic                     := '0'; -- [vga_clk domain]
   signal mc_words                : unsigned(8 downto 0)          := (others => '0'); -- [vga_clk domain]
   signal mc_addr                 : unsigned(mem_araddr'range)    := (others => '0'); -- [vga_clk domain]
+  signal mc_addr_high_comb       : unsigned(mc_addr'range)       := (others => '0'); -- address of the last byte in burst
   signal fifo_rst                : std_logic                     := '0'; -- [mem_clk domain]
   signal scan_cs                 : scan_cs_t                     := SCAN_IDLE; -- [vga_clk domain]
   signal mem_cs                  : mem_cs_t                      := MEM_IDLE; -- [mem_clk domain]
   signal mc_addr_reg             : unsigned(mc_addr'range)       := (others => '0'); -- [mem_clk domain]
   signal mc_words_reg            : unsigned(mc_words'range)      := (others => '0'); -- [mem_clk domain]
+  signal next_addr    : unsigned(mc_addr'range) := (others => '0');
+  signal len_diff     : unsigned(12 downto 0)   := (others => '0'); -- number of bytes until the next 4 KiB address boundary
 
   -- Unregistered signals
   signal vga_data        : std_logic_vector(127 downto 0); -- [vga_clk domain]
@@ -378,7 +382,7 @@ begin
             vert_count_v := vert_count_v + 1;
           end if;
 
-          -- Start reading from memory address 0x0, increment by pitch value at the start of 
+          -- Start reading from memory address 0x0, increment by pitch value at the start of
           -- each active scan line.
           if vert_count_v <= vert_display_start + 1 then
             mc_addr <= (others => '0');
@@ -390,6 +394,9 @@ begin
           if vert_count_v > vert_display_start and vert_count_v <= vert_display_start + vert_display_width then
             mc_req   <= not mc_req;
             mc_words <= pitch(pitch'high downto 4); -- in units of 16-byte words
+          end if;
+          if vert_count_v = vert_display_start then
+            vga_sync_toggle <= not vga_sync_toggle;
           end if;
         else
           horiz_count_v := horiz_count_v + 1;
@@ -405,24 +412,23 @@ begin
 
       end if;
     end if;
-  end process;
+  end process vga_timing;
 
   ------------------------------------------------------------------------------------------------
   -- Memory controller state machine
   ------------------------------------------------------------------------------------------------
+  mc_addr_high_comb <= mc_addr_reg + mc_words_reg * BYTES_PER_PAGE - 1;
 
   mem_ctrl : process(mem_clk)
-    -- Registered variables 
-    variable mc_addr_high : unsigned(mc_addr'range) := (others => '0'); -- address of the last byte in burst
-    variable next_addr    : unsigned(mc_addr'range) := (others => '0');
-    variable len_diff     : unsigned(12 downto 0)   := (others => '0'); -- number of bytes until the next 4 KiB address boundary
+    -- Registered variables
+    variable mc_addr_high : unsigned(mc_addr'high downto 12) := (others => '0'); -- address of the last byte in burst
 
   begin
     if rising_edge(mem_clk) then
       if mem_reset then
         mc_addr_high := (others => '0');
-        len_diff     := (others => '0');
-        next_addr    := (others => '0');
+        len_diff     <= (others => '0');
+        next_addr    <= (others => '0');
         mc_addr_reg  <= (others => '0');
         mc_words_reg <= (others => '0');
         mc_req_sync  <= (others => '0');
@@ -451,8 +457,8 @@ begin
             end if;
 
           when MEM_W4RSTH =>
-            mc_addr_high := mc_addr_reg + mc_words_reg * BYTES_PER_PAGE - 1;
-            len_diff     := resize(AXI4_PAGE_SIZE - (mc_addr_reg mod AXI4_PAGE_SIZE), 13); -- max. value : 4096
+            mc_addr_high := mc_addr_high_comb(mc_addr_high'high downto 12);
+            len_diff     <= resize(AXI4_PAGE_SIZE - (mc_addr_reg mod AXI4_PAGE_SIZE), 13); -- max. value : 4096
             --
             if wr_rst_busy then
               fifo_rst <= '0';
@@ -473,8 +479,8 @@ begin
                 assert len_diff mod BYTES_PER_PAGE = 0 severity failure;
                 assert len_diff < 256 * BYTES_PER_PAGE report "burst length out of range" severity failure;
                 mem_arlen <= std_logic_vector(resize((len_diff / BYTES_PER_PAGE) - 1, 8));
-                next_addr := mc_addr_reg + resize(len_diff * BYTES_PER_PAGE, mc_addr_reg'length);
-                len_diff  := resize(mc_words_reg * BYTES_PER_PAGE - len_diff, len_diff'length);
+                next_addr <= mc_addr_reg + resize(len_diff * BYTES_PER_PAGE, mc_addr_reg'length);
+                len_diff  <= resize(mc_words_reg * BYTES_PER_PAGE - len_diff, len_diff'length);
                 mem_cs    <= MEM_W4RDY1;
               else
                 -- Burst is not crossing a 4 KiB address boundary.
@@ -500,7 +506,7 @@ begin
               mem_cs      <= MEM_REQ;
             end if;
 
-          -- Issue remaing part of a burst crossing a 4 KiB address boundary 
+          -- Issue remaing part of a burst crossing a 4 KiB address boundary
           when MEM_REQ =>
             mem_arid    <= (others => '0');
             mem_araddr  <= std_logic_vector(next_addr);
