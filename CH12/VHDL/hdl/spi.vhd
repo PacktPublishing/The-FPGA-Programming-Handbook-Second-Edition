@@ -44,21 +44,25 @@ entity spi is
 
 end entity spi;
 architecture rtl of spi is
-  attribute MARK_DEBUG : string;
+  -- Types
   type reg_cs_t is (REG_IDLE, REG_W4DATA, REG_W4ADDR,
                     REG_INIT, REG_ADDRS,   REG_RVALIDS,
                     REG_BRESPS, REG_W4RDREADY, REG_CSDISABLE);
 
-  signal reg_cs : reg_cs_t := REG_IDLE;
+  -- Registered signals with initial values
+  signal reg_cs  : reg_cs_t                       := REG_IDLE;
+  signal clk_cnt : integer range 0 to 31          := 0;
+  signal bit_cnt : integer range 0 to 31          := 0;
+  signal reg_we  : std_logic                      := '0';
+  signal reg_din : std_logic_vector(7 downto 0)   := (others => '0');
+  signal sclk_en : std_logic                      := '0';
+  signal reg_addr : std_logic_vector(15 downto 0) := (others => '0');
+  signal wr_data  : std_logic_vector(23 downto 0) := (others => '0');
+
+  -- Attributes
+  attribute MARK_DEBUG : string;
   attribute MARK_DEBUG of reg_cs : signal is "TRUE";
-  signal clk_cnt : integer range 0 to 31 := 0;
-  signal bit_cnt : integer range 0 to 31 := 0;
-  signal reg_we  : std_logic := '0';
-  signal reg_din : std_logic_vector(7 downto 0) := (others => '0');
   attribute MARK_DEBUG of clk_cnt, bit_cnt, reg_we, reg_din : signal is "TRUE";
-  signal sclk_en : std_logic := '0';
-  signal reg_addr : std_logic_vector(15 downto 0);
-  signal wr_data  : std_logic_vector(23 downto 0);
 begin
 
   SCLK <= '1' when clk_cnt > 15 and sclk_en = '1' else '0';

@@ -27,38 +27,42 @@ entity acl_top is
     MISO       : in std_logic); -- Data from ACL chip
 end entity acl_top;
 architecture rtl of acl_top is
+  -- Types
+  type spi_cs_t is (IDLE, S0, S1, S2, S3, S4, S5, S6, S7, S8);
+
+  -- Registered signals with initial values
+  signal encoded      : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0) := (others => x"0");
+  signal rst          : std_logic_vector(1 downto 0) := (others => '0');
+  signal reg_arvalid  : std_logic                    := '0';
+  signal reg_araddr   : std_logic_vector(5 downto 0) := (others => '0');
+  signal reg_rready   : std_logic                    := '0';
+  signal reg_awvalid  : std_logic                    := '0';
+  signal reg_awaddr   : std_logic_vector(5 downto 0) := (others => '0');
+  signal reg_wvalid   : std_logic                    := '0';
+  signal reg_wdata    : std_logic_vector(7 downto 0) := (others => '0');
+  signal wait_time    : integer range 0 to 2**16     := 0;
+  signal spi_cs       : spi_cs_t                     := IDLE;
+
+  -- Unregistered signals
+  signal digit_point  : std_logic_vector(NUM_SEGMENTS-1 downto 0);
+  signal reg_awready  : std_logic;
+  signal reg_wready   : std_logic;
+  signal reg_bready   : std_logic;
+  signal reg_bvalid   : std_logic;
+  signal reg_bresp    : std_logic_vector(1 downto 0);
+  signal reg_arready  : std_logic;
+  signal reg_rvalid   : std_logic;
+  signal reg_rdata    : std_logic_vector(7 downto 0);
+  signal reg_rresp    : std_logic_vector(1 downto 0);
+
+  -- Attributes
   attribute ASYNC_REG : string;
   attribute MARK_DEBUG : string;
-  signal encoded      : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
-  signal digit_point  : std_logic_vector(NUM_SEGMENTS-1 downto 0);
-  signal rst          : std_logic_vector(1 downto 0);
   attribute ASYNC_REG of rst : signal is "TRUE";
-  signal reg_awvalid : std_logic := '0';
-  signal reg_awready : std_logic;
-  signal reg_awaddr  : std_logic_vector(5 downto 0);
   attribute MARK_DEBUG of reg_awvalid, reg_awready, reg_awaddr : signal is "TRUE";
-  signal reg_wvalid  : std_logic := '0';
-  signal reg_wready  : std_logic;
-  signal reg_wdata   : std_logic_vector(7 downto 0);
   attribute MARK_DEBUG of reg_wvalid, reg_wready, reg_wdata : signal is "TRUE";
-
-  signal reg_bready  : std_logic;
-  signal reg_bvalid  : std_logic;
-  signal reg_bresp   : std_logic_vector(1 downto 0);
-
-  signal reg_arvalid : std_logic := '0';
-  signal reg_arready : std_logic;
-  signal reg_araddr  : std_logic_vector(5 downto 0);
   attribute MARK_DEBUG of reg_arvalid, reg_arready, reg_araddr : signal is "TRUE";
-
-  signal reg_rvalid  : std_logic;
-  signal reg_rready  : std_logic;
-  signal reg_rdata   : std_logic_vector(7 downto 0);
   attribute MARK_DEBUG of reg_rvalid, reg_rready, reg_rdata : signal is "TRUE";
-  signal reg_rresp   : std_logic_vector(1 downto 0);
-  signal wait_time   : integer range 0 to 2**16 := 0;
-  type spi_cs_t is (IDLE, S0, S1, S2, S3, S4, S5, S6, S7, S8);
-  signal spi_cs : spi_cs_t := IDLE;
   attribute MARK_DEBUG of spi_cs : signal is "TRUE";
 begin
 

@@ -148,7 +148,7 @@ module tb_uart;
 
   // Measure the baudrate
   reg          baud_measure; // Measure the baud rate
-  time         rtsn_start, rtsn_stop; // Start and stop
+  time         rtsn[2]; // Start and stop
   real         time_diff, baud_clock;
   integer      baud_loop; // Make it easy on the baud rate test
   real         baud_diff, baud_percent;
@@ -463,13 +463,17 @@ module tb_uart;
   always @(posedge sys_clk) enable_tx_pos <= u_uart1.enable_tx;
   always @(negedge sys_clk) enable_tx_neg <= u_uart1.enable_tx;
   always @(posedge sys_clk) begin
-    if (~enable_tx_pos && u_uart1.enable_tx) rtsn_start = $time;
+    //if (~enable_tx_pos && u_uart1.enable_tx) rtsn_start = $time;
+    if (u_uart1.tx_baudclk_en) begin
+      rtsn[0] <= $time;
+      rtsn[1] <= rtsn[0];
+    end
   end
   always @(negedge sys_clk) begin
     if (enable_tx_neg && ~u_uart1.enable_tx) begin
-      rtsn_stop = $time;
-      time_diff = (rtsn_stop *1e-9) - (rtsn_start * 1e-9);
-      baud_clock = 1/(time_diff / 8);
+      //rtsn_stop = $time;
+      time_diff = (rtsn[0] *1e-9) - (rtsn[1] * 1e-9);
+      baud_clock = 1/(time_diff * 7);
       if (baud_measure) begin
         $display("%t Baud Rate: %f", $stime, baud_clock);
         baud_diff = exp_baud - baud_clock;

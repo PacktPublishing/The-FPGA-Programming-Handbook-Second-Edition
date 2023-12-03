@@ -13,8 +13,8 @@ entity cathode_top is
         cathode     : out std_logic_vector(7 downto 0));
 end entity cathode_top;
 architecture rtl of cathode_top is
- signal dp_reg : std_logic := '0';
- signal cathode_reg : std_logic_vector(6 downto 0):= (others => '0');
+ signal dp_reg      : std_logic                    := '0';
+ signal cathode_reg : std_logic_vector(6 downto 0) := (others => '0');
 begin
 
   process (clk)

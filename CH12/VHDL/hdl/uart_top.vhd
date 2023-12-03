@@ -3,11 +3,13 @@
 -- UART top level
 -- ------------------------------------
 -- Author : Frank Bruno
-LIBRARY IEEE, XPM;
+LIBRARY IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_misc.all;
 use IEEE.numeric_std.all;
+
 USE WORK.counting_buttons_pkg.all;
+
 entity uart_top is
   generic (NUM_SEGMENTS : integer := 8;
            USE_PLL      : string  := "FALSE");
@@ -30,32 +32,33 @@ architecture rtl of uart_top is
       );
   end component sys_pll;
 
-  signal encoded : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0);
+  -- Types
+  type uart_cs_t is (IDLE, W4DATA, RDDATA);
+
+  -- Registered signals with initial values
+  signal encoded     : array_t(NUM_SEGMENTS-1 downto 0)(3 downto 0) := (others => x"0");
+  signal reg_arvalid : std_logic := '0';
+  signal reg_araddr  : std_logic_vector(2 downto 0) := (others => '0');
+  signal uart_cs     : uart_cs_t := IDLE;
+
+  -- Unregistered signals
   signal digit_point : std_logic_vector(NUM_SEGMENTS-1 downto 0) := (others => '1');
-  signal clk_50 : std_logic;
-  signal cpu_int : std_logic; -- interrupt
+  signal clk_50      : std_logic;
+  signal cpu_int     : std_logic; -- interrupt
   signal reg_awvalid : std_logic;
   signal reg_awready : std_logic;
   signal reg_awaddr : std_logic_vector(2 downto 0);
-
   signal reg_wvalid : std_logic;
   signal reg_wready : std_logic;
   signal reg_wdata : std_logic_vector(7 downto 0);
-
   signal reg_bready : std_logic;
   signal reg_bvalid : std_logic;
   signal reg_bresp : std_logic_vector(1 downto 0);
-
-  signal reg_arvalid : std_logic;
   signal reg_arready : std_logic;
-  signal reg_araddr : std_logic_vector(2 downto 0);
-
   signal reg_rready : std_logic;
   signal reg_rvalid : std_logic;
   signal reg_rdata : std_logic_vector(7 downto 0);
   signal reg_rresp : std_logic_vector(1 downto 0);
-  type uart_cs_t is (IDLE, W4DATA, RDDATA);
-  signal uart_cs : uart_cs_t := IDLE;
 
 begin
 

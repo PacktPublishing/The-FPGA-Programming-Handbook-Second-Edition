@@ -3,10 +3,12 @@
 -- Top level of the UART
 -- ------------------------------------
 -- Author : Frank Bruno
-LIBRARY IEEE, XPM;
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
+
+LIBRARY XPM;
 use XPM.vcomponents.all;
 
 entity uart is
@@ -46,59 +48,65 @@ entity uart is
 end entity uart;
 
 architecture rtl of uart is
-  attribute MARK_DEBUG : string;
+  -- Types
   type tx_t is (TX_IDLE, TX_START, TX_WAIT, TX_TX);
   type rx_t is (RX_IDLE, RX_START, RX_SHIFT, RX_PUSH);
-  signal rx_sm : rx_t := RX_IDLE;
-  signal tx_sm : tx_t := TX_IDLE;
-  attribute MARK_DEBUG of rx_sm : signal is "TRUE";
 
-  signal tx_clken_count : integer range 0 to 2**16;-- Counter to generate the clock enables
-  signal rx_clken_count : integer range 0 to 2**16;-- Counter to generate the clock enables
+  -- Registered signals with initial values
+  signal rx_sm          : rx_t                     := RX_IDLE;
+  signal tx_sm          : tx_t                     := TX_IDLE;
+  signal tx_clken_count : integer range 0 to 2**16 := 0;   -- Counter to generate the clock enables
+  signal rx_clken_count : integer range 0 to 2**16 := 0;   -- Counter to generate the clock enables
+  signal tx_baudclk_en  : std_logic                := '0'; -- Enable to simulate the baud clock
+  signal rx_baudclk_en  : std_logic                := '0'; -- Enable to simulate the baud clock
+  signal tx_clk_cnt     : integer range 0 to 7     := 0;   -- Track # of sub baud clocks
+  signal tx_data_cnt    : integer range 0 to 15    := 0;   -- Data Counter
+  signal rx_clk_cnt     : integer range 0 to 7     := 0;   -- Track # of sub baud clocks
+  signal rx_data_cnt    : integer range 0 to 15    := 0;   -- Data Counter
+  signal rx_data_shift  : std_logic_vector(6 downto 0)  := (others => '0'); -- Shift 7 pieces of data for voting
+  signal tx_fifo_pop    : std_logic                     := '0'; -- Pop TX data
+  signal tx_shift       : std_logic_vector(10 downto 0) := (others => '0');  -- TX shift register
+  signal rx_shifter     : std_logic_vector(10 downto 0) := (others => '0');  -- TX shift register
+  signal rx_parity_err  : std_logic                     := '0'; -- Parity Errror on Receive
+  signal tx_rtsn        : std_logic                     := '0'; -- Generate the RTSn for tx
+  signal uart_rxd       : std_logic_vector(6 downto 0)  := (others => '0');      -- delayed RX data
+  signal rx_frame_err   : std_logic                     := '0'; -- Framing error (missing stop bit)
+  signal rx_fifo_push   : std_logic                     := '0'; -- Piush receive data into FIFO
+  signal rx_fifo_din    : std_logic_vector(7 downto 0)  := (others => '0');   -- RX data into receive FIFO
+  signal vote_bit       : std_logic                     := '0'; -- Vote on the current bit
+  signal voted          : std_logic                     := '0'; -- for testing to see if we have mismatch
+  signal tx_shift_empty : std_logic                     := '0'; -- TX shift register empty for status
+  signal enable_tx      : std_logic                     := '0'; -- Force a '1' or break when not enabled
+  signal int_rx         : std_logic                     := '0';
+  signal rx_baud_reset  : std_logic                     := '0'; -- Reset RX baud clock to resync
+  signal tx_ctsn        : std_logic                     := '0';
+
+  -- Unregistered signals
+  signal tx_data_avail  : std_logic; -- Transmit data is available
+  signal tx_fifo_dout   : std_logic_vector(7 downto 0);  -- Data for TX
+  signal parity         : std_logic_vector(2 downto 0);        -- Parity selection
+  signal force_rts      : std_logic;     --
+  signal autoflow       : std_logic;      -- Automatically generate flow control
+  signal loopback       : std_logic;      -- Loopback mode
+  signal rx_fifo_full   : std_logic;  -- We can't accept RX
+  signal baud_terminal_count : std_logic_vector(15 downto 0);
+  signal baud_reset : std_logic;    -- When terminal count values change, reset count
+
+  -- Attributes
+  attribute MARK_DEBUG : string;
+  attribute MARK_DEBUG of rx_sm : signal is "TRUE";
   attribute MARK_DEBUG of rx_clken_count : signal is "TRUE";
-  signal tx_baudclk_en : std_logic; -- Enable to simulate the baud clock
-  signal rx_baudclk_en : std_logic; -- Enable to simulate the baud clock
   attribute MARK_DEBUG of rx_baudclk_en : signal is "TRUE";
-  signal tx_clk_cnt : integer range 0 to 7;   -- Track # of sub baud clocks
-  signal tx_data_cnt : integer range 0 to 15;   -- Data Counter
-  signal rx_clk_cnt : integer range 0 to 7;   -- Track # of sub baud clocks
-  signal rx_data_cnt : integer range 0 to 15;   -- Data Counter
-  signal rx_data_shift : std_logic_vector(6 downto 0); -- Shift 7 pieces of data for voting
   attribute MARK_DEBUG of rx_clk_cnt : signal is "TRUE";
   attribute MARK_DEBUG of rx_data_cnt : signal is "TRUE";
   attribute MARK_DEBUG of rx_data_shift : signal is "TRUE";
-  signal tx_data_avail : std_logic; -- Transmit data is available
-  signal tx_fifo_pop : std_logic; -- Pop TX data
-  signal tx_shift : std_logic_vector(10 downto 0);  -- TX shift register
-  signal rx_shifter : std_logic_vector(10 downto 0);  -- TX shift register
-  attribute MARK_DEBUG of rx_shifter : signal is "TRUE";
-  signal tx_fifo_dout : std_logic_vector(7 downto 0);  -- Data for TX
-  signal parity : std_logic_vector(2 downto 0);        -- Parity selection
-  signal force_rts : std_logic;     --
-  signal autoflow : std_logic;      -- Automatically generate flow control
-  signal loopback : std_logic;      -- Loopback mode
-  signal tx_rtsn : std_logic;       -- Generate the RTSn for tx
-  signal din_shift : std_logic_vector(2 downto 0);     -- Shift the 7 bits of data for voting
-  signal rx_fifo_full : std_logic;  -- We can't accept RX
-  signal uart_rxd : std_logic_vector(6 downto 0);      -- delayed RX data
   attribute MARK_DEBUG of uart_rxd : signal is "TRUE";
-  signal rx_parity_err : std_logic; -- Parity Errror on Receive
-  signal rx_frame_err : std_logic;  -- Framing error (missing stop bit)
-  signal rx_fifo_push : std_logic;  -- Piush receive data into FIFO
+  attribute MARK_DEBUG of rx_shifter : signal is "TRUE";
   attribute MARK_DEBUG of rx_fifo_push : signal is "TRUE";
-  signal rx_fifo_din : std_logic_vector(7 downto 0);   -- RX data into receive FIFO
   attribute MARK_DEBUG of rx_fifo_din : signal is "TRUE";
-  signal vote_bit : std_logic;      -- Vote on the current bit
-  signal voted : std_logic;         -- for testing to see if we have mismatch
-  signal baud_terminal_count : std_logic_vector(15 downto 0);
   attribute MARK_DEBUG of baud_terminal_count : signal is "TRUE";
-  signal baud_reset : std_logic;    -- When terminal count values change, reset count
-  signal tx_shift_empty : std_logic;-- TX shift register empty for status
-  signal enable_tx : std_logic;     -- Force a '1' or break when not enabled
-  signal int_rx : std_logic;
-  signal rx_baud_reset : std_logic; -- Reset RX baud clock to resync
   attribute MARK_DEBUG of rx_baud_reset : signal is "TRUE";
-  signal tx_ctsn : std_logic;
+
 begin
 
   process (sys_clk)

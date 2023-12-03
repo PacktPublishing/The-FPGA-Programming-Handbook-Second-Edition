@@ -147,6 +147,8 @@ module uart_cpu
     LSR1       = 4'hD, // Line Status Register
     MSR1       = 4'hE, // Modem Status Register
     SCR1       = 4'hF; // Scratch register
+  localparam AXI4_OKAY              = 2'b00;
+  localparam AXI4_SLVERR            = 2'b10;
 
   logic [2:0]          reg_addr;
   logic                reg_we;
@@ -218,8 +220,6 @@ module uart_cpu
     baud_terminal_count = 16'd247; // 57600
   end
 
-  assign reg_rresp = '0;
-
   always @(posedge sys_clk) begin
 
     // defaults
@@ -227,6 +227,7 @@ module uart_cpu
     reg_we        <= '0;
     reg_bvalid    <= '0;
     baud_reset    <= '0;
+    reg_rresp     <= AXI4_OKAY; // Okay
 
     // Detect a change in CTS status
     cts_last <= uart_cts;
@@ -317,7 +318,10 @@ module uart_cpu
               reg_rdata  <= baud_terminal_count[15:8];
               baud_reset <= '1;
             end
-            default:    reg_rdata <= '0; // Not necessary
+            default: begin
+              reg_rdata <= '0; // Not necessary
+              reg_rresp <= AXI4_SLVERR; // Error
+            end
           endcase // case (cpu_addr)
         end else begin // if (reg_arvalid)
           case ({reg_awvalid, reg_wvalid})
@@ -330,7 +334,6 @@ module uart_cpu
                 reg_awready <= '1;
                 reg_wready  <= '1;
                 reg_bvalid  <= '1;
-                reg_bresp   <= '0; // Okay
               end else begin
                 reg_awready <= '0;
                 reg_wready  <= '0;
@@ -358,7 +361,6 @@ module uart_cpu
           reg_awready <= '1;
           reg_wready  <= '1;
           reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
         end else begin
           reg_awready <= '0;
@@ -373,7 +375,6 @@ module uart_cpu
           reg_awready <= '1;
           reg_wready  <= '1;
           reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
         end else begin
           reg_awready <= '0;
@@ -386,7 +387,6 @@ module uart_cpu
           reg_awready <= '1;
           reg_wready  <= '1;
           reg_bvalid  <= '1;
-          reg_bresp   <= '0; // Okay
           reg_cs      <= REG_IDLE;
         end else begin
           reg_awready <= '0;
@@ -413,6 +413,8 @@ module uart_cpu
     tx_fifo_push  <= '0;
     reset_rx_fifo <= '0;
     reset_tx_fifo <= '0;
+    reg_bresp     <= AXI4_OKAY; // Okay
+
 
     // Detect overrun
     if (rx_fifo_push & ~rx_fifo_pop & rx_fifo_full) overrun_error <= 1'b1;
@@ -499,6 +501,8 @@ module uart_cpu
         SCR0, SCR1: scratch_reg <= reg_din; // scratch register
         DLL:        baud_terminal_count[7:0]  <= reg_din;
         DLM:        baud_terminal_count[15:8] <= reg_din;
+        default:    reg_bresp  <= AXI4_SLVERR; // Bad address
+
       endcase // case (reg_addr)
     end // if (reg_we)
 

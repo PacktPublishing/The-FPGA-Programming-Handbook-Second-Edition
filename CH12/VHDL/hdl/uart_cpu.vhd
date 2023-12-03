@@ -3,10 +3,12 @@
 -- UART CPU interface
 -- ------------------------------------
 -- Author : Frank Bruno
-LIBRARY IEEE, XPM;
+LIBRARY IEEE;
 USE IEEE.std_logic_1164.all;
 USE IEEE.numeric_std.all;
 use IEEE.math_real.all;
+
+LIBRARY XPM;
 use XPM.vcomponents.all;
 
 entity uart_cpu is
@@ -66,11 +68,9 @@ entity uart_cpu is
 end entity uart_cpu;
 
 architecture rtl of uart_cpu is
-  attribute MARK_DEBUG : string;
-  type reg_cs_t is (REG_IDLE, REG_W4ADDR, REG_W4DATA,
-                    SM_BRESP, REG_W4RDREADY);
-  signal reg_cs : reg_cs_t := REG_IDLE;
-  attribute MARK_DEBUG of reg_cs : signal is "TRUE";
+  -- Constants
+  constant AXI4_OKAY      : std_logic_vector(1 downto 0) := "00";
+  constant AXI4_SLVERR    : std_logic_vector(1 downto 0) := "10";
   -- mapped to 16550a registers
   constant RBR_THR  : std_logic_vector(3 downto 0) := x"0"; -- RX Register, TX Register - DLL LSB
   constant IER_IER  : std_logic_vector(3 downto 0) := x"1"; -- Interrupt Enable Register
@@ -101,76 +101,76 @@ architecture rtl of uart_cpu is
   constant MSR1     : std_logic_vector(3 downto 0) := x"E"; -- Modem Status Register
   constant SCR1     : std_logic_vector(3 downto 0) := x"F"; -- Scratch register
 
-  signal reg_addr   : std_logic_vector(2 downto 0);
-  signal reg_we     : std_logic;
-  signal reg_din    : std_logic_vector(7 downto 0);
+  -- Types
+  type reg_cs_t is (REG_IDLE, REG_W4ADDR, REG_W4DATA,
+                    SM_BRESP, REG_W4RDREADY);
 
-  signal dlab          : std_logic := '0';                      -- register selector
-  signal break_en      : std_logic := '0';                      -- Enable break
-  signal fifo_enable   : std_logic := '1';                      -- Enable the FIFOs
-  signal reset_rx_fifo : std_logic := '0';                      -- Reset RX FIFO
-  signal reset_tx_fifo : std_logic := '0';                      -- Reset TX FIFO
-  signal scratch_reg   : std_logic_vector(7 downto 0) := x"00"; -- For backward compatibility
-  signal cts_change    : std_logic;                    -- CTS has changed
-  signal cts_last      : std_logic;                    -- last CTS value
-
-  signal rx_fifo_out   : std_logic_vector(7 downto 0);        -- Data from the FIFO
-  signal rx_fifo_pop   : std_logic;        -- Pop data from the RX fifo
-  signal rx_fifo_empty : std_logic;      -- FIFO empty
-  signal rx_data_avail : std_logic;      -- ~fifo empty
-  attribute MARK_DEBUG of rx_fifo_out   : signal is "TRUE";
-  attribute MARK_DEBUG of rx_fifo_pop   : signal is "TRUE";
-  attribute MARK_DEBUG of rx_fifo_empty : signal is "TRUE";
-  attribute MARK_DEBUG of rx_data_avail : signal is "TRUE";
-  signal rx_fifo_count : std_logic_vector(3 downto 0);      -- {full, count[2:0]}
-  signal rx_thresh     : std_logic_vector(3 downto 0) := x"0"; -- Low watermark
+  -- Registered signals with initial values
+  signal reg_cs              : reg_cs_t                     := REG_IDLE;
+  signal reg_addr            : std_logic_vector(2 downto 0) := (others => '0');
+  signal reg_we              : std_logic                    := '0';
+  signal reg_din             : std_logic_vector(7 downto 0) := (others => '0');
+  signal dlab                : std_logic                    := '0';                      -- register selector
+  signal break_en            : std_logic                    := '0';                      -- Enable break
+  signal fifo_enable         : std_logic                    := '1';                      -- Enable the FIFOs
+  signal reset_rx_fifo       : std_logic                    := '0';                      -- Reset RX FIFO
+  signal reset_tx_fifo       : std_logic                    := '0';                      -- Reset TX FIFO
+  signal scratch_reg         : std_logic_vector(7 downto 0) := x"00"; -- For backward compatibility
+  signal cts_change          : std_logic                    := '0';                    -- CTS has changed
+  signal cts_last            : std_logic                    := '0';                    -- last CTS value
+  signal rx_fifo_out         : std_logic_vector(7 downto 0) := (others => '0');        -- Data from the FIFO
+  signal rx_fifo_pop         : std_logic                    := '0';        -- Pop data from the RX fifo
+  signal rx_thresh           : std_logic_vector(3 downto 0) := x"0"; -- Low watermark
 
   -- Interrupt enables
-  signal en_rx_data_avail    : std_logic := '0';   -- ~fifo empty
-  signal en_tx_fifo_empty    : std_logic := '0';   --
-  signal en_rx_status_change : std_logic := '0';
-  signal en_msr_change       : std_logic := '0';
-
-  signal tx_fifo_empty       : std_logic;
-  signal rx_status_change    : std_logic;
-  signal msr_change          : std_logic;
-  signal thr_empty           : std_logic := '0';
-  signal tx_shift_empty_d    : std_logic;
-  signal int_status          : std_logic_vector(2 downto 0);    -- For interrupt readback
+  signal en_rx_data_avail    : std_logic                    := '0';   -- ~fifo empty
+  signal en_tx_fifo_empty    : std_logic                    := '0';   --
+  signal en_rx_status_change : std_logic                    := '0';
+  signal en_msr_change       : std_logic                    := '0';
+  signal thr_empty           : std_logic                    := '0';
+  signal tx_shift_empty_d    : std_logic                    := '1';
+  signal int_status          : std_logic_vector(2 downto 0) := (others => '0');    -- For interrupt readback
   --Bits 1 and 2	Bit 2	Bit 1
   --0	0	Modem Status Interrupt (lowest)
   --0	1	Transmitter Holding Register Empty Interrupt
   --1	0	Received Data Available Interrupt
   --1	1	Receiver Line Status Interrupt (higest)
-  signal char_timeout        : std_logic := '0'; -- fixme!!!
-  signal frame_err           : std_logic;     -- Capture the framing error
-
-  signal tx_fifo_push        : std_logic := '0';  -- Push data into TX FIFO
-  signal tx_fifo_din         : std_logic_vector(7 downto 0);   -- Registered data into FIFO
-  --
-
-  signal break_det           : std_logic;     -- Break Interrupt
-  signal overrun_error       : std_logic := '0'; -- write to full RX fifo
-  signal parity_err          : std_logic;
-  signal rx_fifo_error       : std_logic;
+  signal char_timeout        : std_logic                    := '0'; -- fixme!!!
+  signal frame_err           : std_logic                    := '0'; -- Capture the framing error
+  signal tx_fifo_push        : std_logic                    := '0';  -- Push data into TX FIFO
+  signal tx_fifo_din         : std_logic_vector(7 downto 0) := (others => '0');   -- Registered data into FIFO
+  signal overrun_error       : std_logic                    := '0'; -- write to full RX fifo
+  signal parity_err          : std_logic                    := '0';
   signal parity_reg          : std_logic_vector(2 downto 0) := "000"; -- Parity setting
-  signal autoflow_reg        : std_logic := '0'; -- Generate RTS/ CTS automatically
-  signal loopback_reg        : std_logic := '0'; -- Loopback for test
-  signal force_rts_reg       : std_logic := '0'; -- Force RTS value for testing
+  signal autoflow_reg        : std_logic                    := '0'; -- Generate RTS/ CTS automatically
+  signal loopback_reg        : std_logic                    := '0'; -- Loopback for test
+  signal force_rts_reg       : std_logic                    := '0'; -- Force RTS value for testing
   signal baud_terminal_cnt   : std_logic_vector(15 downto 0) := x"00F7"; -- Terminal count for baud en
+
+  -- Unregistered signals
+  signal rx_fifo_empty       : std_logic;      -- FIFO empty
+  signal rx_data_avail       : std_logic;      -- ~fifo empty
+  signal tx_fifo_empty       : std_logic;
+  signal break_det           : std_logic;     -- Break Interrupt
+  signal rx_fifo_error       : std_logic;
   signal rx_din              : std_logic_vector(10 downto 0);
   signal rx_dout             : std_logic_vector(10 downto 0);
-  signal tx_din              : std_logic_vector(7 downto 0);
-  signal tx_dout             : std_logic_vector(7 downto 0);
   signal wr_data_count       : std_logic_vector(4 downto 0);
   signal tx_fifo_full        : std_logic;
+
+  -- Attributes
+  attribute MARK_DEBUG : string;
+  attribute MARK_DEBUG of reg_cs : signal is "TRUE";
+  attribute MARK_DEBUG of rx_fifo_out   : signal is "TRUE";
+  attribute MARK_DEBUG of rx_fifo_pop   : signal is "TRUE";
+  attribute MARK_DEBUG of rx_fifo_empty : signal is "TRUE";
+  attribute MARK_DEBUG of rx_data_avail : signal is "TRUE";
 begin
   parity              <= parity_reg;
   autoflow            <= autoflow_reg;
   loopback            <= loopback_reg;
   force_rts           <= force_rts_reg;
   baud_terminal_count <= baud_terminal_cnt;
-  reg_rresp           <= "00";
 
   process (sys_clk)
     variable rd_addr : std_logic_vector(3 downto 0);
@@ -185,6 +185,7 @@ begin
       reg_we        <= '0';
       reg_bvalid    <= '0';
       baud_reset    <= '0';
+      reg_rresp     <= AXI4_OKAY;
 
       -- Detect a change in CTS status
       cts_last      <= uart_cts;
@@ -269,7 +270,9 @@ begin
               when DLM =>
                 reg_rdata  <= baud_terminal_cnt(15 downto 8);
                 baud_reset <= '1';
-              when others => reg_rdata <= x"00"; -- Not necessary
+              when others =>
+                reg_rdata <= x"00"; -- Not necessary
+                reg_rresp <= AXI4_SLVERR;
             end case;
 
           else -- if (reg_arvalid)
