@@ -11,11 +11,16 @@ use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 
 entity tb is
+  generic(
+  SELECTOR    : string;
+  UNIQUE_CASE : string;
+  TEST_CASE   : string
+);
 end entity tb;
 
 architecture tb of tb is
 
-  constant SELECTOR : string  := "UP_FOR"; -- or "DOWN_FOR"
+  --constant SELECTOR : string  := "UP_FOR"; -- or "DOWN_FOR"
   constant BITS     : integer := 16;
   constant NUM_TEST : integer := 1000;
 

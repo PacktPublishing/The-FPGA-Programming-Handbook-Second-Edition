@@ -36,7 +36,7 @@ begin
           exit;
         end if;
       end loop;
-    elsif SELECTOR = "UP_FOR" then
+    else
       for i in SW'low to SW'high loop
         if SW(i) then
           lo := i + 1;
